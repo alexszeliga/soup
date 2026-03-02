@@ -1,0 +1,24 @@
+{
+  "name": "@soup/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CLI interface for Soup",
+  "main": "index.js",
+  "scripts": {
+    "start": "pnpm build && node --no-warnings dist/index.js",
+    "pretest": "pnpm build",
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.30.3",
+  "dependencies": {
+    "@soup/core": "workspace:*",
+    "@soup/database": "workspace:*",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "dotenv": "^17.3.1"
+  }
+}
