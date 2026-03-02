@@ -5,7 +5,8 @@
 ## Features
 - **Rich Metadata:** Automatically matches torrents to movies/shows to display titles, years, plots, and cast.
 - **Local Caching:** Uses SQLite (Drizzle ORM) to cache metadata and minimize API calls.
-- **CLI Interface:** Fast, interactive command-line tool for managing your library.
+- **Web Dashboard:** Modern, Material Design inspired UI with dark/light mode support.
+- **CLI Interface:** Fast command-line tool for quick library management.
 - **Strict DX:** Built with TypeScript, OOP, and TDD for long-term maintainability.
 
 ## Getting Started
@@ -28,28 +29,45 @@
    ```
    Edit `.env` and provide your `TMDB_API_KEY` and qBittorrent credentials.
 
-### CLI Usage
+## Web Dashboard
 
-The CLI is located in `apps/cli`. You can run it using `pnpm`:
+The web dashboard consists of a React frontend and a Fastify API server.
+
+### 1. Start the API Server
+The server handles qBittorrent communication and metadata matching.
+```bash
+pnpm --filter @soup/server dev
+```
+Runs at `http://localhost:3001`.
+
+### 2. Start the Web App
+```bash
+pnpm --filter @soup/web dev
+```
+Runs at `http://localhost:5173`.
+
+## CLI Usage
+
+The CLI provides a quick way to interact with your library from the terminal.
 
 #### List Torrents
-Shows all torrents from your qBittorrent instance matched with rich media metadata.
 ```bash
 pnpm --filter @soup/cli start list
 ```
 
 #### Show Details
-Shows detailed information for a specific torrent, including plot and cast.
 ```bash
 pnpm --filter @soup/cli start show <torrent-hash>
 ```
 
 ## Development
 
-### Structure
-- `apps/cli`: Commander-based CLI interface.
-- `packages/core`: Business logic, models, and API clients.
-- `packages/database`: SQLite schema and Drizzle client.
+### Monorepo Structure
+- `apps/web`: React + Tailwind CSS (Vite)
+- `apps/server`: Fastify API Server
+- `apps/cli`: Commander-based CLI
+- `packages/core`: Core models, TMDB provider, and QB client
+- `packages/database`: SQLite schema and Drizzle client
 
 ### Testing
 We use Vitest for testing. To run tests across the entire monorepo:
@@ -58,8 +76,10 @@ pnpm test
 ```
 
 ## Status
-Current Phase: **MVP Development**
+Current Phase: **MVP Phase 2 (Completed)**
 - [x] Core Models & TDD
 - [x] qBittorrent & TMDB Integration
 - [x] CLI Interface
-- [ ] Web Dashboard (In Progress)
+- [x] Web Dashboard UI
+- [x] Fastify API Server
+- [ ] File Management & Network Storage (Post-Launch)
