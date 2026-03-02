@@ -24,36 +24,81 @@ function App() {
 
   useEffect(() => {
     fetchTorrents();
-    const interval = setInterval(fetchTorrents, 5000); // Refresh every 5s
+    const interval = setInterval(fetchTorrents, 5000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
-      {/* Header */}
-      <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">🥣</span>
-            <h1 className="text-xl font-bold tracking-tight">Soup Dashboard</h1>
+    <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30">
+      {/* Material 3 Sidebar */}
+      <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen">
+        <div className="p-6 flex items-center space-x-3">
+          <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
+            <span className="text-xl">🥣</span>
           </div>
-          <div className="flex items-center space-x-4 text-sm font-medium">
-            <span className={`px-2 py-1 rounded-full ${error ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'}`}>
-              {error ? 'API Offline' : 'Connected'}
+          <span className="hidden lg:block font-black text-xl tracking-tight">SOUP</span>
+        </div>
+
+        <nav className="flex-1 px-3 space-y-1">
+          <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hidden lg:block">Library</div>
+          <button className="w-full flex items-center space-x-3 px-4 py-3 bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl transition-all">
+            <span className="text-xl">📥</span>
+            <span className="hidden lg:block font-bold text-sm">Downloads</span>
+          </button>
+          <button className="w-full flex items-center space-x-3 px-4 py-3 text-zinc-500 dark:text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-2xl transition-all group">
+            <span className="text-xl group-hover:scale-110 transition-transform">⭐</span>
+            <span className="hidden lg:block font-bold text-sm">Favorites</span>
+          </button>
+          <button className="w-full flex items-center space-x-3 px-4 py-3 text-zinc-500 dark:text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-2xl transition-all group">
+            <span className="text-xl group-hover:scale-110 transition-transform">⚙️</span>
+            <span className="hidden lg:block font-bold text-sm">Settings</span>
+          </button>
+        </nav>
+
+        <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
+          <div className={`p-3 rounded-2xl flex flex-col items-center lg:items-start ${error ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10'}`}>
+            <span className={`w-2 h-2 rounded-full mb-2 ${error ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+            <span className="hidden lg:block text-[10px] font-black uppercase tracking-tighter opacity-50">Basement Link</span>
+            <span className="hidden lg:block text-[11px] font-bold truncate w-full italic">
+              {error ? 'Disconnected' : 'Online'}
             </span>
           </div>
         </div>
-      </header>
+      </aside>
 
-      <main className="max-w-7xl mx-auto py-8 px-4">
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-xl mb-6 text-red-700 dark:text-red-400">
-            <p className="font-bold">Error connecting to server</p>
-            <p className="text-sm">{error}</p>
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col max-h-screen overflow-hidden bg-white dark:bg-zinc-950">
+        {/* Modern Header */}
+        <header className="h-20 flex items-center justify-between px-6 lg:px-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50 sticky top-0 z-20">
+          <div>
+            <h2 className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Dashboard</h2>
+            <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mt-1">Active Transfers</h1>
           </div>
-        )}
+          
+          <div className="flex items-center space-x-4">
+            <div className="h-10 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center border border-zinc-200/50 dark:border-zinc-800/50">
+              <span className="mr-2 text-xs font-black text-zinc-400">Search</span>
+              <input type="text" className="bg-transparent border-none outline-none text-sm font-bold w-32 lg:w-64" placeholder="Filter torrents..." />
+            </div>
+          </div>
+        </header>
 
-        <TorrentList torrents={torrents} isLoading={isLoading} />
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {/* Centered, constrained content area */}
+          <div className="max-w-[1400px] mx-auto w-full p-4 lg:p-8">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl mb-8 flex items-center space-x-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-red-500/20">⚠️</div>
+                <div>
+                  <p className="font-black text-red-600 dark:text-red-400">Basement Connection Error</p>
+                  <p className="text-sm font-bold text-red-500/60 truncate">{error}</p>
+                </div>
+              </div>
+            )}
+
+            <TorrentList torrents={torrents} isLoading={isLoading} />
+          </div>
+        </div>
       </main>
     </div>
   );

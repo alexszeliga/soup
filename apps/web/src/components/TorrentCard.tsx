@@ -15,56 +15,58 @@ interface TorrentCardProps {
 const TorrentCard: React.FC<TorrentCardProps> = ({ torrent }) => {
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
-  const displayYear = mediaMetadata?.year;
-  const progressPercent = (progress * 100).toFixed(1);
+  const progressPercent = Math.round(progress * 100);
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-md overflow-hidden flex flex-row border border-zinc-200 dark:border-zinc-800 hover:shadow-lg transition-shadow duration-300 max-w-2xl m-4">
-      {/* Poster */}
-      <div className="w-24 h-36 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800">
+    <div className="group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 active:scale-[0.98] cursor-pointer shadow-sm hover:shadow-xl">
+      {/* Poster Area */}
+      <div className="relative w-28 sm:w-full flex-shrink-0 aspect-[2/3] sm:aspect-[2/3] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
         {mediaMetadata?.posterPath ? (
           <img 
             src={mediaMetadata.posterPath} 
             alt={displayTitle}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-400">
-            <span className="text-xs uppercase font-bold text-center p-2">No Poster</span>
+          <div className="w-full h-full flex flex-col items-center justify-center p-4 sm:p-6 text-zinc-400 dark:text-zinc-600">
+            <span className="text-2xl sm:text-4xl mb-1 sm:mb-2 opacity-20 font-serif italic">Soup</span>
+            <span className="text-[8px] sm:text-[10px] uppercase font-black tracking-widest text-center">Metadata Pending</span>
           </div>
         )}
+        
+        {/* Progress Overlay (Subtle Gradient) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 hidden sm:block" />
+        
+        {/* Status Badge */}
+        <div className="absolute top-2 right-2">
+          <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg bg-black/60 text-white backdrop-blur-md border border-white/10 shadow-lg">
+            {torrent.state}
+          </span>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 p-4 flex flex-col justify-between">
-        <div>
-          <div className="flex justify-between items-start">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate pr-2">
-              {displayTitle}
-            </h3>
-            {displayYear && (
-              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                {displayYear}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500 truncate mt-1">
+      {/* Info Area */}
+      <div className="p-4 flex-1 flex flex-col justify-center sm:justify-start space-y-3">
+        <div className="space-y-1">
+          <h3 className="font-bold text-zinc-900 dark:text-zinc-100 leading-tight line-clamp-2 sm:line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            {displayTitle}
+          </h3>
+          <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-500 truncate">
             {torrent.name}
           </p>
         </div>
 
-        <div className="mt-4">
-          <div className="flex justify-between items-end mb-1">
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-              {torrent.state}
-            </span>
-            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
+        {/* Progress Section */}
+        <div className="space-y-1.5 mt-auto sm:mt-0">
+          <div className="flex justify-between items-center text-[10px] font-bold">
+            <span className="text-zinc-400 dark:text-zinc-600 uppercase tracking-tighter hidden sm:inline">Progress</span>
+            <span className={`sm:ml-auto ${progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
               {progressPercent}%
             </span>
           </div>
-          <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+          <div className="h-1.5 sm:h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
             <div 
-              className="bg-blue-600 dark:bg-blue-500 h-full transition-all duration-500 ease-out"
+              className={`h-full transition-all duration-1000 ease-in-out ${progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
