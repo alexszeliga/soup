@@ -1,0 +1,55 @@
+import { MediaMetadata } from './MediaMetadata.js';
+import { MetadataProvider } from './MetadataProvider.js';
+
+export class TMDBMetadataProvider implements MetadataProvider {
+  private readonly baseUrl = 'https://api.themoviedb.org/3';
+
+  constructor(private readonly apiKey: string) {}
+
+  public async search(title: string, year?: number): Promise<MediaMetadata | null> {
+    // 1. Try Movie Search
+    const movieResult = await this.performSearch('movie', title, year);
+    if (movieResult) return movieResult;
+
+    // 2. Try TV Search (if movie fails)
+    const tvResult = await this.performSearch('tv', title, year);
+    return tvResult;
+  }
+
+  private async performSearch(type: 'movie' | 'tv', title: string, year?: number): Promise<MediaMetadata | null> {
+    const searchUrl = new URL(`${this.baseUrl}/search/${type}`);
+    searchUrl.searchParams.set('api_key', this.apiKey);
+    searchUrl.searchParams.set('query', title);
+    if (year) {
+      const yearParam = type === 'movie' ? 'primary_release_year' : 'first_air_date_year';
+      searchUrl.searchParams.set(yearParam, year.toString());
+    }
+
+    const response = await fetch(searchUrl.toString());
+    if (!response.ok) return null;
+
+    const data = await response.json() as any;
+    if (!data.results || data.results.length === 0) return null;
+
+    const item = data.results[0];
+    const id = item.id;
+    const name = item.title || item.name;
+    const releaseDate = item.release_date || item.first_air_date;
+
+    // Fetch credits
+    const creditsUrl = new URL(`${this.baseUrl}/${type}/${id}/credits`);
+    creditsUrl.searchParams.set('api_key', this.apiKey);
+    const creditsResponse = await fetch(creditsUrl.toString());
+    const creditsData = creditsResponse.ok ? await creditsResponse.json() as any : {};
+    const cast = creditsData.cast ? creditsData.cast.slice(0, 5).map((c: any) => c.name) : [];
+
+    return new MediaMetadata({
+      id: `tmdb-${type}-${id}`,
+      title: name,
+      year: releaseDate ? new Date(releaseDate).getFullYear() : 0,
+      plot: item.overview,
+      cast,
+      posterPath: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
+    });
+  }
+}

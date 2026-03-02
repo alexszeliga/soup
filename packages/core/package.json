@@ -1,0 +1,25 @@
+{
+  "name": "@soup/core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Core business logic and models for Soup",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*.js": "./dist/*.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.30.3",
+  "dependencies": {
+    "@soup/database": "workspace:*",
+    "drizzle-orm": "^0.45.1"
+  }
+}
