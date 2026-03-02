@@ -1,0 +1,39 @@
+import TorrentCard from './TorrentCard';
+
+interface TorrentListProps {
+  torrents: any[];
+  isLoading: boolean;
+}
+
+const TorrentList: React.FC<TorrentListProps> = ({ torrents, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-zinc-500 dark:text-zinc-400 font-medium animate-pulse">Loading torrents...</p>
+      </div>
+    );
+  }
+
+  if (torrents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl m-4">
+        <div className="text-4xl mb-4 text-zinc-300 dark:text-zinc-700">🥣</div>
+        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">No torrents found</h3>
+        <p className="text-zinc-500 dark:text-zinc-400 max-w-xs mt-1">
+          Your qBittorrent instance seems empty or Soup is still matching metadata.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+      {torrents.map((torrent) => (
+        <TorrentCard key={torrent.hash} torrent={torrent} />
+      ))}
+    </div>
+  );
+};
+
+export default TorrentList;
