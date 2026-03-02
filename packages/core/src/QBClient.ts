@@ -1,5 +1,17 @@
 import { Torrent } from './Torrent.js';
 
+export interface SyncResponse {
+  rid: number;
+  full_update?: boolean;
+  torrents?: Record<string, any>;
+  torrents_removed?: string[];
+  categories?: Record<string, any>;
+  categories_removed?: string[];
+  tags?: string[];
+  tags_removed?: string[];
+  server_state?: Record<string, any>;
+}
+
 export class QBClient {
   private cookies: string[] = [];
 
@@ -24,6 +36,23 @@ export class QBClient {
     if (setCookie) {
       this.cookies = [setCookie];
     }
+  }
+
+  public async getMainData(rid: number = 0): Promise<SyncResponse> {
+    const syncUrl = new URL(`${this.baseUrl}/sync/maindata`);
+    syncUrl.searchParams.set('rid', rid.toString());
+
+    const response = await fetch(syncUrl.toString(), {
+      headers: {
+        'Cookie': this.cookies.join('; '),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent Sync API error: ${response.statusText}`);
+    }
+
+    return await response.json() as SyncResponse;
   }
 
   public async getTorrents(): Promise<Torrent[]> {

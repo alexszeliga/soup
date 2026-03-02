@@ -6,6 +6,8 @@ import { QBClient } from '@soup/core/QBClient.js';
 import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
 import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
 import { MetadataCache } from '@soup/core/MetadataCache.js';
+import { SyncEngine } from '@soup/core/SyncEngine.js';
+import { LiveSyncService } from '@soup/core/LiveSyncService.js';
 import { createDatabase } from '@soup/database';
 
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
@@ -30,35 +32,31 @@ const qb = new QBClient(qbUrl);
 const tmdb = new TMDBMetadataProvider(tmdbApiKey);
 const matcher = new MetadataMatcher(tmdb);
 const cache = new MetadataCache(db);
+const engine = new SyncEngine(qb);
+const liveSync = new LiveSyncService(engine, matcher, cache);
 
 await cache.ensureTables();
 
-fastify.get('/api/torrents', async (request, reply) => {
-  try {
-    const torrents = await qb.getTorrents();
-    const result = [];
-
-    for (const torrent of torrents) {
-      let metadata = await cache.getMetadataForTorrent(torrent.hash);
-      
-      if (!metadata) {
-        metadata = await matcher.match(torrent);
-        if (metadata) {
-          await cache.saveMetadataForTorrent(torrent, metadata);
-        }
-      }
-
-      result.push({
-        ...torrent,
-        mediaMetadata: metadata,
-      });
+// Background Sync Loop
+const startSync = async () => {
+  while (true) {
+    try {
+      await liveSync.sync();
+    } catch (error) {
+      fastify.log.error(error, 'Sync error');
     }
-
-    return result;
-  } catch (error: any) {
-    fastify.log.error(error);
-    reply.status(500).send({ error: error.message });
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
+};
+
+startSync();
+
+fastify.get('/api/torrents', async (request, reply) => {
+  return liveSync.getTorrentsWithMetadata();
+});
+
+fastify.get('/api/state', async (request, reply) => {
+  return liveSync.getServerState();
 });
 
 const start = async () => {
