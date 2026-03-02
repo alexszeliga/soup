@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import dotenv from 'dotenv';
 import path from 'path';
 import { QBClient } from '@soup/core/QBClient.js';
@@ -17,6 +18,8 @@ const fastify = Fastify({ logger: true });
 await fastify.register(cors, {
   origin: '*', // For development
 });
+
+await fastify.register(multipart);
 
 const qbUrl = process.env.QB_URL || 'https://qb.osage.lol/api/v2';
 const tmdbApiKey = process.env.TMDB_API_KEY!;
@@ -57,6 +60,44 @@ fastify.get('/api/torrents', async (request, reply) => {
 
 fastify.get('/api/state', async (request, reply) => {
   return liveSync.getServerState();
+});
+
+fastify.post('/api/torrents', async (request, reply) => {
+  const data = await request.file();
+  
+  if (data) {
+    const buffer = await data.toBuffer();
+    const file = new File([buffer as any], data.filename, { type: data.mimetype });
+    await qb.addTorrents([], [file]);
+    return { success: true };
+  }
+ else {
+    const body = request.body as { url?: string };
+    if (body?.url) {
+      await qb.addTorrents([body.url]);
+      return { success: true };
+    }
+  }
+
+  reply.status(400).send({ error: 'No torrent file or magnet link provided' });
+});
+
+fastify.post('/api/torrents/pause', async (request, reply) => {
+  const { hashes } = request.body as { hashes: string[] };
+  await qb.pauseTorrents(hashes);
+  return { success: true };
+});
+
+fastify.post('/api/torrents/resume', async (request, reply) => {
+  const { hashes } = request.body as { hashes: string[] };
+  await qb.resumeTorrents(hashes);
+  return { success: true };
+});
+
+fastify.delete('/api/torrents', async (request, reply) => {
+  const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
+  await qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true');
+  return { success: true };
 });
 
 const start = async () => {

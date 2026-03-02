@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import TorrentCard from './TorrentCard';
 
 describe('TorrentCard', () => {
@@ -16,13 +16,13 @@ describe('TorrentCard', () => {
   };
 
   it('renders the media title and year', () => {
-    render(<TorrentCard torrent={mockTorrent} />);
+    render(<TorrentCard torrent={mockTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText('The Great Movie')).toBeInTheDocument();
     expect(screen.getByText('2024')).toBeInTheDocument();
   });
 
   it('renders the progress percentage', () => {
-    render(<TorrentCard torrent={mockTorrent} />);
-    expect(screen.getByText('50.0%')).toBeInTheDocument();
+    render(<TorrentCard torrent={mockTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getByText('50%')).toBeInTheDocument();
   });
 });

@@ -10,15 +10,19 @@ interface TorrentCardProps {
       posterPath: string;
     };
   };
+  onPause: (hash: string) => void;
+  onResume: (hash: string) => void;
+  onDelete: (hash: string) => void;
 }
 
-const TorrentCard: React.FC<TorrentCardProps> = ({ torrent }) => {
+const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, onDelete }) => {
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
+  const isPaused = torrent.state.includes('paused') || torrent.state.includes('stalled');
 
   return (
-    <div className="group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 active:scale-[0.98] cursor-pointer shadow-sm hover:shadow-xl">
+    <div className="group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 active:scale-[0.98] shadow-sm hover:shadow-xl">
       {/* Poster Area */}
       <div className="relative w-28 sm:w-full flex-shrink-0 aspect-[2/3] sm:aspect-[2/3] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
         {mediaMetadata?.posterPath ? (
@@ -33,17 +37,46 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent }) => {
             <span className="text-[8px] sm:text-[10px] uppercase font-black tracking-widest text-center">Metadata Pending</span>
           </div>
         )}
-        
+
         {/* Progress Overlay (Subtle Gradient) */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 hidden sm:block" />
-        
+
+        {/* Quick Actions (Hover Only) */}
+        <div className="absolute inset-0 flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] bg-black/20">
+          {isPaused ? (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onResume(torrent.hash); }}
+              className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+              title="Resume"
+            >
+              ▶️
+            </button>
+          ) : (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onPause(torrent.hash); }}
+              className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+              title="Pause"
+            >
+              ⏸️
+            </button>
+          )}
+          <button 
+            onClick={(e) => { e.stopPropagation(); if(confirm('Delete torrent?')) onDelete(torrent.hash); }}
+            className="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+            title="Delete"
+          >
+            🗑️
+          </button>
+        </div>
+
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
-          <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg bg-black/60 text-white backdrop-blur-md border border-white/10 shadow-lg">
+          <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${isPaused ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
             {torrent.state}
           </span>
         </div>
       </div>
+...
 
       {/* Info Area */}
       <div className="p-4 flex-1 flex flex-col justify-center sm:justify-start space-y-3">

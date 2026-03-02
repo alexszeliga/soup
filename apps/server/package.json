@@ -15,6 +15,7 @@
   "packageManager": "pnpm@10.30.3",
   "dependencies": {
     "@fastify/cors": "^11.2.0",
+    "@fastify/multipart": "^9.4.0",
     "@soup/core": "workspace:*",
     "@soup/database": "workspace:*",
     "dotenv": "^17.3.1",

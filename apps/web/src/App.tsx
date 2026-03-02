@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import TorrentList from './components/TorrentList';
+import AddTorrentModal from './components/AddTorrentModal';
 
 const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001/api`;
 
@@ -7,6 +8,7 @@ function App() {
   const [torrents, setTorrents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchTorrents = async () => {
     try {
@@ -22,6 +24,63 @@ function App() {
     }
   };
 
+  const handleAddTorrent = async (data: { url?: string; file?: File }) => {
+    try {
+      const formData = new FormData();
+      if (data.file) {
+        formData.append('torrent', data.file);
+      }
+      
+      const response = await fetch(`${API_URL}/torrents`, {
+        method: 'POST',
+        headers: data.url ? { 'Content-Type': 'application/json' } : {},
+        body: data.url ? JSON.stringify({ url: data.url }) : formData
+      });
+
+      if (!response.ok) throw new Error('Failed to add torrent');
+      fetchTorrents();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handlePause = async (hash: string) => {
+    try {
+      await fetch(`${API_URL}/torrents/pause`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashes: [hash] })
+      });
+      fetchTorrents();
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const handleResume = async (hash: string) => {
+    try {
+      await fetch(`${API_URL}/torrents/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashes: [hash] })
+      });
+      fetchTorrents();
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const handleDelete = async (hash: string) => {
+    try {
+      await fetch(`${API_URL}/torrents?hashes=${hash}&deleteFiles=true`, {
+        method: 'DELETE'
+      });
+      fetchTorrents();
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchTorrents();
     const interval = setInterval(fetchTorrents, 5000);
@@ -30,6 +89,13 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30">
+      {/* Add Torrent Modal */}
+      <AddTorrentModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        onAdd={handleAddTorrent} 
+      />
+
       {/* Material 3 Sidebar */}
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen">
         <div className="p-6 flex items-center space-x-3">
@@ -76,6 +142,13 @@ function App() {
           </div>
           
           <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-full shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center space-x-2"
+            >
+              <span>➕</span>
+              <span className="hidden sm:inline text-[10px]">Add Torrent</span>
+            </button>
             <div className="h-10 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center border border-zinc-200/50 dark:border-zinc-800/50">
               <span className="mr-2 text-xs font-black text-zinc-400">Search</span>
               <input type="text" className="bg-transparent border-none outline-none text-sm font-bold w-32 lg:w-64" placeholder="Filter torrents..." />
@@ -96,7 +169,13 @@ function App() {
               </div>
             )}
 
-            <TorrentList torrents={torrents} isLoading={isLoading} />
+            <TorrentList 
+              torrents={torrents} 
+              isLoading={isLoading} 
+              onPause={handlePause}
+              onResume={handleResume}
+              onDelete={handleDelete}
+            />
           </div>
         </div>
       </main>

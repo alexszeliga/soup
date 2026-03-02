@@ -80,4 +80,76 @@ export class QBClient {
       contentPath: t.content_path,
     }));
   }
+
+  public async addTorrents(urls: string[], files?: File[]): Promise<void> {
+    const addUrl = new URL(`${this.baseUrl}/torrents/add`);
+    const formData = new FormData();
+
+    if (urls.length > 0) {
+      formData.append('urls', urls.join('\n'));
+    }
+
+    if (files) {
+      for (const file of files) {
+        formData.append('torrents', file);
+      }
+    }
+
+    const response = await fetch(addUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Cookie': this.cookies.join('; '),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent add error: ${response.statusText}`);
+    }
+  }
+
+  public async pauseTorrents(hashes: string[]): Promise<void> {
+    await this.postWithHashes('/torrents/pause', hashes);
+  }
+
+  public async resumeTorrents(hashes: string[]): Promise<void> {
+    await this.postWithHashes('/torrents/resume', hashes);
+  }
+
+  public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
+    const deleteUrl = new URL(`${this.baseUrl}/torrents/delete`);
+    const params = new URLSearchParams();
+    params.set('hashes', hashes.join('|'));
+    params.set('deleteFiles', deleteFiles.toString());
+
+    const response = await fetch(deleteUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Cookie': this.cookies.join('; '),
+      },
+      body: params,
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent delete error: ${response.statusText}`);
+    }
+  }
+
+  private async postWithHashes(endpoint: string, hashes: string[]): Promise<void> {
+    const url = new URL(`${this.baseUrl}${endpoint}`);
+    const params = new URLSearchParams();
+    params.set('hashes', hashes.join('|'));
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Cookie': this.cookies.join('; '),
+      },
+      body: params,
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent ${endpoint} error: ${response.statusText}`);
+    }
+  }
 }
