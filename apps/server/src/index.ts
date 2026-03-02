@@ -22,6 +22,8 @@ await fastify.register(cors, {
 await fastify.register(multipart);
 
 const qbUrl = process.env.QB_URL || 'https://qb.osage.lol/api/v2';
+const qbUsername = process.env.QB_USERNAME;
+const qbPassword = process.env.QB_PASSWORD;
 const tmdbApiKey = process.env.TMDB_API_KEY!;
 const dbPath = process.env.DB_PATH || './soup.db';
 
@@ -39,6 +41,15 @@ const engine = new SyncEngine(qb);
 const liveSync = new LiveSyncService(engine, matcher, cache);
 
 await cache.ensureTables();
+
+// Login to qBittorrent before starting
+try {
+  fastify.log.info('Logging in to qBittorrent...');
+  await qb.login(qbUsername, qbPassword);
+  fastify.log.info('Login successful');
+} catch (error) {
+  fastify.log.error(error, 'Login failed');
+}
 
 // Background Sync Loop
 const startSync = async () => {
@@ -83,21 +94,36 @@ fastify.post('/api/torrents', async (request, reply) => {
 });
 
 fastify.post('/api/torrents/pause', async (request, reply) => {
-  const { hashes } = request.body as { hashes: string[] };
-  await qb.pauseTorrents(hashes);
-  return { success: true };
+  try {
+    const { hashes } = request.body as { hashes: string[] };
+    await qb.pauseTorrents(hashes);
+    return { success: true };
+  } catch (error: any) {
+    fastify.log.error(error);
+    reply.status(500).send({ error: error.message });
+  }
 });
 
 fastify.post('/api/torrents/resume', async (request, reply) => {
-  const { hashes } = request.body as { hashes: string[] };
-  await qb.resumeTorrents(hashes);
-  return { success: true };
+  try {
+    const { hashes } = request.body as { hashes: string[] };
+    await qb.resumeTorrents(hashes);
+    return { success: true };
+  } catch (error: any) {
+    fastify.log.error(error);
+    reply.status(500).send({ error: error.message });
+  }
 });
 
 fastify.delete('/api/torrents', async (request, reply) => {
-  const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
-  await qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true');
-  return { success: true };
+  try {
+    const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
+    await qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true');
+    return { success: true };
+  } catch (error: any) {
+    fastify.log.error(error);
+    reply.status(500).send({ error: error.message });
+  }
 });
 
 const start = async () => {
