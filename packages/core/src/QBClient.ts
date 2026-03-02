@@ -25,6 +25,10 @@ export class QBClient {
 
     const response = await fetch(loginUrl.toString(), {
       method: 'POST',
+      headers: {
+        'Referer': this.baseUrl + '/',
+        'Origin': new URL(this.baseUrl).origin,
+      },
       body: params,
     });
 
@@ -34,7 +38,12 @@ export class QBClient {
 
     const setCookie = response.headers.get('set-cookie');
     if (setCookie) {
-      this.cookies = [setCookie];
+      const sidMatch = setCookie.match(/SID=[^;]+/);
+      if (sidMatch) {
+        this.cookies = [sidMatch[0]];
+      } else {
+        this.cookies = [setCookie];
+      }
     }
   }
 
@@ -45,6 +54,7 @@ export class QBClient {
     const response = await fetch(syncUrl.toString(), {
       headers: {
         'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
       },
     });
 
@@ -61,6 +71,7 @@ export class QBClient {
     const response = await fetch(torrentsUrl.toString(), {
       headers: {
         'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
       },
     });
 
@@ -99,6 +110,8 @@ export class QBClient {
       method: 'POST',
       headers: {
         'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
+        'Origin': new URL(this.baseUrl).origin,
       },
       body: formData,
     });
@@ -126,6 +139,8 @@ export class QBClient {
       method: 'POST',
       headers: {
         'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
+        'Origin': new URL(this.baseUrl).origin,
       },
       body: params,
     });
@@ -144,6 +159,8 @@ export class QBClient {
       method: 'POST',
       headers: {
         'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
+        'Origin': new URL(this.baseUrl).origin,
       },
       body: params,
     });
