@@ -93,6 +93,18 @@ fastify.post('/api/torrents', async (request, reply) => {
   reply.status(400).send({ error: 'No torrent file or magnet link provided' });
 });
 
+/**
+ * Common wrapper for torrent action routes.
+ * 
+ * Handles:
+ * 1. Execution of the provided async action.
+ * 2. Standardized success response format.
+ * 3. Consistent error logging and 500 status reporting.
+ * 
+ * @param reply - The Fastify reply object.
+ * @param action - The async function to execute.
+ * @returns Standard { success: true } or error object.
+ */
 async function handleTorrentAction(reply: any, action: () => Promise<void>) {
   try {
     await action();

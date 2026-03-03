@@ -143,6 +143,19 @@ export class QBClient {
     });
   }
 
+  /**
+   * Centralized helper for all qBittorrent POST requests.
+   * 
+   * Handles:
+   * 1. URL construction with base URL and endpoint.
+   * 2. URL-encoded parameter serialization.
+   * 3. Standard headers (Cookies for Auth, Referer/Origin for CSRF bypass).
+   * 4. Error reporting with endpoint context.
+   * 
+   * @param endpoint - The API endpoint path (e.g., '/torrents/stop').
+   * @param params - Key-value pairs to be sent as URLSearchParams in the body.
+   * @throws {Error} If the response is not OK.
+   */
   private async post(endpoint: string, params: Record<string, string>): Promise<void> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     const body = new URLSearchParams();
