@@ -63,7 +63,9 @@ export class LiveSyncService {
       if (existing) {
         this.torrentsWithMetadata.set(torrent.hash, {
           ...torrent,
-          mediaMetadata: existing.mediaMetadata
+          mediaMetadata: existing.mediaMetadata,
+          // Explicitly carry over files if present in the new torrent object
+          files: torrent.files || existing.files
         } as TorrentWithMetadata);
       }
     }
@@ -81,7 +83,8 @@ export class LiveSyncService {
 
       this.torrentsWithMetadata.set(torrent.hash, {
         ...torrent,
-        mediaMetadata: metadata
+        mediaMetadata: metadata,
+        files: torrent.files
       } as TorrentWithMetadata);
     }
   }

@@ -93,6 +93,8 @@ export class SyncEngine {
     if (this.focusHash && focusedFiles && this.torrents.has(this.focusHash)) {
       const existing = this.torrents.get(this.focusHash)!;
       this.torrents.set(this.focusHash, { ...existing, files: focusedFiles });
+      
+      // Always mark as updated if we have new file data, even if mainData didn't change it
       if (!updatedHashes.includes(this.focusHash) && !addedHashes.includes(this.focusHash)) {
         updatedHashes.push(this.focusHash);
       }

@@ -32,11 +32,11 @@ function App() {
 
   const fetchTorrents = async () => {
     try {
-      const url = new URL(`${API_URL}/torrents`, window.location.origin);
+      let url = `${API_URL}/torrents`;
       if (selectedTorrentHash) {
-        url.searchParams.set('focus', selectedTorrentHash);
+        url += `?focus=${selectedTorrentHash}`;
       }
-      const response = await fetch(url.toString());
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch torrents');
       const data = await response.json() as TorrentWithMetadata[];
       
