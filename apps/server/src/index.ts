@@ -107,7 +107,7 @@ fastify.post('/api/torrents/pause', async (request, reply) => {
 fastify.post('/api/torrents/resume', async (request, reply) => {
   try {
     const { hashes } = request.body as { hashes: string[] };
-    await qb.resumeTorrents(hashes);
+    await qb.forceStartTorrents(hashes);
     return { success: true };
   } catch (error: any) {
     fastify.log.error(error);

@@ -129,6 +129,27 @@ export class QBClient {
     await this.postWithHashes('/torrents/start', hashes);
   }
 
+  public async forceStartTorrents(hashes: string[]): Promise<void> {
+    const url = new URL(`${this.baseUrl}/torrents/setForceStart`);
+    const params = new URLSearchParams();
+    params.set('hashes', hashes.join('|'));
+    params.set('value', 'true');
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
+        'Origin': new URL(this.baseUrl).origin,
+      },
+      body: params,
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent force start error: ${response.statusText}`);
+    }
+  }
+
   public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
     const deleteUrl = new URL(`${this.baseUrl}/torrents/delete`);
     const params = new URLSearchParams();
