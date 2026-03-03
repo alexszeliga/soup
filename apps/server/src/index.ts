@@ -93,37 +93,29 @@ fastify.post('/api/torrents', async (request, reply) => {
   reply.status(400).send({ error: 'No torrent file or magnet link provided' });
 });
 
-fastify.post('/api/torrents/pause', async (request, reply) => {
+async function handleTorrentAction(reply: any, action: () => Promise<void>) {
   try {
-    const { hashes } = request.body as { hashes: string[] };
-    await qb.pauseTorrents(hashes);
+    await action();
     return { success: true };
   } catch (error: any) {
     fastify.log.error(error);
     reply.status(500).send({ error: error.message });
   }
+}
+
+fastify.post('/api/torrents/pause', async (request, reply) => {
+  const { hashes } = request.body as { hashes: string[] };
+  return handleTorrentAction(reply, () => qb.pauseTorrents(hashes));
 });
 
 fastify.post('/api/torrents/resume', async (request, reply) => {
-  try {
-    const { hashes } = request.body as { hashes: string[] };
-    await qb.forceStartTorrents(hashes);
-    return { success: true };
-  } catch (error: any) {
-    fastify.log.error(error);
-    reply.status(500).send({ error: error.message });
-  }
+  const { hashes } = request.body as { hashes: string[] };
+  return handleTorrentAction(reply, () => qb.forceStartTorrents(hashes));
 });
 
 fastify.delete('/api/torrents', async (request, reply) => {
-  try {
-    const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
-    await qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true');
-    return { success: true };
-  } catch (error: any) {
-    fastify.log.error(error);
-    reply.status(500).send({ error: error.message });
-  }
+  const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
+  return handleTorrentAction(reply, () => qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true'));
 });
 
 const start = async () => {

@@ -69,10 +69,10 @@ function App() {
     }
   };
 
-  const handlePause = async (hash: string) => {
-    setPendingTransitions(prev => new Map(prev).set(hash, 'inactive'));
+  const performAction = async (hash: string, endpoint: string, targetState: 'active' | 'inactive') => {
+    setPendingTransitions(prev => new Map(prev).set(hash, targetState));
     try {
-      await fetch(`${API_URL}/torrents/pause`, {
+      await fetch(`${API_URL}/torrents/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [hash] })
@@ -87,23 +87,8 @@ function App() {
     }
   };
 
-  const handleResume = async (hash: string) => {
-    setPendingTransitions(prev => new Map(prev).set(hash, 'active'));
-    try {
-      await fetch(`${API_URL}/torrents/resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hashes: [hash] })
-      });
-    } catch (err: any) {
-      console.error(err);
-      setPendingTransitions(prev => {
-        const next = new Map(prev);
-        next.delete(hash);
-        return next;
-      });
-    }
-  };
+  const handlePause = (hash: string) => performAction(hash, 'pause', 'inactive');
+  const handleResume = (hash: string) => performAction(hash, 'resume', 'active');
 
   const handleDelete = async (hash: string) => {
     setPendingTransitions(prev => new Map(prev).set(hash, 'inactive'));
