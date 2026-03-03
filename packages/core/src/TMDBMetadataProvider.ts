@@ -1,11 +1,28 @@
 import { MediaMetadata } from './MediaMetadata.js';
 import { MetadataProvider } from './MetadataProvider.js';
 
+/**
+ * Metadata provider implementation using The Movie Database (TMDB) API.
+ * 
+ * Supports both Movie and TV Show searches with a preference for Movie results
+ * if both match the title.
+ */
 export class TMDBMetadataProvider implements MetadataProvider {
   private readonly baseUrl = 'https://api.themoviedb.org/3';
 
   constructor(private readonly apiKey: string) {}
 
+  /**
+   * Orchestrates a search across TMDB categories.
+   * 
+   * Strategy:
+   * 1. Search Movies first.
+   * 2. If no movie match, search TV Shows.
+   * 
+   * @param title - The clean title from the torrent.
+   * @param year - Optional release year filter.
+   * @returns MediaMetadata or null if no results were found.
+   */
   public async search(title: string, year?: number): Promise<MediaMetadata | null> {
     // 1. Try Movie Search
     const movieResult = await this.performSearch('movie', title, year);
@@ -16,6 +33,13 @@ export class TMDBMetadataProvider implements MetadataProvider {
     return tvResult;
   }
 
+  /**
+   * Internal helper to perform category-specific searches and fetch cast details.
+   * 
+   * @param type - 'movie' or 'tv'.
+   * @param title - The title query.
+   * @param year - The year filter.
+   */
   private async performSearch(type: 'movie' | 'tv', title: string, year?: number): Promise<MediaMetadata | null> {
     const searchUrl = new URL(`${this.baseUrl}/search/${type}`);
     searchUrl.searchParams.set('api_key', this.apiKey);

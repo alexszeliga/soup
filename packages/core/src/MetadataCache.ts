@@ -4,9 +4,20 @@ import { metadata as metadataSchema, torrents as torrentsSchema } from '@soup/da
 import { MediaMetadata } from './MediaMetadata.js';
 import { Torrent } from './Torrent.js';
 
+/**
+ * Persistence service for caching MediaMetadata locally using SQLite.
+ * 
+ * This minimizes API calls to providers like TMDB and ensures metadata 
+ * is preserved even if the torrent is renamed or moved in qBittorrent.
+ */
 export class MetadataCache {
   constructor(private readonly db: DatabaseInstance) {}
 
+  /**
+   * Initializes the database schema if it does not exist.
+   * 
+   * Creates the `metadata` and `torrents` tables.
+   */
   public async ensureTables(): Promise<void> {
     this.db.run(`CREATE TABLE IF NOT EXISTS metadata (
       id TEXT PRIMARY KEY,
@@ -25,6 +36,12 @@ export class MetadataCache {
     )`);
   }
 
+  /**
+   * Retrieves cached metadata for a specific torrent hash.
+   * 
+   * @param hash - The SHA-1 hash of the torrent.
+   * @returns The cached MediaMetadata object, or null if not found.
+   */
   public async getMetadataForTorrent(hash: string): Promise<MediaMetadata | null> {
     const result = await this.db.query.torrents.findFirst({
       where: eq(torrentsSchema.hash, hash),
@@ -49,6 +66,14 @@ export class MetadataCache {
     });
   }
 
+  /**
+   * Saves or updates metadata for a torrent in the local cache.
+   * 
+   * Performs an upsert on both the metadata and the torrent-to-metadata mapping.
+   * 
+   * @param torrent - The torrent being cached.
+   * @param metadata - The metadata to associate with the torrent.
+   */
   public async saveMetadataForTorrent(torrent: Torrent, metadata: MediaMetadata): Promise<void> {
     const now = Date.now();
 

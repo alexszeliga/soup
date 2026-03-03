@@ -1,20 +1,44 @@
 import { QBClient } from './QBClient.js';
 import { Torrent } from './Torrent.js';
 
+/**
+ * Represents the changes detected during a single sync tick.
+ */
 export interface SyncDelta {
+  /** Torrents newly discovered since the last tick. */
   added: Torrent[];
+  /** Torrents whose properties (progress, speed, state) changed since the last tick. */
   updated: Torrent[];
+  /** Hashes of torrents that were deleted from the server. */
   removed: string[];
+  /** If true, the previous state was discarded and replaced with a full server snapshot. */
   fullUpdate: boolean;
 }
 
+/**
+ * Stateful engine that maintains a synchronized view of the qBittorrent library.
+ * 
+ * Uses qBittorrent's `/sync/maindata` endpoint to perform efficient incremental updates (deltas)
+ * rather than fetching the entire library on every request.
+ */
 export class SyncEngine {
+  /** Response ID tracker for incremental syncing. */
   private rid: number = 0;
+  /** Internal store of raw torrent data indexed by hash. */
   private torrents: Map<string, any> = new Map();
+  /** Aggregated server-wide state (global speeds, etc.). */
   private serverState: any = {};
 
   constructor(private readonly qb: QBClient) {}
 
+  /**
+   * Performs a single synchronization step with the qBittorrent server.
+   * 
+   * Compares the previous state with the new delta from the server to calculate
+   * what was added, updated, or removed.
+   * 
+   * @returns A SyncDelta object describing the changes in this tick.
+   */
   public async tick(): Promise<SyncDelta> {
     const data = await this.qb.getMainData(this.rid);
     this.rid = data.rid;
@@ -60,14 +84,23 @@ export class SyncEngine {
     };
   }
 
+  /**
+   * Returns an array of all torrents currently tracked by the engine.
+   */
   public getTorrents(): Torrent[] {
     return Array.from(this.torrents.values()).map(t => this.toTorrent(t));
   }
 
+  /**
+   * Returns the most recent aggregate server state (global speeds, free space, etc.).
+   */
   public getServerState(): any {
     return this.serverState;
   }
 
+  /**
+   * Internal mapper to convert raw API JSON objects into domain Torrent instances.
+   */
   private toTorrent(t: any): Torrent {
     return new Torrent({
       hash: t.hash,

@@ -1,14 +1,31 @@
+/**
+ * Properties required to instantiate a Torrent object.
+ */
 export interface TorrentProps {
+  /** Unique SHA-1 hash of the torrent. */
   hash: string;
+  /** Display name of the torrent (usually the filename or folder). */
   name: string;
+  /** Completion progress as a decimal between 0 and 1. */
   progress: number;
+  /** Current operational state (e.g., 'downloading', 'seeding', 'stalled'). */
   state: string;
+  /** Current download rate in bytes per second. */
   downloadSpeed: number;
+  /** Current upload rate in bytes per second. */
   uploadSpeed: number;
+  /** Absolute local path where the torrent content is stored. */
   contentPath: string;
 }
 
+/**
+ * Domain model representing a qBittorrent torrent.
+ * 
+ * Provides utility methods for determining completion status, activity,
+ * and parsing raw names into structured media information (Title/Year).
+ */
 export class Torrent {
+  /** List of qBittorrent states that indicate the torrent is actively performing I/O. */
   public static readonly ACTIVE_STATES = [
     'allocating', 'downloading', 'metaDL', 'stalledDL', 'checkingDL', 
     'forcedDL', 'queuedDL', 'uploading', 'stalledUP', 'forcedUP', 
@@ -33,14 +50,29 @@ export class Torrent {
     this.contentPath = props.contentPath;
   }
 
+  /**
+   * Returns true if the torrent is 100% downloaded.
+   */
   public get isComplete(): boolean {
     return this.progress === 1;
   }
 
+  /**
+   * Returns true if the torrent is currently in an active state (not paused/queued/completed).
+   */
   public get isActive(): boolean {
     return Torrent.ACTIVE_STATES.includes(this.state);
   }
 
+  /**
+   * Attempts to extract a clean title and release year from the raw torrent name.
+   * 
+   * Supports common Scene/P2P naming conventions:
+   * 1. TV Shows: `Title.S01E01...`
+   * 2. Movies: `Title.2024...`
+   * 
+   * @returns An object containing the parsed title and optional year.
+   */
   public getMediaInfo(): { title: string; year: number | null } {
     // 1. Try TV Show pattern: Title.S01E01...
     const tvMatch = this.name.match(/^(.*?)[. ]S(\d{1,2})E(\d{1,2})/i);

@@ -4,11 +4,22 @@ import { MetadataCache } from './MetadataCache.js';
 import { MediaMetadata } from './MediaMetadata.js';
 import { Torrent } from './Torrent.js';
 
+/**
+ * Extended Torrent model that includes associated media metadata (posters, plot, etc.).
+ */
 export interface TorrentWithMetadata extends Torrent {
+  /** Rich media metadata from TMDB, or null if no match was found. */
   mediaMetadata: MediaMetadata | null;
 }
 
+/**
+ * High-level service that coordinates synchronization and metadata matching.
+ * 
+ * It acts as the bridge between the raw BitTorrent data (SyncEngine) and the 
+ * rich media context (MetadataMatcher/Cache).
+ */
 export class LiveSyncService {
+  /** Internal stateful map of torrents merged with their metadata. */
   private torrentsWithMetadata: Map<string, TorrentWithMetadata> = new Map();
 
   constructor(
@@ -17,6 +28,14 @@ export class LiveSyncService {
     private readonly cache: MetadataCache
   ) {}
 
+  /**
+   * Performs a full synchronization cycle.
+   * 
+   * 1. Ticks the SyncEngine to get latest BitTorrent deltas.
+   * 2. Removes stale torrents from local state.
+   * 3. Updates properties of existing torrents (preserving their metadata).
+   * 4. For new torrents: Attempts to fetch metadata from cache or TMDB.
+   */
   public async sync(): Promise<void> {
     const delta = await this.engine.tick();
 
@@ -58,10 +77,16 @@ export class LiveSyncService {
     }
   }
 
+  /**
+   * Returns all current torrents enriched with their media metadata.
+   */
   public getTorrentsWithMetadata(): TorrentWithMetadata[] {
     return Array.from(this.torrentsWithMetadata.values());
   }
 
+  /**
+   * Proxy method to get the latest global server state from the SyncEngine.
+   */
   public getServerState(): any {
     return this.engine.getServerState();
   }
