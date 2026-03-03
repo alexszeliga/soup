@@ -22,7 +22,8 @@ describe('TorrentCard', () => {
       posterPath: 'https://image.tmdb.org/t/p/w500/path.jpg',
       plot: 'A great movie.',
       cast: ['Actor One']
-    }
+    },
+    isNonMedia: false
   };
 
   it('renders the media title', () => {
@@ -36,7 +37,8 @@ describe('TorrentCard', () => {
       mediaMetadata: null,
       isComplete: false,
       isActive: true,
-      getMediaInfo: () => ({ title: 'The.Great.Movie.2024.1080p.WEB-DL', year: null })
+      getMediaInfo: () => ({ title: 'The.Great.Movie.2024.1080p.WEB-DL', year: null }),
+      isNonMedia: false
     };
     render(<TorrentCard torrent={noMetaTorrent} onClick={vi.fn()} />);
     expect(screen.getAllByText(/The.Great.Movie.2024.1080p.WEB-DL/i)[0]).toBeInTheDocument();

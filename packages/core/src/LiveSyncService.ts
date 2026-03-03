@@ -11,6 +11,8 @@ import { MetadataProvider } from './MetadataProvider.js';
 export interface TorrentWithMetadata extends Torrent {
   /** Rich media metadata from TMDB, or null if no match was found. */
   mediaMetadata: MediaMetadata | null;
+  /** True if the user manually marked this as non-media. */
+  isNonMedia: boolean;
 }
 
 /**
@@ -67,15 +69,17 @@ export class LiveSyncService {
       const existing = this.torrentsWithMetadata.get(torrent.hash);
       if (existing) {
         let metadata = existing.mediaMetadata;
+        const isNonMedia = existing.isNonMedia;
 
-        // If we don't have metadata yet, and the name has changed, try matching again.
-        // This handles magnet links that resolve to a real name later.
-        if (!metadata && torrent.name !== existing.name) {
+        // If we don't have metadata yet, and it's not marked as non-media, 
+        // and the name has changed, try matching again.
+        if (!metadata && !isNonMedia && torrent.name !== existing.name) {
           metadata = await this.fetchMetadata(torrent);
         }
 
         const merged = Object.assign(torrent, {
           mediaMetadata: metadata,
+          isNonMedia,
           files: torrent.files || existing.files
         }) as TorrentWithMetadata;
 
@@ -85,10 +89,12 @@ export class LiveSyncService {
 
     // 3. Add new torrents
     for (const torrent of delta.added) {
+      const isNonMedia = await this.cache.isNonMedia(torrent.hash);
       const metadata = await this.fetchMetadata(torrent);
 
       const merged = Object.assign(torrent, {
         mediaMetadata: metadata,
+        isNonMedia,
         files: torrent.files
       }) as TorrentWithMetadata;
 
@@ -115,11 +121,12 @@ export class LiveSyncService {
     }
 
     // Save to cache so it's persistent and respected by future syncs
-    await this.cache.saveMetadataForTorrent(existing, metadata);
+    await this.cache.saveMetadataForTorrent(existing as Torrent, metadata);
 
     // Update in-memory state immediately
     this.torrentsWithMetadata.set(hash, Object.assign(existing, {
-      mediaMetadata: metadata
+      mediaMetadata: metadata,
+      isNonMedia: false // Successfully linking metadata always resets non-media
     }) as TorrentWithMetadata);
   }
 
@@ -134,7 +141,8 @@ export class LiveSyncService {
       await this.cache.unmatchTorrent(hash);
       
       this.torrentsWithMetadata.set(hash, Object.assign(existing, {
-        mediaMetadata: null
+        mediaMetadata: null,
+        isNonMedia: false // Unmatching resets non-media too, so it can be matched again
       }) as TorrentWithMetadata);
     }
   }
@@ -151,7 +159,8 @@ export class LiveSyncService {
       await this.cache.setNonMedia(hash, isNonMedia);
       
       this.torrentsWithMetadata.set(hash, Object.assign(existing, {
-        mediaMetadata: isNonMedia ? null : existing.mediaMetadata
+        mediaMetadata: isNonMedia ? null : existing.mediaMetadata,
+        isNonMedia
       }) as TorrentWithMetadata);
     }
   }

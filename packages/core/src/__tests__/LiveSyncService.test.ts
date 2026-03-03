@@ -233,6 +233,37 @@ describe('LiveSyncService', () => {
     await service.unmatchTorrent('h1');
 
     expect(cache.unmatchTorrent).toHaveBeenCalledWith('h1');
-    expect(service.getTorrentsWithMetadata()[0].mediaMetadata).toBeNull();
+    const result = service.getTorrentsWithMetadata()[0];
+    expect(result.mediaMetadata).toBeNull();
+    expect(result.isNonMedia).toBe(false);
+  });
+
+  it('should mark a torrent as non-media and update state', async () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'ISO File',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: ''
+    });
+
+    // 1. Add to state
+    (engine.tick as any).mockResolvedValueOnce({ added: [torrent], updated: [], removed: [], fullUpdate: true });
+    await service.sync();
+
+    // 2. Mark as non-media
+    await service.markAsNonMedia('h1', true);
+
+    expect(cache.setNonMedia).toHaveBeenCalledWith('h1', true);
+    const result = service.getTorrentsWithMetadata()[0];
+    expect(result.isNonMedia).toBe(true);
+    expect(result.mediaMetadata).toBeNull();
+
+    // 3. Mark back as media
+    await service.markAsNonMedia('h1', false);
+    expect(cache.setNonMedia).toHaveBeenCalledWith('h1', false);
+    expect(service.getTorrentsWithMetadata()[0].isNonMedia).toBe(false);
   });
 });

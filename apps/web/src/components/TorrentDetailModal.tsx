@@ -94,17 +94,22 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
     }
   };
 
-  const handleMarkNonMedia = async () => {
+  const handleToggleNonMedia = async () => {
     if (!torrent) return;
+    const targetState = !torrent.isNonMedia;
+    
+    // Only confirm if marking AS non-media
+    if (targetState && !confirm('Mark this torrent as non-media? It will no longer attempt to match with TMDB.')) return;
+    
     setIsActionPending(true);
     try {
       await fetch(`/api/torrents/${torrent.hash}/non-media`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isNonMedia: true })
+        body: JSON.stringify({ isNonMedia: targetState })
       });
     } catch (err) {
-      console.error('Mark non-media failed', err);
+      console.error('Toggle non-media failed', err);
     } finally {
       setIsActionPending(false);
     }
@@ -118,7 +123,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         handleUnmatch();
         break;
       case 'non-media':
-        handleMarkNonMedia();
+        handleToggleNonMedia(); // Actually uses confirm directly for now
         break;
       case 'delete':
         onDelete(torrent.hash);
@@ -191,7 +196,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   if (!isOpen || !torrent) return null;
 
-  const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, files } = torrent;
+  const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, files, isNonMedia } = torrent;
   const progressPercent = Math.round(progress * 100);
 
   return (
@@ -231,6 +236,11 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase tracking-widest">
                     {state}
                   </span>
+                  {isNonMedia && (
+                    <span className="px-2 py-0.5 bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                      Non-Media Item
+                    </span>
+                  )}
                   {mediaMetadata && (
                     <span className="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-[10px] font-black uppercase tracking-widest">
                       Matched by Soup
@@ -276,7 +286,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               ) : (
                 <div className="flex items-center space-x-2">
                   <button 
-                    disabled={isActionPending}
+                    disabled={isActionPending || isNonMedia}
                     onClick={() => { setIsSearchView(true); setActiveTab('details'); }}
                     className="h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all disabled:opacity-50"
                   >
@@ -284,14 +294,10 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   </button>
                   <button 
                     disabled={isActionPending}
-                    onClick={() => setConfirmState({
-                      type: 'non-media',
-                      title: 'Mark as Non-Media',
-                      message: 'Are you sure you want to mark this as non-media? Soup will no longer attempt to find movie or show metadata for this torrent.'
-                    })}
+                    onClick={handleToggleNonMedia}
                     className="h-12 px-6 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
                   >
-                    Non-Media
+                    {isNonMedia ? 'Mark as Media' : 'Non-Media'}
                   </button>
                 </div>
               )}
