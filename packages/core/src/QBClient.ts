@@ -122,59 +122,33 @@ export class QBClient {
   }
 
   public async pauseTorrents(hashes: string[]): Promise<void> {
-    await this.postWithHashes('/torrents/stop', hashes);
+    await this.post('/torrents/stop', { hashes: hashes.join('|') });
   }
 
   public async resumeTorrents(hashes: string[]): Promise<void> {
-    await this.postWithHashes('/torrents/start', hashes);
+    await this.post('/torrents/start', { hashes: hashes.join('|') });
   }
 
   public async forceStartTorrents(hashes: string[]): Promise<void> {
-    const url = new URL(`${this.baseUrl}/torrents/setForceStart`);
-    const params = new URLSearchParams();
-    params.set('hashes', hashes.join('|'));
-    params.set('value', 'true');
-
-    const response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        'Cookie': this.cookies.join('; '),
-        'Referer': this.baseUrl + '/',
-        'Origin': new URL(this.baseUrl).origin,
-      },
-      body: params,
+    await this.post('/torrents/setForceStart', { 
+      hashes: hashes.join('|'),
+      value: 'true'
     });
-
-    if (!response.ok) {
-      throw new Error(`qBittorrent force start error: ${response.statusText}`);
-    }
   }
 
   public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
-    const deleteUrl = new URL(`${this.baseUrl}/torrents/delete`);
-    const params = new URLSearchParams();
-    params.set('hashes', hashes.join('|'));
-    params.set('deleteFiles', deleteFiles.toString());
-
-    const response = await fetch(deleteUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Cookie': this.cookies.join('; '),
-        'Referer': this.baseUrl + '/',
-        'Origin': new URL(this.baseUrl).origin,
-      },
-      body: params,
+    await this.post('/torrents/delete', {
+      hashes: hashes.join('|'),
+      deleteFiles: deleteFiles.toString()
     });
-
-    if (!response.ok) {
-      throw new Error(`qBittorrent delete error: ${response.statusText}`);
-    }
   }
 
-  private async postWithHashes(endpoint: string, hashes: string[]): Promise<void> {
+  private async post(endpoint: string, params: Record<string, string>): Promise<void> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
-    const params = new URLSearchParams();
-    params.set('hashes', hashes.join('|'));
+    const body = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      body.set(key, value);
+    }
 
     const response = await fetch(url.toString(), {
       method: 'POST',
@@ -183,7 +157,7 @@ export class QBClient {
         'Referer': this.baseUrl + '/',
         'Origin': new URL(this.baseUrl).origin,
       },
-      body: params,
+      body,
     });
 
     if (!response.ok) {
