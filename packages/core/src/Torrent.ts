@@ -18,6 +18,8 @@ export interface TorrentProps {
   uploadSpeed: number;
   /** Absolute local path where the torrent content is stored. */
   contentPath: string;
+  /** Unix timestamp when the torrent was added. */
+  addedOn?: number;
   /** Optional list of individual files within the torrent. */
   files?: TorrentFile[];
 }
@@ -43,6 +45,7 @@ export class Torrent {
   public readonly downloadSpeed: number;
   public readonly uploadSpeed: number;
   public readonly contentPath: string;
+  public readonly addedOn?: number;
   public readonly files?: TorrentFile[];
 
   /**
@@ -58,6 +61,7 @@ export class Torrent {
     this.downloadSpeed = props.downloadSpeed;
     this.uploadSpeed = props.uploadSpeed;
     this.contentPath = props.contentPath;
+    this.addedOn = props.addedOn;
     this.files = props.files;
   }
 

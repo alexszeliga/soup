@@ -42,6 +42,7 @@ export interface RawTorrentData {
   dlspeed: number;
   upspeed: number;
   content_path: string;
+  added_on: number;
   [key: string]: unknown;
 }
 
@@ -177,6 +178,7 @@ export class QBClient {
       downloadSpeed: t.dlspeed,
       uploadSpeed: t.upspeed,
       contentPath: t.content_path,
+      addedOn: t.added_on,
     }));
   }
 
@@ -236,6 +238,8 @@ export class QBClient {
     }
 
     const data = await response.json() as any[];
+    console.log(`[QBClient] Raw files for ${hash}:`, Array.isArray(data) ? data.length : 'NOT AN ARRAY');
+    
     return data.map((f, index) => ({
       name: f.name,
       size: f.size,

@@ -10,7 +10,8 @@ describe('Torrent Model', () => {
       state: 'downloading',
       downloadSpeed: 1024,
       uploadSpeed: 512,
-      contentPath: '/downloads/The.Great.Movie.2024.1080p.WEB-DL'
+      contentPath: '/downloads/The.Great.Movie.2024.1080p.WEB-DL',
+      addedOn: 1700000000
     };
 
     const torrent = new Torrent(torrentData);
@@ -19,6 +20,7 @@ describe('Torrent Model', () => {
     expect(torrent.name).toBe(torrentData.name);
     expect(torrent.progress).toBe(torrentData.progress);
     expect(torrent.state).toBe(torrentData.state);
+    expect(torrent.addedOn).toBe(torrentData.addedOn);
   });
 
   it('should return isComplete correctly', () => {

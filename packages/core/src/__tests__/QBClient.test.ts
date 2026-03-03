@@ -15,7 +15,8 @@ describe('QBClient', () => {
         state: 'downloading',
         dlspeed: 1024,
         upspeed: 512,
-        content_path: '/downloads/t1'
+        content_path: '/downloads/t1',
+        added_on: 1700000000
       }
     ];
 
@@ -34,6 +35,7 @@ describe('QBClient', () => {
     expect(torrents.length).toBe(1);
     expect(torrents[0].hash).toBe('h1');
     expect(torrents[0].name).toBe('The.Great.Movie.2024.1080p.WEB-DL');
+    expect(torrents[0].addedOn).toBe(1700000000);
   });
 
   it('should get application preferences', async () => {
