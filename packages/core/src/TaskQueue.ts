@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import { DatabaseInstance } from '@soup/database';
 import { tasks as tasksSchema } from '@soup/database/schema.js';
 
@@ -12,7 +12,8 @@ export interface Task {
   torrentHash: string;
   status: TaskStatus;
   progress: number;
-  run(onProgress: (p: number) => void): Promise<void>;
+  currentFile: string | null;
+  run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void>;
   /** Must return a DB-serializable representation of the task. */
   toJSON(): any;
 }
@@ -65,6 +66,19 @@ export class TaskQueue {
   }
 
   /**
+   * Removes all completed and failed tasks from both the database and memory.
+   */
+  public async clearFinished(): Promise<void> {
+    // 1. Delete from DB
+    this.db.delete(tasksSchema)
+      .where(or(eq(tasksSchema.status, 'completed'), eq(tasksSchema.status, 'failed')))
+      .run();
+
+    // 2. Remove from memory
+    this.tasks = this.tasks.filter(t => t.status === 'queued' || t.status === 'processing');
+  }
+
+  /**
    * Internal orchestrator that picks the next queued task and runs it.
    */
   private async processNext(): Promise<void> {
@@ -81,9 +95,8 @@ export class TaskQueue {
     try {
       this.updateTaskStatus(nextTask, 'processing');
       
-      await nextTask.run((progress) => {
-        // Debounce DB updates if needed, but for now simple sync
-        this.updateTaskProgress(nextTask, progress);
+      await nextTask.run((progress, currentFile) => {
+        this.updateTaskProgress(nextTask, progress, currentFile);
       });
 
       this.updateTaskStatus(nextTask, 'completed');
@@ -104,8 +117,14 @@ export class TaskQueue {
       .run();
   }
 
-  private updateTaskProgress(task: Task, progress: number): void {
+  private updateTaskProgress(task: Task, progress: number, currentFile?: string | null): void {
     task.progress = progress;
+    if (currentFile !== undefined) {
+      task.currentFile = currentFile;
+    }
+    
+    // Note: We're not persisting currentFile to DB yet as schema doesn't have it,
+    // but it's available in memory for the API /getTasks.
     this.db.update(tasksSchema)
       .set({ progress, updatedAt: Date.now() })
       .where(eq(tasksSchema.id, task.id))

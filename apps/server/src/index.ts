@@ -107,6 +107,10 @@ fastify.get('/api/tasks', async () => {
   return queue.getTasks();
 });
 
+fastify.post('/api/tasks/clear', async () => {
+  return queue.clearFinished();
+});
+
 fastify.get('/api/libraries', async () => {
   return ingestion.getLibraryOptions();
 });

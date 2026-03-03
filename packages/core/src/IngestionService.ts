@@ -96,6 +96,7 @@ export class CopyTask implements Task {
   public progress: number = 0;
   public totalBytes: number = 0;
   public completedBytes: number = 0;
+  public currentFile: string | null = null;
 
   /**
    * Creates an instance of CopyTask.
@@ -111,11 +112,12 @@ export class CopyTask implements Task {
   }
 
   /**
-   * Executes the copy operation and reports progress.
+   * Executes the copy operation using high-performance fs.copyFile.
+   * Progress is tracked by polling fs.stat on the destination files.
    * 
    * @param onProgress - Callback for progress updates.
    */
-  public async run(onProgress: (p: number) => void): Promise<void> {
+  public async run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void> {
     this.status = 'processing';
     const files = Object.entries(this.fileMap);
     
@@ -126,32 +128,45 @@ export class CopyTask implements Task {
         this.totalBytes += stats.size;
       }
 
+      let bytesFromFinishedFiles = 0;
+
       // 2. Copy files sequentially
       for (const [src, dest] of files) {
+        this.currentFile = path.basename(src);
+        
         // Ensure destination directory exists
         await fs.promises.mkdir(path.dirname(dest), { recursive: true });
 
-        await new Promise<void>((resolve, reject) => {
-          const readStream = fs.createReadStream(src);
-          const writeStream = fs.createWriteStream(dest);
+        // Start high-performance copy
+        const copyPromise = fs.promises.copyFile(src, dest);
 
-          readStream.on('data', (chunk) => {
-            this.completedBytes += chunk.length;
-            this.progress = Math.round((this.completedBytes / this.totalBytes) * 100);
-            onProgress(this.progress);
-          });
+        // Progress polling while file is copying
+        const pollInterval = setInterval(async () => {
+          try {
+            const destStats = await fs.promises.stat(dest);
+            const currentTotalCompleted = bytesFromFinishedFiles + destStats.size;
+            this.progress = Math.min(99, Math.round((currentTotalCompleted / this.totalBytes) * 100));
+            onProgress(this.progress, this.currentFile);
+          } catch {
+            // File might not exist yet
+          }
+        }, 500);
 
-          readStream.on('error', reject);
-          writeStream.on('error', reject);
-          writeStream.on('finish', resolve);
-
-          readStream.pipe(writeStream);
-        });
+        try {
+          await copyPromise;
+          const srcStats = await fs.promises.stat(src);
+          bytesFromFinishedFiles += srcStats.size;
+          this.progress = Math.round((bytesFromFinishedFiles / this.totalBytes) * 100);
+          onProgress(this.progress, this.currentFile);
+        } finally {
+          clearInterval(pollInterval);
+        }
       }
 
+      this.currentFile = null;
       this.status = 'completed';
       this.progress = 100;
-      onProgress(100);
+      onProgress(100, null);
     } catch (err) {
       this.status = 'failed';
       throw err;
@@ -169,6 +184,7 @@ export class CopyTask implements Task {
       torrentHash: this.torrentHash,
       status: this.status,
       progress: this.progress,
+      currentFile: this.currentFile,
       fileMap: JSON.stringify(this.fileMap)
     };
   }

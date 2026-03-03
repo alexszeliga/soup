@@ -8,11 +8,12 @@ class MockTask implements Task {
   public status: TaskStatus = 'queued';
   public progress = 0;
   public torrentHash = 'h1';
+  public currentFile: string | null = null;
   public fileMap = { 's': 'd' };
   
   constructor(private duration: number = 100, public shouldFail: boolean = false) {}
 
-  async run(onProgress: (p: number) => void): Promise<void> {
+  async run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void> {
     this.status = 'processing';
     if (this.shouldFail) {
       throw new Error('Task failed');
@@ -21,7 +22,7 @@ class MockTask implements Task {
     for (let i = 1; i <= 10; i++) {
       await new Promise(resolve => setTimeout(resolve, this.duration / 10));
       this.progress = i * 10;
-      onProgress(this.progress);
+      onProgress(this.progress, 'test-file.mkv');
     }
     this.status = 'completed';
   }
