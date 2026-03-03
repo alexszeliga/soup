@@ -28,13 +28,18 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
         const data = await res.json();
         setSuggestedPaths(data);
         
-        // Default to selecting large media files (> 100MB)
-        const defaults = new Set<number>();
-        const files = torrent.files || [];
-        files.forEach(f => {
-          if (f.size > 100 * 1024 * 1024) defaults.add(f.index);
+        // Only set default selections if we haven't selected anything yet
+        // and we are not currently in an ingestion process
+        setSelectedIndices(prev => {
+          if (prev.size > 0) return prev;
+          
+          const defaults = new Set<number>();
+          const files = torrent.files || [];
+          files.forEach(f => {
+            if (f.size > 100 * 1024 * 1024) defaults.add(f.index);
+          });
+          return defaults;
         });
-        setSelectedIndices(defaults);
       } catch (err) {
         console.error('Failed to fetch suggestions', err);
       } finally {
@@ -42,7 +47,7 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
       }
     };
     fetchSuggestions();
-  }, [torrent.hash, torrent.files]);
+  }, [torrent.hash]); // Only depend on hash, not files reference
 
   const handleToggleFile = (index: number) => {
     setSelectedIndices(prev => {
