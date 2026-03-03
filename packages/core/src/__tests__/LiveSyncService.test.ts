@@ -14,7 +14,7 @@ describe('LiveSyncService', () => {
 
   beforeEach(() => {
     engine = {
-      tick: vi.fn(),
+      tick: vi.fn().mockResolvedValue({ added: [], updated: [], removed: [], fullUpdate: false }),
       getTorrents: vi.fn().mockReturnValue([])
     } as any;
     
@@ -51,11 +51,11 @@ describe('LiveSyncService', () => {
     });
 
     // 1. First tick finds nothing
-    (engine.getTorrents as any).mockReturnValueOnce([]);
+    (engine.tick as any).mockResolvedValueOnce({ added: [], updated: [], removed: [], fullUpdate: true });
     await service.sync();
 
     // 2. Second tick finds a new torrent
-    (engine.getTorrents as any).mockReturnValueOnce([torrent]);
+    (engine.tick as any).mockResolvedValueOnce({ added: [torrent], updated: [], removed: [], fullUpdate: false });
     (cache.getMetadataForTorrent as any).mockResolvedValue(null);
     (matcher.match as any).mockResolvedValue(metadata);
 
@@ -63,6 +63,7 @@ describe('LiveSyncService', () => {
 
     expect(matcher.match).toHaveBeenCalledWith(torrent);
     expect(cache.saveMetadataForTorrent).toHaveBeenCalledWith(torrent, metadata);
+    expect(service.getTorrentsWithMetadata()).toHaveLength(1);
   });
 
   it('should use cached metadata if available', async () => {
@@ -85,13 +86,14 @@ describe('LiveSyncService', () => {
       posterPath: ''
     });
 
-    (engine.getTorrents as any).mockReturnValue([torrent]);
+    (engine.tick as any).mockResolvedValue({ added: [torrent], updated: [], removed: [], fullUpdate: true });
     (cache.getMetadataForTorrent as any).mockResolvedValue(metadata);
 
     await service.sync();
 
     expect(matcher.match).not.toHaveBeenCalled();
     const result = service.getTorrentsWithMetadata();
+    expect(result).toHaveLength(1);
     expect(result[0].mediaMetadata).toBe(metadata);
   });
 });

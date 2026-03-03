@@ -18,43 +18,43 @@ export class LiveSyncService {
   ) {}
 
   public async sync(): Promise<void> {
-    await this.engine.tick();
-    const engineTorrents = this.engine.getTorrents();
-    const engineHashes = new Set(engineTorrents.map(t => t.hash));
+    const delta = await this.engine.tick();
 
-    // 1. Remove torrents that are no longer in engine
-    for (const hash of this.torrentsWithMetadata.keys()) {
-      if (!engineHashes.has(hash)) {
-        this.torrentsWithMetadata.delete(hash);
-      }
+    if (delta.fullUpdate) {
+      this.torrentsWithMetadata.clear();
     }
 
-    // 2. Update existing or add new torrents
-    for (const torrent of engineTorrents) {
+    // 1. Remove torrents
+    for (const hash of delta.removed) {
+      this.torrentsWithMetadata.delete(hash);
+    }
+
+    // 2. Update existing torrents
+    for (const torrent of delta.updated) {
       const existing = this.torrentsWithMetadata.get(torrent.hash);
-      
       if (existing) {
-        // Update properties, preserve metadata
         this.torrentsWithMetadata.set(torrent.hash, {
           ...torrent,
           mediaMetadata: existing.mediaMetadata
         } as TorrentWithMetadata);
-      } else {
-        // New torrent found
-        let metadata = await this.cache.getMetadataForTorrent(torrent.hash);
-        
-        if (!metadata) {
-          metadata = await this.matcher.match(torrent);
-          if (metadata) {
-            await this.cache.saveMetadataForTorrent(torrent, metadata);
-          }
-        }
-
-        this.torrentsWithMetadata.set(torrent.hash, {
-          ...torrent,
-          mediaMetadata: metadata
-        } as TorrentWithMetadata);
       }
+    }
+
+    // 3. Add new torrents
+    for (const torrent of delta.added) {
+      let metadata = await this.cache.getMetadataForTorrent(torrent.hash);
+      
+      if (!metadata) {
+        metadata = await this.matcher.match(torrent);
+        if (metadata) {
+          await this.cache.saveMetadataForTorrent(torrent, metadata);
+        }
+      }
+
+      this.torrentsWithMetadata.set(torrent.hash, {
+        ...torrent,
+        mediaMetadata: metadata
+      } as TorrentWithMetadata);
     }
   }
 

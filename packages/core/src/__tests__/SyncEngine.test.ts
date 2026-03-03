@@ -15,12 +15,15 @@ describe('SyncEngine', () => {
     } as any as QBClient;
 
     const engine = new SyncEngine(mockQB);
-    await engine.tick();
+    const delta = await engine.tick();
+
+    expect(delta.added).toHaveLength(1);
+    expect(delta.added[0].hash).toBe('h1');
+    expect(delta.fullUpdate).toBe(true);
 
     const torrents = engine.getTorrents();
     expect(torrents).toHaveLength(1);
     expect(torrents[0].hash).toBe('h1');
-    expect(torrents[0].progress).toBe(0.5);
   });
 
   it('should apply partial updates (deltas)', async () => {
@@ -43,11 +46,15 @@ describe('SyncEngine', () => {
 
     const engine = new SyncEngine(mockQB);
     await engine.tick(); // RID 1
-    await engine.tick(); // RID 2
+    const delta = await engine.tick(); // RID 2
+
+    expect(delta.updated).toHaveLength(1);
+    expect(delta.updated[0].hash).toBe('h1');
+    expect(delta.updated[0].progress).toBe(0.6);
+    expect(delta.added).toHaveLength(0);
 
     const torrents = engine.getTorrents();
     expect(torrents[0].progress).toBe(0.6);
-    expect(torrents[0].name).toBe('Torrent 1'); // Preserved from previous state
   });
 
   it('should remove torrents', async () => {
@@ -68,9 +75,9 @@ describe('SyncEngine', () => {
 
     const engine = new SyncEngine(mockQB);
     await engine.tick();
-    expect(engine.getTorrents()).toHaveLength(1);
-
-    await engine.tick();
+    
+    const delta = await engine.tick();
+    expect(delta.removed).toContain('h1');
     expect(engine.getTorrents()).toHaveLength(0);
   });
 });

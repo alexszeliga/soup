@@ -9,6 +9,12 @@ export interface TorrentProps {
 }
 
 export class Torrent {
+  public static readonly ACTIVE_STATES = [
+    'allocating', 'downloading', 'metaDL', 'stalledDL', 'checkingDL', 
+    'forcedDL', 'queuedDL', 'uploading', 'stalledUP', 'forcedUP', 
+    'queuedUP', 'checkingUP', 'moving'
+  ];
+
   public readonly hash: string;
   public readonly name: string;
   public readonly progress: number;
@@ -29,6 +35,10 @@ export class Torrent {
 
   public get isComplete(): boolean {
     return this.progress === 1;
+  }
+
+  public get isActive(): boolean {
+    return Torrent.ACTIVE_STATES.includes(this.state);
   }
 
   public getMediaInfo(): { title: string; year: number | null } {
