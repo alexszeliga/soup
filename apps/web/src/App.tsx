@@ -6,6 +6,7 @@ import TorrentDetailModal from './components/TorrentDetailModal';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
+import { useNotification } from './context/NotificationContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -28,6 +29,7 @@ function App() {
   const [selectedTorrentHash, setSelectedTorrentHash] = useState<string | null>(null);
   const [config, setConfig] = useState<ClientConfig | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('dateAdded');
+  const { showNotification } = useNotification();
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
 
@@ -87,10 +89,11 @@ function App() {
       });
 
       if (!response.ok) throw new Error('Failed to add torrent');
+      showNotification('Torrent added successfully', 'success');
       fetchTorrents();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      alert(message);
+      showNotification(message, 'error');
     }
   };
 

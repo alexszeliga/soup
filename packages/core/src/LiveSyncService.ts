@@ -74,14 +74,12 @@ export class LiveSyncService {
           metadata = await this.fetchMetadata(torrent);
         }
 
-        // Merge properties into a new object that satisfies TorrentWithMetadata.
-        // We use Object.assign to preserve methods from the Torrent instance.
-        const updated = Object.assign(torrent, {
+        const merged = Object.assign(torrent, {
           mediaMetadata: metadata,
           files: torrent.files || existing.files
         }) as TorrentWithMetadata;
 
-        this.torrentsWithMetadata.set(torrent.hash, updated);
+        this.torrentsWithMetadata.set(torrent.hash, merged);
       }
     }
 
@@ -89,12 +87,12 @@ export class LiveSyncService {
     for (const torrent of delta.added) {
       const metadata = await this.fetchMetadata(torrent);
 
-      const added = Object.assign(torrent, {
+      const merged = Object.assign(torrent, {
         mediaMetadata: metadata,
         files: torrent.files
       }) as TorrentWithMetadata;
 
-      this.torrentsWithMetadata.set(torrent.hash, added);
+      this.torrentsWithMetadata.set(torrent.hash, merged);
     }
   }
 
@@ -117,12 +115,45 @@ export class LiveSyncService {
     }
 
     // Save to cache so it's persistent and respected by future syncs
-    await this.cache.saveMetadataForTorrent(existing as Torrent, metadata);
+    await this.cache.saveMetadataForTorrent(existing, metadata);
 
     // Update in-memory state immediately
     this.torrentsWithMetadata.set(hash, Object.assign(existing, {
       mediaMetadata: metadata
     }) as TorrentWithMetadata);
+  }
+
+  /**
+   * Clears media metadata associated with a torrent.
+   * 
+   * @param hash - The torrent hash.
+   */
+  public async unmatchTorrent(hash: string): Promise<void> {
+    const existing = this.torrentsWithMetadata.get(hash);
+    if (existing) {
+      await this.cache.unmatchTorrent(hash);
+      
+      this.torrentsWithMetadata.set(hash, Object.assign(existing, {
+        mediaMetadata: null
+      }) as TorrentWithMetadata);
+    }
+  }
+
+  /**
+   * Marks or unmarks a torrent as non-media content to prevent automatic matching.
+   * 
+   * @param hash - The torrent hash.
+   * @param isNonMedia - True to mark as non-media.
+   */
+  public async markAsNonMedia(hash: string, isNonMedia: boolean): Promise<void> {
+    const existing = this.torrentsWithMetadata.get(hash);
+    if (existing) {
+      await this.cache.setNonMedia(hash, isNonMedia);
+      
+      this.torrentsWithMetadata.set(hash, Object.assign(existing, {
+        mediaMetadata: isNonMedia ? null : existing.mediaMetadata
+      }) as TorrentWithMetadata);
+    }
   }
 
   /**
@@ -132,6 +163,11 @@ export class LiveSyncService {
    * @returns MediaMetadata or null.
    */
   private async fetchMetadata(torrent: Torrent): Promise<MediaMetadata | null> {
+    // If manually marked as non-media, don't even check cache/matcher
+    if (await this.cache.isNonMedia(torrent.hash)) {
+      return null;
+    }
+
     let metadata = await this.cache.getMetadataForTorrent(torrent.hash);
     
     if (!metadata) {

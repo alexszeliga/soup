@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { QBPreferences } from '@soup/core/QBClient.js';
+import { useNotification } from '../context/NotificationContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
   const [settings, setSettings] = useState<QBPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSubmitting] = useState(false);
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     if (isOpen) {
@@ -29,6 +31,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
       setSettings(data);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
+      showNotification('Failed to load settings', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -40,15 +43,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
 
     setIsSubmitting(true);
     try {
-      await fetch(`${apiUrl}/preferences`, {
+      const response = await fetch(`${apiUrl}/preferences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       });
-      onClose();
+      if (response.ok) {
+        showNotification('Settings saved successfully', 'success');
+        onClose();
+      } else {
+        throw new Error('Save failed');
+      }
     } catch (err) {
       console.error('Failed to save settings:', err);
-      alert('Failed to save settings');
+      showNotification('Failed to save settings', 'error');
     } finally {
       setIsSubmitting(false);
     }

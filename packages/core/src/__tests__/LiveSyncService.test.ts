@@ -27,7 +27,10 @@ describe('LiveSyncService', () => {
     
     cache = {
       getMetadataForTorrent: vi.fn(),
-      saveMetadataForTorrent: vi.fn()
+      saveMetadataForTorrent: vi.fn(),
+      unmatchTorrent: vi.fn(),
+      isNonMedia: vi.fn().mockResolvedValue(false),
+      setNonMedia: vi.fn()
     } as any;
 
     provider = {
@@ -197,5 +200,39 @@ describe('LiveSyncService', () => {
     
     const result = service.getTorrentsWithMetadata();
     expect(result[0].mediaMetadata).toBe(metadata);
+  });
+
+  it('should unmatch a torrent and clear its metadata', async () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'Movie to Unmatch',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: ''
+    });
+
+    const metadata = new MediaMetadata({
+      id: 'm1',
+      title: 'Movie',
+      year: 2024,
+      plot: '',
+      cast: [],
+      posterPath: ''
+    });
+
+    // 1. Initial state with metadata
+    (engine.tick as any).mockResolvedValueOnce({ added: [torrent], updated: [], removed: [], fullUpdate: true });
+    (cache.getMetadataForTorrent as any).mockResolvedValue(metadata);
+    await service.sync();
+    expect(service.getTorrentsWithMetadata()[0].mediaMetadata).toBe(metadata);
+
+    // 2. Unmatch
+    (cache.unmatchTorrent as any).mockResolvedValue(undefined);
+    await service.unmatchTorrent('h1');
+
+    expect(cache.unmatchTorrent).toHaveBeenCalledWith('h1');
+    expect(service.getTorrentsWithMetadata()[0].mediaMetadata).toBeNull();
   });
 });

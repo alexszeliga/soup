@@ -65,6 +65,10 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [ ] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
 - [x] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
+- [ ] **UI/UX Hardening:** Replace all browser-native `alert()` and `confirm()` dialogs with integrated Material 3 components.
+    - [ ] Implement a reusable `ConfirmDialog` component for destructive actions.
+    - [ ] Implement a `Snackbar` system for non-intrusive error/success feedback.
+    - [ ] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
@@ -77,6 +81,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [ ] **Deployment:** Plan and implement a container hosting strategy.
 
 ## Handoff Notes (Session 1)
+- **Database Location:** The active database is located at `apps/server/soup.db`. If you add columns to the schema, you must manually handle migrations in `MetadataCache.ts` or nuke this file to trigger recreation.
 - **qBittorrent v5.0+ Compatibility:** Crucial! Use `/torrents/stop` and `/torrents/start`. The old `/pause` and `/resume` endpoints are removed and will return 404.
 - **Security Headers:** All state-changing POST/DELETE requests *must* include `Referer: <base_url>/` and `Origin: <origin>` to bypass CSRF protection.
 - **Auth:** Cookies must be parsed to extract *only* the `SID` (e.g., `sidMatch[0]`) to ensure reliability.

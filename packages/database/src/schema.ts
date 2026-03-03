@@ -19,6 +19,7 @@ export const torrents = sqliteTable('torrents', {
   hash: text('hash').primaryKey(),
   name: text('name').notNull(),
   metadataId: text('metadata_id').references(() => metadata.id),
+  isNonMedia: integer('is_non_media', { mode: 'boolean' }).notNull().default(false),
   updatedAt: integer('updated_at').notNull(),
 });
 

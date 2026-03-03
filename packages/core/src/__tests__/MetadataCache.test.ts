@@ -3,6 +3,7 @@ import { MetadataCache } from '../MetadataCache.js';
 import { Torrent } from '../Torrent.js';
 import { MediaMetadata } from '../MediaMetadata.js';
 import { createDatabase, DatabaseInstance } from '@soup/database';
+import { torrents as torrentsSchema } from '@soup/database/schema.js';
 import * as fs from 'fs';
 
 describe('MetadataCache Service', () => {
@@ -28,6 +29,7 @@ describe('MetadataCache Service', () => {
       hash TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       metadata_id TEXT REFERENCES metadata(id),
+      is_non_media INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     )`);
   });
@@ -91,5 +93,22 @@ describe('MetadataCache Service', () => {
 
     const retrieved = await cache.getMetadataForTorrent(torrent.hash);
     expect(retrieved).toBeNull();
+  });
+
+  it('should mark a torrent as non-media', async () => {
+    const hash = 'h1';
+    await db.insert(torrentsSchema).values({
+      hash,
+      name: 'Non-Media File',
+      updatedAt: Date.now(),
+      isNonMedia: false
+    }).run();
+
+    await cache.setNonMedia(hash, true);
+    const isNonMedia = await cache.isNonMedia(hash);
+    expect(isNonMedia).toBe(true);
+
+    const metadata = await cache.getMetadataForTorrent(hash);
+    expect(metadata).toBeNull();
   });
 });

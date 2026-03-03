@@ -159,7 +159,13 @@ fastify.post('/api/torrents/:hash/metadata', async (request, reply) => {
 
 fastify.post('/api/torrents/:hash/unmatch', async (request, reply) => {
   const { hash } = request.params as { hash: string };
-  return handleAPIAction(reply, () => cache.unmatchTorrent(hash));
+  return handleAPIAction(reply, () => liveSync.unmatchTorrent(hash));
+});
+
+fastify.post('/api/torrents/:hash/non-media', async (request, reply) => {
+  const { hash } = request.params as { hash: string };
+  const { isNonMedia } = request.body as { isNonMedia: boolean };
+  return handleAPIAction(reply, () => liveSync.markAsNonMedia(hash, isNonMedia));
 });
 
 fastify.post('/api/torrents/:hash/files/priority', async (request, reply) => {
