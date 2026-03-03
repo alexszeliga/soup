@@ -5,14 +5,11 @@ interface TorrentListProps {
   torrents: TorrentWithMetadata[];
   isLoading: boolean;
   pendingHashes: Set<string>;
-  onPause: (hash: string) => void;
-  onResume: (hash: string) => void;
-  onDelete: (hash: string) => void;
   onSelect: (hash: string) => void;
 }
 
 const TorrentList: React.FC<TorrentListProps> = ({ 
-  torrents, isLoading, pendingHashes, onPause, onResume, onDelete, onSelect 
+  torrents, isLoading, pendingHashes, onSelect 
 }) => {
   if (isLoading) {
     return (
@@ -42,9 +39,6 @@ const TorrentList: React.FC<TorrentListProps> = ({
           key={torrent.hash} 
           torrent={torrent} 
           isLoading={pendingHashes.has(torrent.hash)}
-          onPause={onPause}
-          onResume={onResume}
-          onDelete={onDelete}
           onClick={() => onSelect(torrent.hash)}
         />
       ))}

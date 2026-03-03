@@ -4,13 +4,10 @@ import { Torrent } from '@soup/core/Torrent.js';
 interface TorrentCardProps {
   torrent: TorrentWithMetadata;
   isLoading?: boolean;
-  onPause: (hash: string) => void;
-  onResume: (hash: string) => void;
-  onDelete: (hash: string) => void;
   onClick: () => void;
 }
 
-const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, onResume, onDelete, onClick }) => {
+const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }) => {
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
@@ -30,7 +27,7 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, 
       )}
 
       {/* Poster Area */}
-      <div className="relative w-28 sm:w-full flex-shrink-0 aspect-[2/3] sm:aspect-[2/3] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+      <div className="relative w-28 sm:w-full flex-shrink-0 aspect-[2/3] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
         {mediaMetadata?.posterPath ? (
           <img 
             src={mediaMetadata.posterPath} 
@@ -49,7 +46,6 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, 
 
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
-
           <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${!isActive ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
             {torrent.state}
           </span>
@@ -59,62 +55,27 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, 
       {/* Info Area */}
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div className="space-y-1">
-          <div className="flex justify-between items-start">
-            <h3 className="font-bold text-zinc-900 dark:text-zinc-100 leading-tight line-clamp-2 sm:line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-1">
-              {displayTitle}
-            </h3>
-          </div>
-          <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-500 truncate">
+          <h3 className="font-bold text-zinc-900 dark:text-zinc-100 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors break-words">
+            {displayTitle}
+          </h3>
+          <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-500 break-all opacity-70">
             {torrent.name}
           </p>
         </div>
 
-        {/* Progress & Actions Section */}
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
-              <span className="text-zinc-400 dark:text-zinc-600">Progress</span>
-              <span className={progress === 1 ? 'text-green-500' : 'text-blue-500'}>
-                {progressPercent}%
-              </span>
-            </div>
-            <div className="h-1.5 sm:h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div 
-                className={`h-full transition-all duration-1000 ease-in-out ${progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+        {/* Progress Section */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
+            <span className="text-zinc-400 dark:text-zinc-600">Progress</span>
+            <span className={progress === 1 ? 'text-green-500' : 'text-blue-500'}>
+              {progressPercent}%
+            </span>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2 pt-1">
-            {!isActive ? (
-              <button 
-                disabled={isLoading}
-                onClick={(e) => { e.stopPropagation(); onResume(torrent.hash); }}
-                className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                <span className="text-xs">▶️</span>
-                <span className="text-[10px] font-black uppercase tracking-widest">Start</span>
-              </button>
-            ) : (
-              <button 
-                disabled={isLoading}
-                onClick={(e) => { e.stopPropagation(); onPause(torrent.hash); }}
-                className="flex-1 h-9 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                <span className="text-xs">⏸️</span>
-                <span className="text-[10px] font-black uppercase tracking-widest">Pause</span>
-              </button>
-            )}
-            <button 
-              disabled={isLoading}
-              onClick={(e) => { e.stopPropagation(); if(confirm('Delete torrent?')) onDelete(torrent.hash); }}
-              className="w-9 h-9 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl flex items-center justify-center transition-all group/del disabled:opacity-50"
-              title="Delete"
-            >
-              <span className="text-xs group-hover/del:scale-110 transition-transform">🗑️</span>
-            </button>
+          <div className="h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-1000 ease-in-out ${progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`}
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
       </div>

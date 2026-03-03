@@ -252,9 +252,6 @@ function App() {
               torrents={torrents} 
               isLoading={isLoading} 
               pendingHashes={new Set(pendingTransitions.keys())}
-              onPause={handlePause}
-              onResume={handleResume}
-              onDelete={handleDelete}
               onSelect={setSelectedTorrentHash}
             />
           </div>
