@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import dotenv from 'dotenv';
 import path from 'path';
-import { QBClient } from '@soup/core/QBClient.js';
+import { QBClient, QBPreferences } from '@soup/core/QBClient.js';
 import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
 import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
 import { MetadataCache } from '@soup/core/MetadataCache.js';
@@ -73,6 +73,10 @@ fastify.get('/api/state', async () => {
   return liveSync.getServerState();
 });
 
+fastify.get('/api/preferences', async () => {
+  return qb.getPreferences();
+});
+
 fastify.post('/api/torrents', async (request, reply) => {
   const data = await request.file();
   
@@ -94,7 +98,7 @@ fastify.post('/api/torrents', async (request, reply) => {
 });
 
 /**
- * Common wrapper for torrent action routes.
+ * Common wrapper for async API actions.
  * 
  * Handles:
  * 1. Execution of the provided async action.
@@ -105,7 +109,7 @@ fastify.post('/api/torrents', async (request, reply) => {
  * @param action - The async function to execute.
  * @returns Standard { success: true } or error object.
  */
-async function handleTorrentAction(reply: any, action: () => Promise<void>) {
+async function handleAPIAction(reply: any, action: () => Promise<void>) {
   try {
     await action();
     return { success: true };
@@ -115,19 +119,24 @@ async function handleTorrentAction(reply: any, action: () => Promise<void>) {
   }
 }
 
+fastify.post('/api/preferences', async (request, reply) => {
+  const prefs = request.body as Partial<QBPreferences>;
+  return handleAPIAction(reply, () => qb.setPreferences(prefs));
+});
+
 fastify.post('/api/torrents/pause', async (request, reply) => {
   const { hashes } = request.body as { hashes: string[] };
-  return handleTorrentAction(reply, () => qb.pauseTorrents(hashes));
+  return handleAPIAction(reply, () => qb.pauseTorrents(hashes));
 });
 
 fastify.post('/api/torrents/resume', async (request, reply) => {
   const { hashes } = request.body as { hashes: string[] };
-  return handleTorrentAction(reply, () => qb.forceStartTorrents(hashes));
+  return handleAPIAction(reply, () => qb.forceStartTorrents(hashes));
 });
 
 fastify.delete('/api/torrents', async (request, reply) => {
   const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
-  return handleTorrentAction(reply, () => qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true'));
+  return handleAPIAction(reply, () => qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true'));
 });
 
 const start = async () => {
