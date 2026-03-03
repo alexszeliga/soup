@@ -61,10 +61,18 @@ export class SyncEngine {
    */
   public async tick(): Promise<SyncDelta> {
     // 1. Fetch main data and files (if focused) in parallel
+    if (this.focusHash) {
+      console.log(`[SyncEngine] Ticking with focus on: ${this.focusHash}`);
+    }
+
     const [data, focusedFiles] = await Promise.all([
       this.qb.getMainData(this.rid),
       this.focusHash ? this.qb.getTorrentFiles(this.focusHash) : Promise.resolve(null)
     ]);
+
+    if (this.focusHash && focusedFiles) {
+      console.log(`[SyncEngine] Fetched ${focusedFiles.length} files for ${this.focusHash}`);
+    }
 
     this.rid = data.rid;
 
@@ -79,7 +87,8 @@ export class SyncEngine {
     // Update or add torrents
     if (data.torrents) {
       for (const [hash, torrentData] of Object.entries(data.torrents)) {
-        if (!this.torrents.has(hash)) {
+        const isNew = !this.torrents.has(hash);
+        if (isNew) {
           addedHashes.push(hash);
         } else {
           updatedHashes.push(hash);
@@ -95,6 +104,7 @@ export class SyncEngine {
       this.torrents.set(this.focusHash, { ...existing, files: focusedFiles });
       
       // Always mark as updated if we have new file data, even if mainData didn't change it
+      // AND it wasn't already marked as 'added'
       if (!updatedHashes.includes(this.focusHash) && !addedHashes.includes(this.focusHash)) {
         updatedHashes.push(this.focusHash);
       }
@@ -153,6 +163,7 @@ export class SyncEngine {
       downloadSpeed: (t.dlspeed as number) || 0,
       uploadSpeed: (t.upspeed as number) || 0,
       contentPath: (t.content_path as string) || '',
+      addedOn: t.added_on as number,
       files: t.files as TorrentFile[] | undefined,
     });
   }

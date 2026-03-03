@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import TorrentList from './components/TorrentList';
 import AddTorrentModal from './components/AddTorrentModal';
 import SettingsModal from './components/SettingsModal';
 import TorrentDetailModal from './components/TorrentDetailModal';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import { sortTorrents } from './utils/sorting';
+import type { SortOption } from './utils/sorting';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -25,17 +27,22 @@ function App() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [selectedTorrentHash, setSelectedTorrentHash] = useState<string | null>(null);
   const [config, setConfig] = useState<ClientConfig | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('dateAdded');
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
 
   const selectedTorrent = torrents.find(t => t.hash === selectedTorrentHash) || null;
 
+  const sortedTorrents = useMemo(() => {
+    return sortTorrents(torrents, sortBy);
+  }, [torrents, sortBy]);
+
   const fetchTorrents = async () => {
     try {
-      let url = `${API_URL}/torrents`;
-      if (selectedTorrentHash) {
-        url += `?focus=${selectedTorrentHash}`;
-      }
+      const url = selectedTorrentHash 
+        ? `${API_URL}/torrents/focus/${selectedTorrentHash}`
+        : `${API_URL}/torrents`;
+        
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch torrents');
       const data = await response.json() as TorrentWithMetadata[];
@@ -148,7 +155,7 @@ function App() {
     fetchTorrents();
     const interval = setInterval(fetchTorrents, config?.syncInterval || 2000);
     return () => clearInterval(interval);
-  }, [config?.syncInterval]);
+  }, [config?.syncInterval, selectedTorrentHash]);
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30">
@@ -187,19 +194,30 @@ function App() {
 
         <nav className="flex-1 px-3 space-y-1">
           <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hidden lg:block">Library</div>
-          <button className="w-full flex items-center space-x-3 px-4 py-3 bg-blue-100/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl transition-all">
+          
+          <button 
+            onClick={() => { setSelectedTorrentHash(null); setIsAddModalOpen(false); setIsSettingsModalOpen(false); }}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${(!isAddModalOpen && !isSettingsModalOpen && !selectedTorrentHash) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
+          >
             <span className="text-xl">📥</span>
             <span className="hidden lg:block font-bold text-sm">Downloads</span>
           </button>
-          <button className="w-full flex items-center space-x-3 px-4 py-3 text-zinc-500 dark:text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-2xl transition-all group">
-            <span className="text-xl group-hover:scale-110 transition-transform">⭐</span>
-            <span className="hidden lg:block font-bold text-sm">Favorites</span>
-          </button>
+
           <button 
-            onClick={() => setIsSettingsModalOpen(true)}
-            className="w-full flex items-center space-x-3 px-4 py-3 text-zinc-500 dark:text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-2xl transition-all group"
+            onClick={() => { setIsAddModalOpen(true); setIsSettingsModalOpen(false); }}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${isAddModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
           >
-            <span className="text-xl group-hover:scale-110 transition-transform">⚙️</span>
+            <span className="text-xl">➕</span>
+            <span className="hidden lg:block font-bold text-sm">Add Torrent</span>
+          </button>
+
+          <div className="px-3 py-2 mt-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hidden lg:block">System</div>
+
+          <button 
+            onClick={() => { setIsSettingsModalOpen(true); setIsAddModalOpen(false); }}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${isSettingsModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
+          >
+            <span className="text-xl">⚙️</span>
             <span className="hidden lg:block font-bold text-sm">Settings</span>
           </button>
         </nav>
@@ -223,18 +241,22 @@ function App() {
             <h2 className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Dashboard</h2>
             <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mt-1">Active Transfers</h1>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-full shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center space-x-2"
-            >
-              <span>➕</span>
-              <span className="hidden sm:inline text-[10px]">Add Torrent</span>
-            </button>
-            <div className="h-10 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center border border-zinc-200/50 dark:border-zinc-800/50">
-              <span className="mr-2 text-xs font-black text-zinc-400">Search</span>
-              <input type="text" className="bg-transparent border-none outline-none text-sm font-bold w-32 lg:w-64" placeholder="Filter torrents..." />
+
+          <div className="flex items-center space-x-2">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mr-2">Sort by</p>
+            <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-1 border border-zinc-200/50 dark:border-zinc-800/50">
+              <button 
+                onClick={() => setSortBy('dateAdded')}
+                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'dateAdded' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+              >
+                Date
+              </button>
+              <button 
+                onClick={() => setSortBy('alphabetical')}
+                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'alphabetical' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+              >
+                Name
+              </button>
             </div>
           </div>
         </header>
@@ -253,7 +275,7 @@ function App() {
             )}
 
             <TorrentList 
-              torrents={torrents} 
+              torrents={sortedTorrents} 
               isLoading={isLoading} 
               pendingHashes={new Set(pendingTransitions.keys())}
               onSelect={setSelectedTorrentHash}

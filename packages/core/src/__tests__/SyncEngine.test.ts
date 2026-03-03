@@ -9,7 +9,7 @@ describe('SyncEngine', () => {
         rid: 1,
         full_update: true,
         torrents: {
-          'h1': { name: 'Torrent 1', progress: 0.5, state: 'downloading' }
+          'h1': { name: 'Torrent 1', progress: 0.5, state: 'downloading', added_on: 1700000000 }
         }
       })
     } as any as QBClient;
@@ -19,11 +19,13 @@ describe('SyncEngine', () => {
 
     expect(delta.added).toHaveLength(1);
     expect(delta.added[0].hash).toBe('h1');
+    expect(delta.added[0].addedOn).toBe(1700000000);
     expect(delta.fullUpdate).toBe(true);
 
     const torrents = engine.getTorrents();
     expect(torrents).toHaveLength(1);
     expect(torrents[0].hash).toBe('h1');
+    expect(torrents[0].addedOn).toBe(1700000000);
   });
 
   it('should apply partial updates (deltas)', async () => {
@@ -108,5 +110,30 @@ describe('SyncEngine', () => {
     engine.setFocus(null);
     await engine.tick();
     expect(mockQB.getTorrentFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it('should inject files correctly for newly added focused torrents', async () => {
+    const mockFiles = [{ name: 'file1.mp4', size: 100, progress: 1, priority: 1, index: 0 }];
+    const mockQB = {
+      getMainData: vi.fn().mockResolvedValue({
+        rid: 1,
+        full_update: true,
+        torrents: { 'hnew': { name: 'New Torrent' } }
+      }),
+      getTorrentFiles: vi.fn().mockResolvedValue(mockFiles)
+    } as any as QBClient;
+
+    const engine = new SyncEngine(mockQB);
+    engine.setFocus('hnew');
+    
+    const delta = await engine.tick();
+    
+    expect(mockQB.getTorrentFiles).toHaveBeenCalledWith('hnew');
+    expect(delta.added).toHaveLength(1);
+    expect(delta.added[0].hash).toBe('hnew');
+    expect(delta.added[0].files).toEqual(mockFiles);
+    
+    const stored = engine.getTorrents().find(t => t.hash === 'hnew');
+    expect(stored?.files).toEqual(mockFiles);
   });
 });
