@@ -53,7 +53,7 @@ describe('QBClient Sync API', () => {
     await client.pauseTorrents(['h1']);
 
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/torrents/pause'),
+      expect.stringContaining('/torrents/stop'),
       expect.objectContaining({
         method: 'POST',
         body: expect.any(URLSearchParams)
@@ -71,7 +71,7 @@ describe('QBClient Sync API', () => {
     await client.resumeTorrents(['h1']);
 
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/torrents/resume'),
+      expect.stringContaining('/torrents/start'),
       expect.objectContaining({
         method: 'POST',
         body: expect.any(URLSearchParams)

@@ -122,11 +122,11 @@ export class QBClient {
   }
 
   public async pauseTorrents(hashes: string[]): Promise<void> {
-    await this.postWithHashes('/torrents/pause', hashes);
+    await this.postWithHashes('/torrents/stop', hashes);
   }
 
   public async resumeTorrents(hashes: string[]): Promise<void> {
-    await this.postWithHashes('/torrents/resume', hashes);
+    await this.postWithHashes('/torrents/start', hashes);
   }
 
   public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
