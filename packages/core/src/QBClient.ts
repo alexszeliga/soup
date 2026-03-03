@@ -1,6 +1,21 @@
 import { Torrent } from './Torrent.js';
 
 /**
+ * Interface representing qBittorrent application preferences.
+ * This is a partial map of the many settings available.
+ */
+export interface QBPreferences extends Record<string, any> {
+  /** Default save path for torrents. */
+  save_path?: string;
+  /** True if DHT is enabled. */
+  dht?: boolean;
+  /** Global download speed limit in bytes per second. */
+  dl_limit?: number;
+  /** Global upload speed limit in bytes per second. */
+  up_limit?: number;
+}
+
+/**
  * Interface representing the structure of the qBittorrent sync/maindata response.
  */
 export interface SyncResponse {
@@ -104,7 +119,7 @@ export class QBClient {
   }
 
   /**
-   * Retrieves a full list of torrents currently in the library.
+   * Retrieves specified torrents from the server.
    * 
    * @returns Array of Torrent objects.
    */
@@ -133,6 +148,40 @@ export class QBClient {
       uploadSpeed: t.upspeed,
       contentPath: t.content_path,
     }));
+  }
+
+  /**
+   * Retrieves all application preferences.
+   * 
+   * @returns A promise that resolves to the preferences object.
+   */
+  public async getPreferences(): Promise<QBPreferences> {
+    const prefsUrl = new URL(`${this.baseUrl}/app/preferences`);
+
+    const response = await fetch(prefsUrl.toString(), {
+      headers: {
+        'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent getPreferences error: ${response.statusText}`);
+    }
+
+    return await response.json() as QBPreferences;
+  }
+
+  /**
+   * Updates one or more application preferences.
+   * 
+   * @param prefs - Partial preferences object containing keys to update.
+   * @returns A promise that resolves when update is complete.
+   */
+  public async setPreferences(prefs: Partial<QBPreferences>): Promise<void> {
+    await this.post('/app/setPreferences', {
+      json: JSON.stringify(prefs)
+    });
   }
 
   /**
