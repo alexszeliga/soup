@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import TorrentList from './components/TorrentList';
 import AddTorrentModal from './components/AddTorrentModal';
 
-const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001/api`;
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function App() {
   const [torrents, setTorrents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [pendingHashes, setPendingHashes] = useState<Set<string>>(new Set());
 
   const fetchTorrents = async () => {
     try {
@@ -17,6 +18,15 @@ function App() {
       const data = await response.json();
       setTorrents(data);
       setError(null);
+      // Clear pending hashes if they've updated in the data
+      setPendingHashes(prev => {
+        const next = new Set(prev);
+        data.forEach((t: any) => {
+          // If we see a state change or update, we can potentially clear it here
+          // but for simplicity we'll just clear it when the action is finished
+        });
+        return next;
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -45,39 +55,60 @@ function App() {
   };
 
   const handlePause = async (hash: string) => {
+    setPendingHashes(prev => new Set(prev).add(hash));
     try {
       await fetch(`${API_URL}/torrents/pause`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [hash] })
       });
-      fetchTorrents();
+      await fetchTorrents();
     } catch (err: any) {
       console.error(err);
+    } finally {
+      setPendingHashes(prev => {
+        const next = new Set(prev);
+        next.delete(hash);
+        return next;
+      });
     }
   };
 
   const handleResume = async (hash: string) => {
+    setPendingHashes(prev => new Set(prev).add(hash));
     try {
       await fetch(`${API_URL}/torrents/resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [hash] })
       });
-      fetchTorrents();
+      await fetchTorrents();
     } catch (err: any) {
       console.error(err);
+    } finally {
+      setPendingHashes(prev => {
+        const next = new Set(prev);
+        next.delete(hash);
+        return next;
+      });
     }
   };
 
   const handleDelete = async (hash: string) => {
+    setPendingHashes(prev => new Set(prev).add(hash));
     try {
       await fetch(`${API_URL}/torrents?hashes=${hash}&deleteFiles=true`, {
         method: 'DELETE'
       });
-      fetchTorrents();
+      await fetchTorrents();
     } catch (err: any) {
       console.error(err);
+    } finally {
+      setPendingHashes(prev => {
+        const next = new Set(prev);
+        next.delete(hash);
+        return next;
+      });
     }
   };
 
@@ -172,6 +203,7 @@ function App() {
             <TorrentList 
               torrents={torrents} 
               isLoading={isLoading} 
+              pendingHashes={pendingHashes}
               onPause={handlePause}
               onResume={handleResume}
               onDelete={handleDelete}

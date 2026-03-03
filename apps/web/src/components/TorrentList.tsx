@@ -3,12 +3,13 @@ import TorrentCard from './TorrentCard';
 interface TorrentListProps {
   torrents: any[];
   isLoading: boolean;
+  pendingHashes: Set<string>;
   onPause: (hash: string) => void;
   onResume: (hash: string) => void;
   onDelete: (hash: string) => void;
 }
 
-const TorrentList: React.FC<TorrentListProps> = ({ torrents, isLoading, onPause, onResume, onDelete }) => {
+const TorrentList: React.FC<TorrentListProps> = ({ torrents, isLoading, pendingHashes, onPause, onResume, onDelete }) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-4">
@@ -36,6 +37,7 @@ const TorrentList: React.FC<TorrentListProps> = ({ torrents, isLoading, onPause,
         <TorrentCard 
           key={torrent.hash} 
           torrent={torrent} 
+          isLoading={pendingHashes.has(torrent.hash)}
           onPause={onPause}
           onResume={onResume}
           onDelete={onDelete}

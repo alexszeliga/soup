@@ -10,12 +10,13 @@ interface TorrentCardProps {
       posterPath: string;
     };
   };
+  isLoading?: boolean;
   onPause: (hash: string) => void;
   onResume: (hash: string) => void;
   onDelete: (hash: string) => void;
 }
 
-const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, onDelete }) => {
+const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, onResume, onDelete }) => {
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
@@ -29,7 +30,14 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
   const isActive = activeStates.includes(torrent.state);
 
   return (
-    <div className="group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 active:scale-[0.98] shadow-sm hover:shadow-xl">
+    <div className={`group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 shadow-sm hover:shadow-xl ${isLoading ? 'opacity-70 pointer-events-none' : 'active:scale-[0.98]'}`}>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/10 dark:bg-black/10 backdrop-blur-[1px]">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
       {/* Poster Area */}
       <div className="relative w-28 sm:w-full flex-shrink-0 aspect-[2/3] sm:aspect-[2/3] overflow-hidden bg-zinc-200 dark:bg-zinc-800">
         {mediaMetadata?.posterPath ? (
@@ -92,24 +100,27 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
           <div className="flex items-center space-x-2 pt-1">
             {!isActive ? (
               <button 
+                disabled={isLoading}
                 onClick={(e) => { e.stopPropagation(); onResume(torrent.hash); }}
-                className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 <span className="text-xs">▶️</span>
                 <span className="text-[10px] font-black uppercase tracking-widest">Start</span>
               </button>
             ) : (
               <button 
+                disabled={isLoading}
                 onClick={(e) => { e.stopPropagation(); onPause(torrent.hash); }}
-                className="flex-1 h-9 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 h-9 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 <span className="text-xs">⏸️</span>
                 <span className="text-[10px] font-black uppercase tracking-widest">Pause</span>
               </button>
             )}
             <button 
+              disabled={isLoading}
               onClick={(e) => { e.stopPropagation(); if(confirm('Delete torrent?')) onDelete(torrent.hash); }}
-              className="w-9 h-9 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl flex items-center justify-center transition-all group/del"
+              className="w-9 h-9 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl flex items-center justify-center transition-all group/del disabled:opacity-50"
               title="Delete"
             >
               <span className="text-xs group-hover/del:scale-110 transition-transform">🗑️</span>
