@@ -94,12 +94,9 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
     }
   };
 
-  const handleToggleNonMedia = async () => {
+  const handleToggleNonMedia = async (forceState?: boolean) => {
     if (!torrent) return;
-    const targetState = !torrent.isNonMedia;
-    
-    // Only confirm if marking AS non-media
-    if (targetState && !confirm('Mark this torrent as non-media? It will no longer attempt to match with TMDB.')) return;
+    const targetState = forceState !== undefined ? forceState : !torrent.isNonMedia;
     
     setIsActionPending(true);
     try {
@@ -123,7 +120,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         handleUnmatch();
         break;
       case 'non-media':
-        handleToggleNonMedia(); // Actually uses confirm directly for now
+        handleToggleNonMedia(true);
         break;
       case 'delete':
         onDelete(torrent.hash);
@@ -294,7 +291,17 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   </button>
                   <button 
                     disabled={isActionPending}
-                    onClick={handleToggleNonMedia}
+                    onClick={() => {
+                      if (isNonMedia) {
+                        handleToggleNonMedia(false);
+                      } else {
+                        setConfirmState({
+                          type: 'non-media',
+                          title: 'Mark as Non-Media',
+                          message: 'Are you sure you want to mark this as non-media? Soup will no longer attempt to find movie or show metadata for this torrent.'
+                        });
+                      }
+                    }}
                     className="h-12 px-6 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
                   >
                     {isNonMedia ? 'Mark as Media' : 'Non-Media'}
