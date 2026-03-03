@@ -41,36 +41,9 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
         {/* Progress Overlay (Subtle Gradient) */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 hidden sm:block" />
 
-        {/* Quick Actions (Hover Only) */}
-        <div className="absolute inset-0 flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] bg-black/20">
-          {isPaused ? (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onResume(torrent.hash); }}
-              className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-              title="Resume"
-            >
-              ▶️
-            </button>
-          ) : (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onPause(torrent.hash); }}
-              className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-              title="Pause"
-            >
-              ⏸️
-            </button>
-          )}
-          <button 
-            onClick={(e) => { e.stopPropagation(); if(confirm('Delete torrent?')) onDelete(torrent.hash); }}
-            className="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-            title="Delete"
-          >
-            🗑️
-          </button>
-        </div>
-
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
+
           <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${isPaused ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
             {torrent.state}
           </span>
@@ -79,29 +52,61 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
 ...
 
       {/* Info Area */}
-      <div className="p-4 flex-1 flex flex-col justify-center sm:justify-start space-y-3">
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div className="space-y-1">
-          <h3 className="font-bold text-zinc-900 dark:text-zinc-100 leading-tight line-clamp-2 sm:line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-            {displayTitle}
-          </h3>
+          <div className="flex justify-between items-start">
+            <h3 className="font-bold text-zinc-900 dark:text-zinc-100 leading-tight line-clamp-2 sm:line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-1">
+              {displayTitle}
+            </h3>
+          </div>
           <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-500 truncate">
             {torrent.name}
           </p>
         </div>
 
-        {/* Progress Section */}
-        <div className="space-y-1.5 mt-auto sm:mt-0">
-          <div className="flex justify-between items-center text-[10px] font-bold">
-            <span className="text-zinc-400 dark:text-zinc-600 uppercase tracking-tighter hidden sm:inline">Progress</span>
-            <span className={`sm:ml-auto ${progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
-              {progressPercent}%
-            </span>
+        {/* Progress & Actions Section */}
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
+              <span className="text-zinc-400 dark:text-zinc-600">Progress</span>
+              <span className={progress === 1 ? 'text-green-500' : 'text-blue-500'}>
+                {progressPercent}%
+              </span>
+            </div>
+            <div className="h-1.5 sm:h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ease-in-out ${progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
-          <div className="h-1.5 sm:h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-1000 ease-in-out ${progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`}
-              style={{ width: `${progressPercent}%` }}
-            />
+
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2 pt-1">
+            {isPaused ? (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onResume(torrent.hash); }}
+                className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all"
+              >
+                <span className="text-xs">▶️</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Resume</span>
+              </button>
+            ) : (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onPause(torrent.hash); }}
+                className="flex-1 h-9 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all"
+              >
+                <span className="text-xs">⏸️</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Pause</span>
+              </button>
+            )}
+            <button 
+              onClick={(e) => { e.stopPropagation(); if(confirm('Delete torrent?')) onDelete(torrent.hash); }}
+              className="w-9 h-9 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl flex items-center justify-center transition-all group/del"
+              title="Delete"
+            >
+              <span className="text-xs group-hover/del:scale-110 transition-transform">🗑️</span>
+            </button>
           </div>
         </div>
       </div>
