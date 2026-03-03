@@ -18,6 +18,11 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
         - **Self-Documenting Code:** Helpers and core logic must include JSDoc/TSDoc docblocks so their intent and usage are visible during codebase investigation.
     - **Handoff Validation:** 
         - **Mandatory Final Step:** No task is considered "Complete" until `pnpm handoff` has been run across the monorepo and all failing tests, documentation/style errors are resolved, and the project builds successfully.
+    - **Warning Management (Zero-Debt Policy):**
+        - We keep a strict eye on linter warnings (e.g., `@typescript-eslint/no-explicit-any`).
+        - **Cleanup Threshold:** When warnings exceed 20, a dedicated "Warning Wipeout" pass must be performed.
+        - **Finality:** All warnings MUST be resolved before marking a Phase as complete.
+        - **AI Proactivity:** If warnings are present, the AI instance must proactively remind the user to perform a cleanup pass before starting new high-level features.
     - **Context:** Use this file to maintain a high-level understanding of the project's evolution, architectural decisions, and specific coding standards as they are established.
 - **Consistency:** Ensure all implementation follows the architectural patterns defined during the planning phase.
 
@@ -62,7 +67,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
 
 ### Phase 3: Advanced Workflow
-- [ ] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
+- [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
 - [ ] **Manual Metadata Management:** Support "Unmatch" and "Mark as Non-Media" within the Detailed View, with a fallback visual style for generic assets.
 - [ ] **File Selection:** View torrent file lists and set download priorities.
 - [ ] **File Management:** Move/copy files to media server ingestion directories.
