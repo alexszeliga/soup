@@ -22,6 +22,13 @@ export class LiveSyncService {
   /** Internal stateful map of torrents merged with their metadata. */
   private torrentsWithMetadata: Map<string, TorrentWithMetadata> = new Map();
 
+  /**
+   * Creates an instance of LiveSyncService.
+   * 
+   * @param engine - The sync engine.
+   * @param matcher - The metadata matcher.
+   * @param cache - The metadata cache.
+   */
   constructor(
     private readonly engine: SyncEngine,
     private readonly matcher: MetadataMatcher,
@@ -35,6 +42,8 @@ export class LiveSyncService {
    * 2. Removes stale torrents from local state.
    * 3. Updates properties of existing torrents (preserving their metadata).
    * 4. For new torrents: Attempts to fetch metadata from cache or TMDB.
+   * 
+   * @returns A promise that resolves when sync is complete.
    */
   public async sync(): Promise<void> {
     const delta = await this.engine.tick();
@@ -79,6 +88,8 @@ export class LiveSyncService {
 
   /**
    * Returns all current torrents enriched with their media metadata.
+   * 
+   * @returns Array of torrents with metadata.
    */
   public getTorrentsWithMetadata(): TorrentWithMetadata[] {
     return Array.from(this.torrentsWithMetadata.values());
@@ -86,6 +97,8 @@ export class LiveSyncService {
 
   /**
    * Proxy method to get the latest global server state from the SyncEngine.
+   * 
+   * @returns Global server state object.
    */
   public getServerState(): any {
     return this.engine.getServerState();

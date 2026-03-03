@@ -29,6 +29,11 @@ export class SyncEngine {
   /** Aggregated server-wide state (global speeds, etc.). */
   private serverState: any = {};
 
+  /**
+   * Creates an instance of SyncEngine.
+   * 
+   * @param qb - The qBittorrent client.
+   */
   constructor(private readonly qb: QBClient) {}
 
   /**
@@ -86,6 +91,8 @@ export class SyncEngine {
 
   /**
    * Returns an array of all torrents currently tracked by the engine.
+   * 
+   * @returns Array of Torrent objects.
    */
   public getTorrents(): Torrent[] {
     return Array.from(this.torrents.values()).map(t => this.toTorrent(t));
@@ -93,6 +100,8 @@ export class SyncEngine {
 
   /**
    * Returns the most recent aggregate server state (global speeds, free space, etc.).
+   * 
+   * @returns Server state object.
    */
   public getServerState(): any {
     return this.serverState;
@@ -100,6 +109,9 @@ export class SyncEngine {
 
   /**
    * Internal mapper to convert raw API JSON objects into domain Torrent instances.
+   * 
+   * @param t - Raw torrent data from the API.
+   * @returns A new Torrent instance.
    */
   private toTorrent(t: any): Torrent {
     return new Torrent({

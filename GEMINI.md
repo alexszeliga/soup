@@ -15,7 +15,9 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - **Code Quality & De-duplication:** 
         - Periodically run `npx jscpd apps packages --ignore "**/node_modules/**,**/dist/**,**/__tests__/**"` to identify structural duplication.
         - **DRY Mandate:** Repetitive logic MUST be refactored into shared helpers. 
-        - **Self-Documenting Code:** Helpers must include JSDoc/TSDoc docblocks so their intent and usage are visible during codebase investigation.
+        - **Self-Documenting Code:** Helpers and core logic must include JSDoc/TSDoc docblocks so their intent and usage are visible during codebase investigation.
+    - **Handoff Validation:** 
+        - **Mandatory Final Step:** No task is considered "Complete" until `pnpm handoff` has been run across the monorepo and all failing tests, documentation/style errors are resolved, and the project builds successfully.
     - **Context:** Use this file to maintain a high-level understanding of the project's evolution, architectural decisions, and specific coding standards as they are established.
 - **Consistency:** Ensure all implementation follows the architectural patterns defined during the planning phase.
 

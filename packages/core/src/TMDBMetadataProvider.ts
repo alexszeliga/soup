@@ -10,6 +10,11 @@ import { MetadataProvider } from './MetadataProvider.js';
 export class TMDBMetadataProvider implements MetadataProvider {
   private readonly baseUrl = 'https://api.themoviedb.org/3';
 
+  /**
+   * Creates an instance of TMDBMetadataProvider.
+   * 
+   * @param apiKey - The TMDB API key.
+   */
   constructor(private readonly apiKey: string) {}
 
   /**
@@ -39,6 +44,7 @@ export class TMDBMetadataProvider implements MetadataProvider {
    * @param type - 'movie' or 'tv'.
    * @param title - The title query.
    * @param year - The year filter.
+   * @returns MediaMetadata instance or null.
    */
   private async performSearch(type: 'movie' | 'tv', title: string, year?: number): Promise<MediaMetadata | null> {
     const searchUrl = new URL(`${this.baseUrl}/search/${type}`);

@@ -1,22 +1,54 @@
 import { Torrent } from './Torrent.js';
 
+/**
+ * Interface representing the structure of the qBittorrent sync/maindata response.
+ */
 export interface SyncResponse {
+  /** Response ID for subsequent incremental updates. */
   rid: number;
+  /** If true, the client should discard previous state and perform a full update. */
   full_update?: boolean;
+  /** Map of torrent hashes to their updated properties. */
   torrents?: Record<string, any>;
+  /** List of torrent hashes that were removed since the last update. */
   torrents_removed?: string[];
+  /** Map of category names to their properties. */
   categories?: Record<string, any>;
+  /** List of category names that were removed. */
   categories_removed?: string[];
+  /** List of active tags. */
   tags?: string[];
+  /** List of tags that were removed. */
   tags_removed?: string[];
+  /** Global server-wide state (speeds, free space, etc.). */
   server_state?: Record<string, any>;
 }
 
+/**
+ * Client for interacting with the qBittorrent Web API (v2).
+ * 
+ * Centralizes authentication, data synchronization, and torrent management actions.
+ */
 export class QBClient {
+  /** Internal store for the SID authentication cookie. */
   private cookies: string[] = [];
 
+  /**
+   * Creates an instance of QBClient.
+   * 
+   * @param baseUrl - The base URL of the qBittorrent API (e.g. 'http://localhost:8080/api/v2').
+   */
   constructor(private readonly baseUrl: string) {}
 
+  /**
+   * Authenticates with the qBittorrent server.
+   * 
+   * Extracts and stores the SID cookie for use in subsequent requests.
+   * 
+   * @param username - Optional username.
+   * @param password - Optional password.
+   * @returns A promise that resolves on successful login.
+   */
   public async login(username?: string, password?: string): Promise<void> {
     const loginUrl = new URL(`${this.baseUrl}/auth/login`);
     const params = new URLSearchParams();
@@ -47,6 +79,12 @@ export class QBClient {
     }
   }
 
+  /**
+   * Fetches incremental update data from the server.
+   * 
+   * @param rid - The ID of the last received response (0 for first request).
+   * @returns The sync data containing changes since rid.
+   */
   public async getMainData(rid: number = 0): Promise<SyncResponse> {
     const syncUrl = new URL(`${this.baseUrl}/sync/maindata`);
     syncUrl.searchParams.set('rid', rid.toString());
@@ -65,6 +103,11 @@ export class QBClient {
     return await response.json() as SyncResponse;
   }
 
+  /**
+   * Retrieves a full list of torrents currently in the library.
+   * 
+   * @returns Array of Torrent objects.
+   */
   public async getTorrents(): Promise<Torrent[]> {
     const torrentsUrl = new URL(`${this.baseUrl}/torrents/info`);
     
@@ -92,6 +135,13 @@ export class QBClient {
     }));
   }
 
+  /**
+   * Adds new torrents to the server.
+   * 
+   * @param urls - List of magnet links or URLs.
+   * @param files - List of local .torrent files.
+   * @returns A promise that resolves when addition is complete.
+   */
   public async addTorrents(urls: string[], files?: File[]): Promise<void> {
     const addUrl = new URL(`${this.baseUrl}/torrents/add`);
     const formData = new FormData();
@@ -121,14 +171,32 @@ export class QBClient {
     }
   }
 
+  /**
+   * Pauses the specified torrents (using v5.0+ /stop endpoint).
+   * 
+   * @param hashes - List of torrent hashes to pause.
+   * @returns A promise that resolves when action is complete.
+   */
   public async pauseTorrents(hashes: string[]): Promise<void> {
     await this.post('/torrents/stop', { hashes: hashes.join('|') });
   }
 
+  /**
+   * Resumes the specified torrents (using v5.0+ /start endpoint).
+   * 
+   * @param hashes - List of torrent hashes to resume.
+   * @returns A promise that resolves when action is complete.
+   */
   public async resumeTorrents(hashes: string[]): Promise<void> {
     await this.post('/torrents/start', { hashes: hashes.join('|') });
   }
 
+  /**
+   * Force-starts the specified torrents.
+   * 
+   * @param hashes - List of torrent hashes.
+   * @returns A promise that resolves when action is complete.
+   */
   public async forceStartTorrents(hashes: string[]): Promise<void> {
     await this.post('/torrents/setForceStart', { 
       hashes: hashes.join('|'),
@@ -136,6 +204,13 @@ export class QBClient {
     });
   }
 
+  /**
+   * Deletes specified torrents from the server.
+   * 
+   * @param hashes - List of torrent hashes.
+   * @param deleteFiles - If true, downloaded data will be deleted from disk.
+   * @returns A promise that resolves when deletion is complete.
+   */
   public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
     await this.post('/torrents/delete', {
       hashes: hashes.join('|'),
@@ -155,6 +230,7 @@ export class QBClient {
    * @param endpoint - The API endpoint path (e.g., '/torrents/stop').
    * @param params - Key-value pairs to be sent as URLSearchParams in the body.
    * @throws {Error} If the response is not OK.
+   * @returns A promise that resolves when the request is complete.
    */
   private async post(endpoint: string, params: Record<string, string>): Promise<void> {
     const url = new URL(`${this.baseUrl}${endpoint}`);

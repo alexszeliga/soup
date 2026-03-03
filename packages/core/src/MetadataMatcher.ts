@@ -7,6 +7,11 @@ import { Torrent } from './Torrent.js';
  * structured MediaMetadata using an external provider (e.g., TMDB).
  */
 export class MetadataMatcher {
+  /**
+   * Creates an instance of MetadataMatcher.
+   * 
+   * @param provider - The metadata provider.
+   */
   constructor(private readonly provider: MetadataProvider) {}
 
   /**

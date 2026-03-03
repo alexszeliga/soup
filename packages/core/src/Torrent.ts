@@ -40,6 +40,11 @@ export class Torrent {
   public readonly uploadSpeed: number;
   public readonly contentPath: string;
 
+  /**
+   * Creates an instance of Torrent.
+   * 
+   * @param props - Initialization properties.
+   */
   constructor(props: TorrentProps) {
     this.hash = props.hash;
     this.name = props.name;
@@ -52,6 +57,8 @@ export class Torrent {
 
   /**
    * Returns true if the torrent is 100% downloaded.
+   * 
+   * @returns Completion status.
    */
   public get isComplete(): boolean {
     return this.progress === 1;
@@ -59,6 +66,8 @@ export class Torrent {
 
   /**
    * Returns true if the torrent is currently in an active state (not paused/queued/completed).
+   * 
+   * @returns Activity status.
    */
   public get isActive(): boolean {
     return Torrent.ACTIVE_STATES.includes(this.state);

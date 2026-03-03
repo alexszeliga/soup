@@ -29,6 +29,11 @@ export class MediaMetadata {
   public readonly cast: string[];
   public readonly posterPath: string;
 
+  /**
+   * Creates an instance of MediaMetadata.
+   * 
+   * @param props - Initialization properties.
+   */
   constructor(props: MediaMetadataProps) {
     this.id = props.id;
     this.title = props.title;

@@ -7,20 +7,27 @@
   "scripts": {
     "build": "pnpm -r build",
     "pretest": "pnpm build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "handoff": "pnpm lint && pnpm build && pnpm test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.30.3",
   "devDependencies": {
+    "@eslint/js": "^9.39.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.3.3",
     "drizzle-kit": "^0.31.9",
+    "eslint": "^9.39.3",
+    "eslint-plugin-jsdoc": "^62.7.1",
+    "globals": "^16.5.0",
     "jscpd": "^4.0.8",
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   }
 }

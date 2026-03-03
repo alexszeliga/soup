@@ -65,11 +65,11 @@ const startSync = async () => {
 
 startSync();
 
-fastify.get('/api/torrents', async (request, reply) => {
+fastify.get('/api/torrents', async () => {
   return liveSync.getTorrentsWithMetadata();
 });
 
-fastify.get('/api/state', async (request, reply) => {
+fastify.get('/api/state', async () => {
   return liveSync.getServerState();
 });
 

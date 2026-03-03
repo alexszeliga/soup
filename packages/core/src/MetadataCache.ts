@@ -11,12 +11,19 @@ import { Torrent } from './Torrent.js';
  * is preserved even if the torrent is renamed or moved in qBittorrent.
  */
 export class MetadataCache {
+  /**
+   * Creates an instance of MetadataCache.
+   * 
+   * @param db - The database instance.
+   */
   constructor(private readonly db: DatabaseInstance) {}
 
   /**
    * Initializes the database schema if it does not exist.
    * 
    * Creates the `metadata` and `torrents` tables.
+   * 
+   * @returns A promise that resolves when tables are ensured.
    */
   public async ensureTables(): Promise<void> {
     this.db.run(`CREATE TABLE IF NOT EXISTS metadata (
@@ -73,6 +80,7 @@ export class MetadataCache {
    * 
    * @param torrent - The torrent being cached.
    * @param metadata - The metadata to associate with the torrent.
+   * @returns A promise that resolves when saving is complete.
    */
   public async saveMetadataForTorrent(torrent: Torrent, metadata: MediaMetadata): Promise<void> {
     const now = Date.now();

@@ -4,7 +4,6 @@ import { Torrent } from '../Torrent.js';
 import { MediaMetadata } from '../MediaMetadata.js';
 import { createDatabase, DatabaseInstance } from '@soup/database';
 import * as fs from 'fs';
-import * as path from 'path';
 
 describe('MetadataCache Service', () => {
   let db: DatabaseInstance;
