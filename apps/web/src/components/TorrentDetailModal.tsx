@@ -29,6 +29,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'details' | 'files'>('details');
   const [files, setFiles] = useState<TorrentFile[]>([]);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
+  const [isActionPending, setIsActionPending] = useState(false);
 
   useEffect(() => {
     if (isOpen && torrent) {
@@ -47,6 +48,33 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       console.error('Failed to fetch files', err);
     } finally {
       setIsFilesLoading(false);
+    }
+  };
+
+  const handleUnmatch = async () => {
+    if (!torrent || !confirm('Are you sure you want to clear media metadata for this torrent?')) return;
+    setIsActionPending(true);
+    try {
+      await fetch(`/api/torrents/${torrent.hash}/unmatch`, { method: 'POST' });
+      // We don't onClose() because the live sync will eventually clear it in the parent
+    } catch (err) {
+      console.error('Unmatch failed', err);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleSetPriority = async (indices: number[], priority: number) => {
+    if (!torrent) return;
+    try {
+      await fetch(`/api/torrents/${torrent.hash}/files/priority`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ indices, priority })
+      });
+      fetchFiles(); // Refresh file list
+    } catch (err) {
+      console.error('Failed to set priority', err);
     }
   };
 
@@ -110,14 +138,25 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         </div>
 
         {/* Action Bar */}
-        <div className="px-6 sm:px-10 py-4 bg-zinc-100 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="px-6 sm:px-10 py-4 bg-zinc-100 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
             <button 
               onClick={() => Torrent.ACTIVE_STATES.includes(state) ? onPause(torrent.hash) : onResume(torrent.hash)}
-              className="h-12 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center space-x-2"
+              className="h-12 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
-              <span>{Torrent.ACTIVE_STATES.includes(state) ? '⏸️ Pause' : '▶️ Resume'}</span>
+              {Torrent.ACTIVE_STATES.includes(state) ? '⏸️ Pause' : '▶️ Resume'}
             </button>
+            
+            {mediaMetadata && (
+              <button 
+                disabled={isActionPending}
+                onClick={handleUnmatch}
+                className="h-12 px-6 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
+              >
+                Unmatch
+              </button>
+            )}
+
             <button 
               onClick={() => { if(confirm('Delete torrent and data?')) { onDelete(torrent.hash); onClose(); } }}
               className="h-12 px-6 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95"
@@ -126,7 +165,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
             </button>
           </div>
           
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="flex items-center space-x-6 ml-auto">
             <div className="text-right">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Download</p>
               <p className="text-sm font-black text-blue-500">{formatBytes(downloadSpeed)}/s</p>
@@ -208,6 +247,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                       <tr>
                         <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500">File Name</th>
                         <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Size</th>
+                        <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-center">Priority</th>
                         <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Progress</th>
                       </tr>
                     </thead>
@@ -216,6 +256,18 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                         <tr key={file.index} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
                           <td className="px-4 py-3 font-bold truncate max-w-xs">{file.name}</td>
                           <td className="px-4 py-3 text-right font-medium text-zinc-500">{formatBytes(file.size)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <select 
+                              value={file.priority}
+                              onChange={(e) => handleSetPriority([file.index], parseInt(e.target.value, 10))}
+                              className="bg-zinc-100 dark:bg-zinc-800 border-none rounded-lg text-[10px] font-black uppercase px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/50"
+                            >
+                              <option value={0}>Skip</option>
+                              <option value={1}>Normal</option>
+                              <option value={6}>High</option>
+                              <option value={7}>Maximal</option>
+                            </select>
+                          </td>
                           <td className="px-4 py-3 text-right">
                             <span className={`font-black ${file.progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
                               {Math.round(file.progress * 100)}%

@@ -124,6 +124,17 @@ fastify.post('/api/preferences', async (request, reply) => {
   return handleAPIAction(reply, () => qb.setPreferences(prefs));
 });
 
+fastify.post('/api/torrents/:hash/unmatch', async (request, reply) => {
+  const { hash } = request.params as { hash: string };
+  return handleAPIAction(reply, () => cache.unmatchTorrent(hash));
+});
+
+fastify.post('/api/torrents/:hash/files/priority', async (request, reply) => {
+  const { hash } = request.params as { hash: string };
+  const { indices, priority } = request.body as { indices: number[], priority: number };
+  return handleAPIAction(reply, () => qb.setFilePriority(hash, indices, priority));
+});
+
 fastify.post('/api/torrents/pause', async (request, reply) => {
   const { hashes } = request.body as { hashes: string[] };
   return handleAPIAction(reply, () => qb.pauseTorrents(hashes));
