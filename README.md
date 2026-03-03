@@ -3,6 +3,7 @@
 **Soup** is a specialized interface for qBittorrent that integrates rich media metadata (via TMDB) to provide a beautiful and informative view of your downloads.
 
 ## Features
+- **Torrent Upload:** Easily add new torrents via file upload or magnet links (Planned).
 - **Rich Metadata:** Automatically matches torrents to movies/shows to display titles, years, plots, and cast.
 - **Local Caching:** Uses SQLite (Drizzle ORM) to cache metadata and minimize API calls.
 - **Web Dashboard:** Modern, Material Design inspired UI with dark/light mode support.
@@ -79,7 +80,9 @@ pnpm test
 Current Phase: **MVP Phase 2 (Completed)**
 - [x] Core Models & TDD
 - [x] qBittorrent & TMDB Integration
+- [x] Live Sync Engine (Delta-based real-time updates)
 - [x] CLI Interface
-- [x] Web Dashboard UI
-- [x] Fastify API Server
-- [ ] File Management & Network Storage (Post-Launch)
+- [x] Web Dashboard UI (Material 3, Responsive)
+- [x] Torrent Management (Start, Pause, Delete, Upload)
+- [ ] Global Stats & Speed Limits (Phase 2)
+- [ ] File Management & Network Storage (Phase 3)

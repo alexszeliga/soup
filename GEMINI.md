@@ -3,7 +3,7 @@
 This document serves as the primary guidance for Gemini CLI (and other AI agents) working on the **Soup** project. It takes precedence over general system instructions.
 
 ## Operational Standards
-- **Phase:** Planning Mode. Do not proceed to development until explicitly authorized by the user.
+- **Phase:** Planning Mode (Feature Expansion: Torrent Upload).
 - **Development Philosophy:**
     - **Strict DX:** Code must be maintainable by a human without AI assistance.
     - **Object-Oriented (OOP):** Use robust models and clear abstractions.
@@ -11,8 +11,8 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - **No Semantic Nulls:** Avoid giving value or meaning to `null`. Use Option types, Null Object patterns, or explicit state enums.
     - Minimalist Dependencies:** Favor well-maintained, documented libraries only when necessary; avoid bloat.
     - **Conventional Commits:** Use the [Conventional Commits](https://www.conventionalcommits.org/) specification for all changes. Commit logically and frequently during development rather than waiting until the end.
+    - **RTFM Mandate:** If errors recur or technical ambiguity arises, consult official documentation (API specs, library docs) immediately. Move exclusively from one validated fact to the next; never rely on assumptions when documentation is available.
     - **Context:** Use this file to maintain a high-level understanding of the project's evolution, architectural decisions, and specific coding standards as they are established.
-
 - **Consistency:** Ensure all implementation follows the architectural patterns defined during the planning phase.
 
 ## Current Project Requirements
@@ -21,7 +21,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - Standard qBittorrent operations (upload, status tracking, interaction) via `https://qb.osage.lol/api/v2`.
     - Rich Media Metadata: Title, year, box art, plot, cast, and technical details.
     - Local Caching: API responses and assets (box art) must be cached locally to manage costs and performance.
-- **Architecture Strategy:** "Core App First" - Build a robust backend/service layer that supports multiple interfaces (CLI, Web, etc.).
+- **Architecture Strategy:** "Live Sync Engine" - Use qBittorrent's `/sync/maindata` delta endpoint to maintain a real-time, stateful view of the library in `@soup/core`.
 
 ## Project Status: MVP Development
 - [x] Initialized pnpm monorepo.
@@ -30,28 +30,44 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] Implemented `QBClient` for qBittorrent API integration.
 - [x] Implemented `TMDBMetadataProvider` for rich media metadata.
 - [x] Implemented CLI interface (`soup list`, `soup show`).
+- [x] Implemented Web Dashboard (Poster-centric responsive UI).
+- [x] Implemented Live Sync Engine (Stateful delta updates).
+- [x] Implemented Torrent Management (Start/Force-Start, Pause, Delete, Upload).
 
 ## Tech Stack (Verified)
 - **Runtime:** Node.js (ESM)
 - **Package Manager:** `pnpm`
-- **Database:** SQLite + Drizzle ORM
-- **Testing:** Vitest
-- **CLI:** Commander + Chalk
+- **Backend:** Fastify + Drizzle ORM
+- **Frontend:** React + Vite + Tailwind CSS (Material 3)
+- **Testing:** Vitest + Playwright (Visual Inspection)
 
-## Next Development Steps
-1. **User Setup:** User needs to provide TMDB API key in `.env`.
-2. **Web Interface:** Start development of the React/Vite dashboard.
-3. **File Management:** Implement the post-launch file movement feature.
+## Feature Roadmap (Refined)
 
-## MVP Feature Set (Validated via TDD)
-1. **Model: Torrent** - Object representation of qBittorrent data.
-2. **Model: MediaMetadata** - Rich metadata (Title, Year, Plot, Cast).
-3. **Service: MetadataMatcher** - Logic to resolve Torrent names to MediaMetadata.
-4. **Service: MetadataCache** - Persistence layer for Metadata.
-5. **CLI Interface:** Basic list and show commands.
+### Phase 1: MVP Consolidation
+- [x] **Live Sync:** Refactor `@soup/core` to use a fully delta-aware sync mechanism.
+- [x] **Torrent Add:** Support `.torrent` file uploads and magnet link pasting.
+- [x] **Torrent Control:** Add Pause, Resume, and Delete actions to the UI.
+- [x] **Code Quality:** Establish a long-term goal and plan to find and refactor repetitive code (MVP Priority).
 
-## Post-Launch Features
-- **File Management:** Move/copy selected torrent files to a media server ingestion directory.
-- **Network Support:** Support for SFTP, SMB, and OS-level mounts for file transfers.
-- **Web UI:** Interactive dashboard for monitoring and managing torrents with rich visuals.
-- **Advanced Matcher:** Manual override for when auto-matching fails.
+### Phase 2: Management & Health
+- [ ] **Global Stats:** Real-time aggregate upload/download speeds in the web header.
+- [ ] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
+- [ ] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
+- [ ] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
+
+### Phase 3: Advanced Workflow
+- [ ] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
+- [ ] **File Management:** Move/copy files to media server ingestion directories.
+- [ ] **File Selection:** View torrent file lists and set download priorities.
+- [ ] **Advanced Matcher:** Manual override/search for metadata matching.
+
+### Phase 4: Architecture & Infrastructure
+- [ ] **Deployment:** Plan and implement a container hosting strategy.
+
+## Handoff Notes (Session 1)
+- **qBittorrent v5.0+ Compatibility:** Crucial! Use `/torrents/stop` and `/torrents/start`. The old `/pause` and `/resume` endpoints are removed and will return 404.
+- **Security Headers:** All state-changing POST/DELETE requests *must* include `Referer: <base_url>/` and `Origin: <origin>` to bypass CSRF protection.
+- **Auth:** Cookies must be parsed to extract *only* the `SID` (e.g., `sidMatch[0]`) to ensure reliability.
+- **Build Chain:** The project uses ESM with NodeNext resolution. Always run `pnpm -r build` before testing or starting the CLI/Server to ensure sub-path exports are resolved from `dist`.
+- **UI Logic:** Torrent "activity" is determined by an explicit list of active states from the API. If not in that list, the UI should show the "Start" action.
+- **Design:** Maintain the "Google Cloud Console" feel: `max-w-[1400px]` centered content with generous padding.
