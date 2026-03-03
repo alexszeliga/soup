@@ -14,17 +14,17 @@ describe('TorrentList', () => {
   ];
 
   it('renders a list of torrent cards', () => {
-    render(<TorrentList torrents={mockTorrents} isLoading={false} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    render(<TorrentList torrents={mockTorrents} isLoading={false} pendingHashes={new Set()} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getAllByTestId('torrent-card')).toHaveLength(2);
   });
 
   it('renders empty state when no torrents', () => {
-    render(<TorrentList torrents={[]} isLoading={false} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    render(<TorrentList torrents={[]} isLoading={false} pendingHashes={new Set()} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText(/No torrents found/i)).toBeInTheDocument();
   });
 
   it('renders loading state', () => {
-    render(<TorrentList torrents={[]} isLoading={true} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    render(<TorrentList torrents={[]} isLoading={true} pendingHashes={new Set()} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText(/Loading/i)).toBeInTheDocument();
   });
 });

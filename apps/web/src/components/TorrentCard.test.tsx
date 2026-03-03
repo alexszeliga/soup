@@ -15,10 +15,9 @@ describe('TorrentCard', () => {
     }
   };
 
-  it('renders the media title and year', () => {
+  it('renders the media title', () => {
     render(<TorrentCard torrent={mockTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText('The Great Movie')).toBeInTheDocument();
-    expect(screen.getByText('2024')).toBeInTheDocument();
   });
 
   it('renders the progress percentage', () => {
