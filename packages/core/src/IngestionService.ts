@@ -42,6 +42,7 @@ export class IngestionService {
    */
   public suggestPath(cleanTitle: string, originalFilename: string, year?: number): string {
     const ext = path.extname(originalFilename);
+    const titleWithYear = year ? `${cleanTitle} (${year})` : cleanTitle;
     
     // 1. Try TV Show Pattern: S01E01, 1x01, S1E1
     const tvMatch = originalFilename.match(/[S](\d{1,2})[E](\d{1,2})/i) || 
@@ -51,17 +52,17 @@ export class IngestionService {
       const season = tvMatch[1].padStart(2, '0');
       const episode = tvMatch[2].padStart(2, '0');
       return path.join(
-        cleanTitle,
+        titleWithYear,
         `Season ${season}`,
-        `${cleanTitle} - S${season}E${episode}${ext}`
+        `${titleWithYear} - S${season}E${episode}${ext}`
       );
     }
 
     // 2. Try Movie Pattern (Year)
     if (year) {
       return path.join(
-        `${cleanTitle} (${year})`,
-        `${cleanTitle} (${year})${ext}`
+        titleWithYear,
+        `${titleWithYear}${ext}`
       );
     }
 

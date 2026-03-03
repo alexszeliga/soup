@@ -24,6 +24,14 @@ describe('IngestionService', () => {
     expect(result).toBe('Fight Club (1999)/Fight Club (1999).mkv');
   });
 
+  it('should include the year in TV show paths if provided', () => {
+    const filename = 'The.Office.US.S09E01.mkv';
+    const result = service.suggestPath('The Office', filename, 2005);
+    
+    // Jellyfin prefers Title (Year) for the show folder to avoid ambiguity
+    expect(result).toBe('The Office (2005)/Season 09/The Office (2005) - S09E01.mkv');
+  });
+
   it('should create a valid CopyTask with progress reporting', async () => {
     // Mock fs for the actual task execution test
     vi.mock('fs', async () => {
