@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import TorrentList from './components/TorrentList';
 import AddTorrentModal from './components/AddTorrentModal';
+import SettingsModal from './components/SettingsModal';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -15,6 +16,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
 
@@ -128,6 +130,13 @@ function App() {
         onAdd={handleAddTorrent} 
       />
 
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        apiUrl={API_URL}
+      />
+
       {/* Material 3 Sidebar */}
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen">
         <div className="p-6 flex items-center space-x-3">
@@ -147,7 +156,10 @@ function App() {
             <span className="text-xl group-hover:scale-110 transition-transform">⭐</span>
             <span className="hidden lg:block font-bold text-sm">Favorites</span>
           </button>
-          <button className="w-full flex items-center space-x-3 px-4 py-3 text-zinc-500 dark:text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-2xl transition-all group">
+          <button 
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="w-full flex items-center space-x-3 px-4 py-3 text-zinc-500 dark:text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-2xl transition-all group"
+          >
             <span className="text-xl group-hover:scale-110 transition-transform">⚙️</span>
             <span className="hidden lg:block font-bold text-sm">Settings</span>
           </button>
