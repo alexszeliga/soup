@@ -1,3 +1,5 @@
+import type { TorrentFile } from './QBClient.js';
+
 /**
  * Properties required to instantiate a Torrent object.
  */
@@ -16,6 +18,8 @@ export interface TorrentProps {
   uploadSpeed: number;
   /** Absolute local path where the torrent content is stored. */
   contentPath: string;
+  /** Optional list of individual files within the torrent. */
+  files?: TorrentFile[];
 }
 
 /**
@@ -39,6 +43,7 @@ export class Torrent {
   public readonly downloadSpeed: number;
   public readonly uploadSpeed: number;
   public readonly contentPath: string;
+  public readonly files?: TorrentFile[];
 
   /**
    * Creates an instance of Torrent.
@@ -53,6 +58,7 @@ export class Torrent {
     this.downloadSpeed = props.downloadSpeed;
     this.uploadSpeed = props.uploadSpeed;
     this.contentPath = props.contentPath;
+    this.files = props.files;
   }
 
   /**

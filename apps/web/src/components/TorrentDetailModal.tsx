@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
-import type { TorrentFile } from '@soup/core/QBClient.js';
 import { Torrent } from '@soup/core/Torrent.js';
 
 interface TorrentDetailModalProps {
@@ -27,44 +26,25 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
   torrent, isOpen, onClose, onPause, onResume, onDelete 
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'files'>('details');
-  const [files, setFiles] = useState<TorrentFile[]>([]);
   const [isActionPending, setIsActionPending] = useState(false);
   // Map of file index -> target priority
   const [pendingFiles, setPendingFiles] = useState<Map<number, number>>(new Map());
 
+  // Resolve pending states if priorities match the incoming live data
   useEffect(() => {
-    if (isOpen && torrent) {
-      fetchFiles();
-      // Periodically refresh file list if in Files tab to resolve pending states
-      const interval = setInterval(() => {
-        if (activeTab === 'files') fetchFiles();
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [isOpen, torrent?.hash, activeTab]);
-
-  const fetchFiles = async () => {
-    if (!torrent) return;
-    try {
-      const res = await fetch(`/api/torrents/${torrent.hash}/files`);
-      const data = await res.json() as TorrentFile[];
-      setFiles(data);
-
-      // Resolve pending states if priorities match
+    if (torrent?.files) {
       setPendingFiles(prev => {
         if (prev.size === 0) return prev;
         const next = new Map(prev);
-        data.forEach(file => {
+        torrent.files!.forEach(file => {
           if (next.get(file.index) === file.priority) {
             next.delete(file.index);
           }
         });
         return next;
       });
-    } catch (err) {
-      console.error('Failed to fetch files', err);
     }
-  };
+  }, [torrent?.files]);
 
   const handleUnmatch = async () => {
     if (!torrent || !confirm('Are you sure you want to clear media metadata for this torrent?')) return;
@@ -105,7 +85,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   if (!isOpen || !torrent) return null;
 
-  const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed } = torrent;
+  const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, files } = torrent;
   const progressPercent = Math.round(progress * 100);
 
   return (
@@ -208,7 +188,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
             onClick={() => setActiveTab('files')}
             className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
           >
-            Files ({files.length})
+            Files ({files?.length || 0})
           </button>
         </div>
 
@@ -268,7 +248,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
-                    {files.map(file => (
+                    {files?.map(file => (
                       <tr key={file.index} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
                         <td className="px-4 py-3 font-bold truncate max-w-xs">{file.name}</td>
                         <td className="px-4 py-3 text-right font-medium text-zinc-500">{formatBytes(file.size)}</td>
@@ -291,7 +271,11 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                           </span>
                         </td>
                       </tr>
-                    ))}
+                    )) || (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-10 text-center text-zinc-500 font-bold">No files discovered.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

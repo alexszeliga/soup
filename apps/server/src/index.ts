@@ -56,7 +56,13 @@ const startSync = async () => {
 
 startSync();
 
-fastify.get('/api/torrents', async () => {
+fastify.get('/api/torrents', async (request) => {
+  const { focus } = request.query as { focus?: string };
+  if (focus) {
+    liveSync.setFocus(focus);
+  } else {
+    liveSync.setFocus(null);
+  }
   return liveSync.getTorrentsWithMetadata();
 });
 

@@ -1,5 +1,6 @@
 import { QBClient } from './QBClient.js';
 import { Torrent } from './Torrent.js';
+import type { TorrentFile } from './QBClient.js';
 
 /**
  * Represents the changes detected during a single sync tick.
@@ -28,6 +29,8 @@ export class SyncEngine {
   private torrents: Map<string, Record<string, unknown>> = new Map();
   /** Aggregated server-wide state (global speeds, etc.). */
   private serverState: Record<string, unknown> = {};
+  /** The hash of the torrent currently in focus (e.g., opened in detailed view). */
+  private focusHash: string | null = null;
 
   /**
    * Creates an instance of SyncEngine.
@@ -35,6 +38,18 @@ export class SyncEngine {
    * @param qb - The qBittorrent client.
    */
   constructor(private readonly qb: QBClient) {}
+
+  /**
+   * Sets or clears the active focus on a specific torrent.
+   * 
+   * When a focus is set, subsequent sync ticks will also fetch the individual
+   * file list for that torrent.
+   * 
+   * @param hash - The torrent hash to focus on, or null to clear.
+   */
+  public setFocus(hash: string | null): void {
+    this.focusHash = hash;
+  }
 
   /**
    * Performs a single synchronization step with the qBittorrent server.
@@ -45,7 +60,12 @@ export class SyncEngine {
    * @returns A SyncDelta object describing the changes in this tick.
    */
   public async tick(): Promise<SyncDelta> {
-    const data = await this.qb.getMainData(this.rid);
+    // 1. Fetch main data and files (if focused) in parallel
+    const [data, focusedFiles] = await Promise.all([
+      this.qb.getMainData(this.rid),
+      this.focusHash ? this.qb.getTorrentFiles(this.focusHash) : Promise.resolve(null)
+    ]);
+
     this.rid = data.rid;
 
     const addedHashes: string[] = [];
@@ -66,6 +86,15 @@ export class SyncEngine {
         }
         const existing = this.torrents.get(hash) || {};
         this.torrents.set(hash, { ...existing, ...torrentData, hash });
+      }
+    }
+
+    // Inject focused files into the specific torrent data
+    if (this.focusHash && focusedFiles && this.torrents.has(this.focusHash)) {
+      const existing = this.torrents.get(this.focusHash)!;
+      this.torrents.set(this.focusHash, { ...existing, files: focusedFiles });
+      if (!updatedHashes.includes(this.focusHash) && !addedHashes.includes(this.focusHash)) {
+        updatedHashes.push(this.focusHash);
       }
     }
 
@@ -122,6 +151,7 @@ export class SyncEngine {
       downloadSpeed: (t.dlspeed as number) || 0,
       uploadSpeed: (t.upspeed as number) || 0,
       contentPath: (t.content_path as string) || '',
+      files: t.files as TorrentFile[] | undefined,
     });
   }
 }

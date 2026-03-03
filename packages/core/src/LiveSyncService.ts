@@ -87,6 +87,15 @@ export class LiveSyncService {
   }
 
   /**
+   * Sets or clears the active focus on a specific torrent.
+   * 
+   * @param hash - The torrent hash to focus on, or null to clear.
+   */
+  public setFocus(hash: string | null): void {
+    this.engine.setFocus(hash);
+  }
+
+  /**
    * Returns all current torrents enriched with their media metadata.
    * 
    * @returns Array of torrents with metadata.

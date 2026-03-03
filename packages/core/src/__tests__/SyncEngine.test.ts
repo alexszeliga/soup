@@ -80,4 +80,33 @@ describe('SyncEngine', () => {
     expect(delta.removed).toContain('h1');
     expect(engine.getTorrents()).toHaveLength(0);
   });
+
+  it('should fetch files only for the focused torrent', async () => {
+    const mockFiles = [{ name: 'file1.mp4', size: 100, progress: 1, priority: 1, index: 0 }];
+    const mockQB = {
+      getMainData: vi.fn().mockResolvedValue({
+        rid: 1,
+        full_update: true,
+        torrents: { 'h1': { name: 'Torrent 1' } }
+      }),
+      getTorrentFiles: vi.fn().mockResolvedValue(mockFiles)
+    } as any as QBClient;
+
+    const engine = new SyncEngine(mockQB);
+
+    // 1. Tick without focus -> No files fetched
+    await engine.tick();
+    expect(mockQB.getTorrentFiles).not.toHaveBeenCalled();
+
+    // 2. Set focus and tick -> Files fetched
+    engine.setFocus('h1');
+    const delta = await engine.tick();
+    expect(mockQB.getTorrentFiles).toHaveBeenCalledWith('h1');
+    expect(delta.added[0].files).toEqual(mockFiles);
+
+    // 3. Clear focus and tick -> No more file fetching
+    engine.setFocus(null);
+    await engine.tick();
+    expect(mockQB.getTorrentFiles).toHaveBeenCalledTimes(1);
+  });
 });
