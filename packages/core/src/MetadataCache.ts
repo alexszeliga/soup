@@ -39,15 +39,23 @@ export class MetadataCache {
       hash TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       metadata_id TEXT REFERENCES metadata(id),
+      is_non_media INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     )`);
+
+    // Ensure is_non_media column exists for migrations from older versions
+    try {
+      this.db.run(`ALTER TABLE torrents ADD COLUMN is_non_media INTEGER NOT NULL DEFAULT 0`);
+    } catch {
+      // Column already exists, ignore error
+    }
   }
 
   /**
    * Retrieves cached metadata for a specific torrent hash.
    * 
    * @param hash - The SHA-1 hash of the torrent.
-   * @returns The cached MediaMetadata object, or null if not found.
+   * @returns The cached MediaMetadata object, or null if not found or marked as non-media.
    */
   public async getMetadataForTorrent(hash: string): Promise<MediaMetadata | null> {
     const result = await this.db.query.torrents.findFirst({
@@ -57,7 +65,7 @@ export class MetadataCache {
       },
     });
 
-    if (!result || !result.metadata) {
+    if (!result || !result.metadata || result.isNonMedia) {
       return null;
     }
 
@@ -71,6 +79,32 @@ export class MetadataCache {
       cast: JSON.parse(meta.cast),
       posterPath: meta.posterPath,
     });
+  }
+
+  /**
+   * Returns true if the torrent has been manually marked as non-media content.
+   * 
+   * @param hash - The torrent hash.
+   * @returns Non-media status.
+   */
+  public async isNonMedia(hash: string): Promise<boolean> {
+    const result = await this.db.query.torrents.findFirst({
+      where: eq(torrentsSchema.hash, hash),
+    });
+    return !!result?.isNonMedia;
+  }
+
+  /**
+   * Marks or unmarks a torrent as non-media content.
+   * 
+   * @param hash - The torrent hash.
+   * @param isNonMedia - True to mark as non-media.
+   */
+  public async setNonMedia(hash: string, isNonMedia: boolean): Promise<void> {
+    this.db.update(torrentsSchema)
+      .set({ isNonMedia, metadataId: isNonMedia ? null : undefined, updatedAt: Date.now() })
+      .where(eq(torrentsSchema.hash, hash))
+      .run();
   }
 
   /**
@@ -105,17 +139,19 @@ export class MetadataCache {
       }
     }).run();
 
-    // 2. Upsert torrent record
+    // 2. Upsert torrent record (reset isNonMedia if we are saving metadata)
     this.db.insert(torrentsSchema).values({
       hash: torrent.hash,
       name: torrent.name,
       metadataId: metadata.id,
+      isNonMedia: false,
       updatedAt: now,
     }).onConflictDoUpdate({
       target: torrentsSchema.hash,
       set: {
         name: torrent.name,
         metadataId: metadata.id,
+        isNonMedia: false,
         updatedAt: now,
       }
     }).run();
@@ -129,7 +165,7 @@ export class MetadataCache {
    */
   public async unmatchTorrent(hash: string): Promise<void> {
     this.db.update(torrentsSchema)
-      .set({ metadataId: null })
+      .set({ metadataId: null, updatedAt: Date.now() })
       .where(eq(torrentsSchema.hash, hash))
       .run();
   }
