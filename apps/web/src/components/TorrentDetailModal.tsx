@@ -28,26 +28,41 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'files'>('details');
   const [files, setFiles] = useState<TorrentFile[]>([]);
-  const [isFilesLoading, setIsFilesLoading] = useState(false);
   const [isActionPending, setIsActionPending] = useState(false);
+  // Map of file index -> target priority
+  const [pendingFiles, setPendingFiles] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     if (isOpen && torrent) {
       fetchFiles();
+      // Periodically refresh file list if in Files tab to resolve pending states
+      const interval = setInterval(() => {
+        if (activeTab === 'files') fetchFiles();
+      }, 2000);
+      return () => clearInterval(interval);
     }
-  }, [isOpen, torrent?.hash]);
+  }, [isOpen, torrent?.hash, activeTab]);
 
   const fetchFiles = async () => {
     if (!torrent) return;
-    setIsFilesLoading(true);
     try {
       const res = await fetch(`/api/torrents/${torrent.hash}/files`);
-      const data = await res.json();
+      const data = await res.json() as TorrentFile[];
       setFiles(data);
+
+      // Resolve pending states if priorities match
+      setPendingFiles(prev => {
+        if (prev.size === 0) return prev;
+        const next = new Map(prev);
+        data.forEach(file => {
+          if (next.get(file.index) === file.priority) {
+            next.delete(file.index);
+          }
+        });
+        return next;
+      });
     } catch (err) {
       console.error('Failed to fetch files', err);
-    } finally {
-      setIsFilesLoading(false);
     }
   };
 
@@ -56,7 +71,6 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
     setIsActionPending(true);
     try {
       await fetch(`/api/torrents/${torrent.hash}/unmatch`, { method: 'POST' });
-      // We don't onClose() because the live sync will eventually clear it in the parent
     } catch (err) {
       console.error('Unmatch failed', err);
     } finally {
@@ -66,15 +80,26 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   const handleSetPriority = async (indices: number[], priority: number) => {
     if (!torrent) return;
+    
+    setPendingFiles(prev => {
+      const next = new Map(prev);
+      indices.forEach(idx => next.set(idx, priority));
+      return next;
+    });
+
     try {
       await fetch(`/api/torrents/${torrent.hash}/files/priority`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ indices, priority })
       });
-      fetchFiles(); // Refresh file list
     } catch (err) {
       console.error('Failed to set priority', err);
+      setPendingFiles(prev => {
+        const next = new Map(prev);
+        indices.forEach(idx => next.delete(idx));
+        return next;
+      });
     }
   };
 
@@ -89,7 +114,6 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         
         {/* Hero Header */}
         <div className="relative h-64 sm:h-80 flex-shrink-0 bg-zinc-900 overflow-hidden">
-          {/* Backdrop Blur Background */}
           {mediaMetadata?.posterPath && (
             <div 
               className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl scale-110"
@@ -98,7 +122,6 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
           
-          {/* Header Content */}
           <div className="absolute inset-0 p-6 sm:p-10 flex flex-col sm:flex-row items-end sm:items-center space-y-4 sm:space-y-0 sm:space-x-8">
             <div className="w-32 sm:w-44 aspect-[2/3] rounded-2xl shadow-2xl overflow-hidden border border-white/10 flex-shrink-0 self-center sm:self-auto">
               {mediaMetadata?.posterPath ? (
@@ -128,11 +151,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Close Button */}
-          <button 
-            onClick={onClose}
-            className="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 z-10"
-          >
+          <button onClick={onClose} className="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 z-10">
             <span className="text-2xl leading-none">&times;</span>
           </button>
         </div>
@@ -238,47 +257,44 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {isFilesLoading ? (
-                <div className="py-20 text-center font-bold text-zinc-400 animate-pulse">Scanning file tree...</div>
-              ) : (
-                <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-                      <tr>
-                        <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500">File Name</th>
-                        <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Size</th>
-                        <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-center">Priority</th>
-                        <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Progress</th>
+              <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                    <tr>
+                      <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500">File Name</th>
+                      <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Size</th>
+                      <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-center">Priority</th>
+                      <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Progress</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                    {files.map(file => (
+                      <tr key={file.index} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+                        <td className="px-4 py-3 font-bold truncate max-w-xs">{file.name}</td>
+                        <td className="px-4 py-3 text-right font-medium text-zinc-500">{formatBytes(file.size)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <select 
+                            disabled={pendingFiles.has(file.index)}
+                            value={pendingFiles.get(file.index) ?? file.priority}
+                            onChange={(e) => handleSetPriority([file.index], parseInt(e.target.value, 10))}
+                            className={`bg-zinc-100 dark:bg-zinc-800 border-none rounded-lg text-[10px] font-black uppercase px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/50 transition-opacity ${pendingFiles.has(file.index) ? 'opacity-50 animate-pulse' : ''}`}
+                          >
+                            <option value={0}>Skip</option>
+                            <option value={1}>Normal</option>
+                            <option value={6}>High</option>
+                            <option value={7}>Maximal</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={`font-black ${file.progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
+                            {Math.round(file.progress * 100)}%
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
-                      {files.map(file => (
-                        <tr key={file.index} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
-                          <td className="px-4 py-3 font-bold truncate max-w-xs">{file.name}</td>
-                          <td className="px-4 py-3 text-right font-medium text-zinc-500">{formatBytes(file.size)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <select 
-                              value={file.priority}
-                              onChange={(e) => handleSetPriority([file.index], parseInt(e.target.value, 10))}
-                              className="bg-zinc-100 dark:bg-zinc-800 border-none rounded-lg text-[10px] font-black uppercase px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/50"
-                            >
-                              <option value={0}>Skip</option>
-                              <option value={1}>Normal</option>
-                              <option value={6}>High</option>
-                              <option value={7}>Maximal</option>
-                            </select>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className={`font-black ${file.progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
-                              {Math.round(file.progress * 100)}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
