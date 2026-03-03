@@ -1,16 +1,5 @@
 import { useEffect, useState } from 'react';
-
-/**
- * Partial interface for the preferences we want to expose in the UI.
- */
-interface Settings {
-  save_path: string;
-  max_active_downloads: number;
-  dht: boolean;
-  alt_dl_limit: number;
-  alt_up_limit: number;
-  use_alt_speed_limits: boolean;
-}
+import type { QBPreferences } from '@soup/core/QBClient.js';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,7 +11,7 @@ interface SettingsModalProps {
  * Modal dialog for viewing and editing qBittorrent application settings.
  */
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }) => {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<QBPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSubmitting] = useState(false);
 
@@ -36,7 +25,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
     setIsLoading(true);
     try {
       const response = await fetch(`${apiUrl}/preferences`);
-      const data = await response.json();
+      const data = await response.json() as QBPreferences;
       setSettings(data);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
@@ -91,7 +80,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                   <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Default Save Path</label>
                   <input
                     type="text"
-                    value={settings.save_path}
+                    value={(settings.save_path as string) || ''}
                     onChange={(e) => setSettings({ ...settings, save_path: e.target.value })}
                     className="w-full h-12 px-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-sm"
                   />
@@ -101,7 +90,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                   <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Max Active Downloads</label>
                   <input
                     type="number"
-                    value={settings.max_active_downloads}
+                    value={(settings.max_active_downloads as number) || 0}
                     onChange={(e) => setSettings({ ...settings, max_active_downloads: parseInt(e.target.value, 10) })}
                     className="w-full h-12 px-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-sm"
                   />
@@ -116,7 +105,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                   <span className="text-sm font-bold">Enable DHT (Trackerless)</span>
                   <input
                     type="checkbox"
-                    checked={settings.dht}
+                    checked={!!settings.dht}
                     onChange={(e) => setSettings({ ...settings, dht: e.target.checked })}
                     className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500/50"
                   />
@@ -132,7 +121,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Alt Download (KiB/s)</label>
                     <input
                       type="number"
-                      value={Math.floor(settings.alt_dl_limit / 1024)}
+                      value={Math.floor((settings.alt_dl_limit as number || 0) / 1024)}
                       onChange={(e) => setSettings({ ...settings, alt_dl_limit: parseInt(e.target.value, 10) * 1024 })}
                       className="w-full h-12 px-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-sm"
                     />
@@ -141,7 +130,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Alt Upload (KiB/s)</label>
                     <input
                       type="number"
-                      value={Math.floor(settings.alt_up_limit / 1024)}
+                      value={Math.floor((settings.alt_up_limit as number || 0) / 1024)}
                       onChange={(e) => setSettings({ ...settings, alt_up_limit: parseInt(e.target.value, 10) * 1024 })}
                       className="w-full h-12 px-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-sm"
                     />
@@ -152,7 +141,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                   <span className="text-sm font-bold">Enable Alt Limits Globally</span>
                   <input
                     type="checkbox"
-                    checked={settings.use_alt_speed_limits}
+                    checked={!!settings.use_alt_speed_limits}
                     onChange={(e) => setSettings({ ...settings, use_alt_speed_limits: e.target.checked })}
                     className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500/50"
                   />

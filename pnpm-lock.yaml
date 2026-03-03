@@ -93,6 +93,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@soup/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       react:
         specifier: ^19.2.0
         version: 19.2.4
@@ -169,9 +172,15 @@ importers:
       '@soup/database':
         specifier: workspace:*
         version: link:../database
+      dotenv:
+        specifier: ^17.3.1
+        version: 17.3.1
       drizzle-orm:
         specifier: ^0.45.1
         version: 0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
 
   packages/database:
     dependencies:

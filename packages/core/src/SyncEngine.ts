@@ -25,9 +25,9 @@ export class SyncEngine {
   /** Response ID tracker for incremental syncing. */
   private rid: number = 0;
   /** Internal store of raw torrent data indexed by hash. */
-  private torrents: Map<string, any> = new Map();
+  private torrents: Map<string, Record<string, unknown>> = new Map();
   /** Aggregated server-wide state (global speeds, etc.). */
-  private serverState: any = {};
+  private serverState: Record<string, unknown> = {};
 
   /**
    * Creates an instance of SyncEngine.
@@ -82,8 +82,8 @@ export class SyncEngine {
     }
 
     return {
-      added: addedHashes.map(h => this.toTorrent(this.torrents.get(h))),
-      updated: updatedHashes.map(h => this.toTorrent(this.torrents.get(h))),
+      added: addedHashes.map(h => this.toTorrent(this.torrents.get(h)!)),
+      updated: updatedHashes.map(h => this.toTorrent(this.torrents.get(h)!)),
       removed: removedHashes,
       fullUpdate: !!data.full_update
     };
@@ -103,7 +103,7 @@ export class SyncEngine {
    * 
    * @returns Server state object.
    */
-  public getServerState(): any {
+  public getServerState(): Record<string, unknown> {
     return this.serverState;
   }
 
@@ -113,15 +113,15 @@ export class SyncEngine {
    * @param t - Raw torrent data from the API.
    * @returns A new Torrent instance.
    */
-  private toTorrent(t: any): Torrent {
+  private toTorrent(t: Record<string, unknown>): Torrent {
     return new Torrent({
-      hash: t.hash,
-      name: t.name,
-      progress: t.progress,
-      state: t.state,
-      downloadSpeed: t.dlspeed || 0,
-      uploadSpeed: t.upspeed || 0,
-      contentPath: t.content_path || '',
+      hash: t.hash as string,
+      name: t.name as string,
+      progress: t.progress as number,
+      state: t.state as string,
+      downloadSpeed: (t.dlspeed as number) || 0,
+      uploadSpeed: (t.upspeed as number) || 0,
+      contentPath: (t.content_path as string) || '',
     });
   }
 }

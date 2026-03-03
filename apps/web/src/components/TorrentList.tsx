@@ -1,7 +1,8 @@
 import TorrentCard from './TorrentCard';
+import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 
 interface TorrentListProps {
-  torrents: any[];
+  torrents: TorrentWithMetadata[];
   isLoading: boolean;
   pendingHashes: Set<string>;
   onPause: (hash: string) => void;

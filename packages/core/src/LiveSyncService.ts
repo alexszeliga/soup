@@ -100,7 +100,7 @@ export class LiveSyncService {
    * 
    * @returns Global server state object.
    */
-  public getServerState(): any {
+  public getServerState(): Record<string, unknown> {
     return this.engine.getServerState();
   }
 }

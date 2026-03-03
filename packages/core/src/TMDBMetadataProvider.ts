@@ -1,6 +1,24 @@
 import { MediaMetadata } from './MediaMetadata.js';
 import { MetadataProvider } from './MetadataProvider.js';
 
+interface TMDBResult {
+  id: number;
+  title?: string;
+  name?: string;
+  release_date?: string;
+  first_air_date?: string;
+  overview: string;
+  poster_path: string | null;
+}
+
+interface TMDBSearchResponse {
+  results: TMDBResult[];
+}
+
+interface TMDBCreditsResponse {
+  cast: { name: string }[];
+}
+
 /**
  * Metadata provider implementation using The Movie Database (TMDB) API.
  * 
@@ -62,20 +80,20 @@ export class TMDBMetadataProvider implements MetadataProvider {
     const response = await fetch(searchUrl.toString());
     if (!response.ok) return null;
 
-    const data = await response.json() as any;
+    const data = await response.json() as TMDBSearchResponse;
     if (!data.results || data.results.length === 0) return null;
 
     const item = data.results[0];
     const id = item.id;
-    const name = item.title || item.name;
+    const name = item.title || item.name || 'Unknown';
     const releaseDate = item.release_date || item.first_air_date;
 
     // Fetch credits
     const creditsUrl = new URL(`${this.baseUrl}/${type}/${id}/credits`);
     creditsUrl.searchParams.set('api_key', this.apiKey);
     const creditsResponse = await fetch(creditsUrl.toString());
-    const creditsData = creditsResponse.ok ? await creditsResponse.json() as any : {};
-    const cast = creditsData.cast ? creditsData.cast.slice(0, 5).map((c: any) => c.name) : [];
+    const creditsData = creditsResponse.ok ? await creditsResponse.json() as TMDBCreditsResponse : { cast: [] };
+    const cast = creditsData.cast ? creditsData.cast.slice(0, 5).map(c => c.name) : [];
 
     return new MediaMetadata({
       id: `tmdb-${type}-${id}`,

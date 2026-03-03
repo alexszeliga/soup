@@ -4,7 +4,7 @@ import { Torrent } from './Torrent.js';
  * Interface representing qBittorrent application preferences.
  * This is a partial map of the many settings available.
  */
-export interface QBPreferences extends Record<string, any> {
+export interface QBPreferences extends Record<string, unknown> {
   /** Default save path for torrents. */
   save_path?: string;
   /** True if DHT is enabled. */
@@ -16,6 +16,20 @@ export interface QBPreferences extends Record<string, any> {
 }
 
 /**
+ * Interface representing raw torrent data from the qBittorrent API.
+ */
+export interface RawTorrentData {
+  hash: string;
+  name: string;
+  progress: number;
+  state: string;
+  dlspeed: number;
+  upspeed: number;
+  content_path: string;
+  [key: string]: unknown;
+}
+
+/**
  * Interface representing the structure of the qBittorrent sync/maindata response.
  */
 export interface SyncResponse {
@@ -24,11 +38,11 @@ export interface SyncResponse {
   /** If true, the client should discard previous state and perform a full update. */
   full_update?: boolean;
   /** Map of torrent hashes to their updated properties. */
-  torrents?: Record<string, any>;
+  torrents?: Record<string, Partial<RawTorrentData>>;
   /** List of torrent hashes that were removed since the last update. */
   torrents_removed?: string[];
   /** Map of category names to their properties. */
-  categories?: Record<string, any>;
+  categories?: Record<string, unknown>;
   /** List of category names that were removed. */
   categories_removed?: string[];
   /** List of active tags. */
@@ -36,7 +50,7 @@ export interface SyncResponse {
   /** List of tags that were removed. */
   tags_removed?: string[];
   /** Global server-wide state (speeds, free space, etc.). */
-  server_state?: Record<string, any>;
+  server_state?: Record<string, unknown>;
 }
 
 /**
@@ -137,9 +151,9 @@ export class QBClient {
       throw new Error(`qBittorrent API error: ${response.statusText}`);
     }
 
-    const data = await response.json() as any[];
+    const data = await response.json() as RawTorrentData[];
     
-    return data.map((t: any) => new Torrent({
+    return data.map((t) => new Torrent({
       hash: t.hash,
       name: t.name,
       progress: t.progress,

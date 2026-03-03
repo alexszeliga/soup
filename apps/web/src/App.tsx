@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import TorrentList from './components/TorrentList';
 import AddTorrentModal from './components/AddTorrentModal';
 import SettingsModal from './components/SettingsModal';
+import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -11,13 +12,17 @@ const ACTIVE_STATES = [
   'queuedUP', 'checkingUP', 'moving'
 ];
 
+interface ClientConfig {
+  syncInterval: number;
+}
+
 function App() {
-  const [torrents, setTorrents] = useState([]);
+  const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [config, setConfig] = useState<{ syncInterval: number } | null>(null);
+  const [config, setConfig] = useState<ClientConfig | null>(null);
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
 
@@ -25,7 +30,7 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/torrents`);
       if (!response.ok) throw new Error('Failed to fetch torrents');
-      const data = await response.json();
+      const data = await response.json() as TorrentWithMetadata[];
       
       setTorrents(data);
       setError(null);
@@ -34,7 +39,7 @@ function App() {
       setPendingTransitions(prev => {
         if (prev.size === 0) return prev;
         const next = new Map(prev);
-        data.forEach((t: any) => {
+        data.forEach((t) => {
           const target = next.get(t.hash);
           if (target) {
             const isCurrentlyActive = ACTIVE_STATES.includes(t.state);
@@ -45,8 +50,9 @@ function App() {
         });
         return next;
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -67,8 +73,9 @@ function App() {
 
       if (!response.ok) throw new Error('Failed to add torrent');
       fetchTorrents();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert(message);
     }
   };
 
@@ -87,7 +94,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [hash] })
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setPendingTransitions(prev => {
         const next = new Map(prev);
@@ -106,7 +113,7 @@ function App() {
       await fetch(`${API_URL}/torrents?hashes=${hash}&deleteFiles=true`, {
         method: 'DELETE'
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setPendingTransitions(prev => {
         const next = new Map(prev);
@@ -120,7 +127,7 @@ function App() {
     const fetchConfig = async () => {
       try {
         const res = await fetch(`${API_URL}/config`);
-        const data = await res.json();
+        const data = await res.json() as ClientConfig;
         setConfig(data);
       } catch (err) {
         console.error('Failed to fetch config', err);

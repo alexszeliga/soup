@@ -1,15 +1,7 @@
+import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+
 interface TorrentCardProps {
-  torrent: {
-    hash: string;
-    name: string;
-    progress: number;
-    state: string;
-    mediaMetadata?: {
-      title: string;
-      year: number;
-      posterPath: string;
-    };
-  };
+  torrent: TorrentWithMetadata;
   isLoading?: boolean;
   onPause: (hash: string) => void;
   onResume: (hash: string) => void;
@@ -64,7 +56,6 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, 
           </span>
         </div>
       </div>
-...
 
       {/* Info Area */}
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
