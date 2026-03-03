@@ -10,6 +10,7 @@ interface IngestTabProps {
 interface SuggestedPath {
   index: number;
   originalName: string;
+  sourcePath: string;
   suggestedPath: string;
 }
 
@@ -30,7 +31,6 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
         const data = await res.json();
         setLibraries(data);
         if (data.length > 0) {
-          // Intelligent default: If it's a TV show (has SxxExx), pick 'TV' or 'Shows'
           const name = torrent.name.toLowerCase();
           const tvKeywords = ['s0', 's1', 's2', 's3', 'season', 'x0', 'x1'];
           const isTV = tvKeywords.some(k => name.includes(k));
@@ -49,7 +49,7 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     fetchLibraries();
   }, [torrent.hash, torrent.name]);
 
-  // Load Suggestions (depends on hash AND selected library)
+  // Load Suggestions
   useEffect(() => {
     const fetchSuggestions = async () => {
       setIsLoading(true);
@@ -59,7 +59,6 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
         const data = await res.json();
         setSuggestedPaths(data);
         
-        // Initial defaults for selection
         setSelectedIndices(prev => {
           if (prev.size > 0) return prev;
           const defaults = new Set<number>();
@@ -95,12 +94,8 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     
     selectedIndices.forEach(idx => {
       const suggestion = suggestions.find(s => s.index === idx);
-      const file = torrent.files?.find(f => f.index === idx);
-      if (suggestion && file) {
-        const source = torrent.contentPath.endsWith(file.name) 
-          ? torrent.contentPath 
-          : `${torrent.contentPath}/${file.name}`;
-        fileMap[source] = suggestion.suggestedPath;
+      if (suggestion) {
+        fileMap[suggestion.sourcePath] = suggestion.suggestedPath;
       }
     });
 

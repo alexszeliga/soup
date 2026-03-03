@@ -127,9 +127,17 @@ fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
   
   return files.map(f => {
     const suggestion = ingestion.suggestPath(title, f.name, year ?? undefined);
+    
+    // Calculate actual source path on disk
+    // qBittorrent relative file names (f.name) start with the torrent root folder.
+    // contentPath is the absolute path to that root folder.
+    // To get the absolute path of a file, we join the PARENT of contentPath with f.name.
+    const sourcePath = path.join(path.dirname(torrent.contentPath), f.name);
+
     return {
       index: f.index,
       originalName: f.name,
+      sourcePath,
       suggestedPath: library ? path.join(library, suggestion) : suggestion
     };
   });
