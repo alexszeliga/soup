@@ -4,26 +4,41 @@ import AddTorrentModal from './components/AddTorrentModal';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+const ACTIVE_STATES = [
+  'allocating', 'downloading', 'metaDL', 'stalledDL', 'checkingDL', 
+  'forcedDL', 'queuedDL', 'uploading', 'stalledUP', 'forcedUP', 
+  'queuedUP', 'checkingUP', 'moving'
+];
+
 function App() {
   const [torrents, setTorrents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [pendingHashes, setPendingHashes] = useState<Set<string>>(new Set());
+  // Map of hash -> target state ('active' | 'inactive')
+  const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
 
   const fetchTorrents = async () => {
     try {
       const response = await fetch(`${API_URL}/torrents`);
       if (!response.ok) throw new Error('Failed to fetch torrents');
       const data = await response.json();
+      
       setTorrents(data);
       setError(null);
-      // Clear pending hashes if they've updated in the data
-      setPendingHashes(prev => {
-        const next = new Set(prev);
+
+      // Clean up pending transitions that have completed
+      setPendingTransitions(prev => {
+        if (prev.size === 0) return prev;
+        const next = new Map(prev);
         data.forEach((t: any) => {
-          // If we see a state change or update, we can potentially clear it here
-          // but for simplicity we'll just clear it when the action is finished
+          const target = next.get(t.hash);
+          if (target) {
+            const isCurrentlyActive = ACTIVE_STATES.includes(t.state);
+            if ((target === 'active' && isCurrentlyActive) || (target === 'inactive' && !isCurrentlyActive)) {
+              next.delete(t.hash);
+            }
+          }
         });
         return next;
       });
@@ -55,19 +70,17 @@ function App() {
   };
 
   const handlePause = async (hash: string) => {
-    setPendingHashes(prev => new Set(prev).add(hash));
+    setPendingTransitions(prev => new Map(prev).set(hash, 'inactive'));
     try {
       await fetch(`${API_URL}/torrents/pause`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [hash] })
       });
-      await fetchTorrents();
     } catch (err: any) {
       console.error(err);
-    } finally {
-      setPendingHashes(prev => {
-        const next = new Set(prev);
+      setPendingTransitions(prev => {
+        const next = new Map(prev);
         next.delete(hash);
         return next;
       });
@@ -75,19 +88,17 @@ function App() {
   };
 
   const handleResume = async (hash: string) => {
-    setPendingHashes(prev => new Set(prev).add(hash));
+    setPendingTransitions(prev => new Map(prev).set(hash, 'active'));
     try {
       await fetch(`${API_URL}/torrents/resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hashes: [hash] })
       });
-      await fetchTorrents();
     } catch (err: any) {
       console.error(err);
-    } finally {
-      setPendingHashes(prev => {
-        const next = new Set(prev);
+      setPendingTransitions(prev => {
+        const next = new Map(prev);
         next.delete(hash);
         return next;
       });
@@ -95,17 +106,15 @@ function App() {
   };
 
   const handleDelete = async (hash: string) => {
-    setPendingHashes(prev => new Set(prev).add(hash));
+    setPendingTransitions(prev => new Map(prev).set(hash, 'inactive'));
     try {
       await fetch(`${API_URL}/torrents?hashes=${hash}&deleteFiles=true`, {
         method: 'DELETE'
       });
-      await fetchTorrents();
     } catch (err: any) {
       console.error(err);
-    } finally {
-      setPendingHashes(prev => {
-        const next = new Set(prev);
+      setPendingTransitions(prev => {
+        const next = new Map(prev);
         next.delete(hash);
         return next;
       });
@@ -114,7 +123,7 @@ function App() {
 
   useEffect(() => {
     fetchTorrents();
-    const interval = setInterval(fetchTorrents, 5000);
+    const interval = setInterval(fetchTorrents, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -203,7 +212,7 @@ function App() {
             <TorrentList 
               torrents={torrents} 
               isLoading={isLoading} 
-              pendingHashes={pendingHashes}
+              pendingHashes={new Set(pendingTransitions.keys())}
               onPause={handlePause}
               onResume={handleResume}
               onDelete={handleDelete}
