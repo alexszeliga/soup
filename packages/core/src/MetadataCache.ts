@@ -120,4 +120,17 @@ export class MetadataCache {
       }
     }).run();
   }
+
+  /**
+   * Clears the metadata association for a specific torrent.
+   * 
+   * @param hash - The torrent hash to unmatch.
+   * @returns A promise that resolves when the update is complete.
+   */
+  public async unmatchTorrent(hash: string): Promise<void> {
+    this.db.update(torrentsSchema)
+      .set({ metadataId: null })
+      .where(eq(torrentsSchema.hash, hash))
+      .run();
+  }
 }

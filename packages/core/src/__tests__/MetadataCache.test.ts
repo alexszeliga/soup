@@ -65,4 +65,31 @@ describe('MetadataCache Service', () => {
     expect(retrieved?.id).toBe(metadata.id);
     expect(retrieved?.title).toBe(metadata.title);
   });
+
+  it('should unmatch a torrent', async () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'Movie',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p1'
+    });
+
+    const metadata = new MediaMetadata({
+      id: 'm1',
+      title: 'Movie',
+      year: 2024,
+      plot: '',
+      cast: [],
+      posterPath: ''
+    });
+
+    await cache.saveMetadataForTorrent(torrent, metadata);
+    await cache.unmatchTorrent(torrent.hash);
+
+    const retrieved = await cache.getMetadataForTorrent(torrent.hash);
+    expect(retrieved).toBeNull();
+  });
 });

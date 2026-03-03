@@ -93,4 +93,24 @@ describe('QBClient', () => {
     expect(files).toHaveLength(2);
     expect(files[0].name).toBe('file1.mp4');
   });
+
+  it('should set file priorities', async () => {
+    (fetch as any).mockResolvedValueOnce({ ok: true });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    await client.setFilePriority('h1', [0, 2], 1);
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/torrents/filePrio'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(URLSearchParams)
+      })
+    );
+
+    const body = (fetch as any).mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('hash')).toBe('h1');
+    expect(body.get('id')).toBe('0|2');
+    expect(body.get('priority')).toBe('1');
+  });
 });

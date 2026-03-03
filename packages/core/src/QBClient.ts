@@ -246,6 +246,22 @@ export class QBClient {
   }
 
   /**
+   * Sets the priority for one or more files in a torrent.
+   * 
+   * @param hash - The torrent hash.
+   * @param indices - Array of file indices.
+   * @param priority - Priority level (0: skip, 1: normal, 6: high, 7: maximal).
+   * @returns A promise that resolves when priority is set.
+   */
+  public async setFilePriority(hash: string, indices: number[], priority: number): Promise<void> {
+    await this.post('/torrents/filePrio', {
+      hash,
+      id: indices.join('|'),
+      priority: priority.toString()
+    });
+  }
+
+  /**
    * Adds new torrents to the server.
    * 
    * @param urls - List of magnet links or URLs.
