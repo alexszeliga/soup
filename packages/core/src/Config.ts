@@ -53,8 +53,18 @@ export class ConfigLoader {
   public static load(dotEnvPath?: string): Config {
     if (this.instance) return this.instance;
 
-    // Load .env file
-    dotenv.config({ path: dotEnvPath || path.resolve(process.cwd(), '../../.env') });
+    // Try multiple possible locations for .env
+    const possiblePaths = [
+      dotEnvPath,
+      path.resolve(process.cwd(), '.env'),
+      path.resolve(process.cwd(), '../../.env'),
+      path.resolve(__dirname, '../../../.env')
+    ].filter(Boolean) as string[];
+
+    for (const p of possiblePaths) {
+      const result = dotenv.config({ path: p });
+      if (result.parsed) break;
+    }
 
     const result = configSchema.safeParse(process.env);
 
