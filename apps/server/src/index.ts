@@ -34,7 +34,7 @@ const cache = new MetadataCache(db);
 const engine = new SyncEngine(qb);
 const liveSync = new LiveSyncService(engine, matcher, cache, tmdb);
 const ingestion = new IngestionService(config.MEDIA_ROOT);
-const queue = new TaskQueue();
+const queue = new TaskQueue(db);
 
 await cache.ensureTables();
 

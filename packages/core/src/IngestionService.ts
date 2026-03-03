@@ -156,4 +156,19 @@ export class CopyTask implements Task {
       throw err;
     }
   }
+
+  /**
+   * Returns a serializable representation of the task for DB persistence.
+   * 
+   * @returns Plain object representation.
+   */
+  public toJSON(): any {
+    return {
+      id: this.id,
+      torrentHash: this.torrentHash,
+      status: this.status,
+      progress: this.progress,
+      fileMap: JSON.stringify(this.fileMap)
+    };
+  }
 }

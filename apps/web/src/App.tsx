@@ -3,6 +3,7 @@ import TorrentList from './components/TorrentList';
 import AddTorrentModal from './components/AddTorrentModal';
 import SettingsModal from './components/SettingsModal';
 import TorrentDetailModal from './components/TorrentDetailModal';
+import TaskMonitor from './components/TaskMonitor';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
@@ -245,22 +246,28 @@ function App() {
             <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mt-1">Active Transfers</h1>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mr-2">Sort by</p>
-            <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-1 border border-zinc-200/50 dark:border-zinc-800/50">
-              <button 
-                onClick={() => setSortBy('dateAdded')}
-                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'dateAdded' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-              >
-                Date
-              </button>
-              <button 
-                onClick={() => setSortBy('alphabetical')}
-                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'alphabetical' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-              >
-                Name
-              </button>
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mr-2">Sort by</p>
+              <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-1 border border-zinc-200/50 dark:border-zinc-800/50">
+                <button 
+                  onClick={() => setSortBy('dateAdded')}
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'dateAdded' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  Date
+                </button>
+                <button 
+                  onClick={() => setSortBy('alphabetical')}
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'alphabetical' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  Name
+                </button>
+              </div>
             </div>
+
+            <div className="h-10 w-px bg-zinc-200 dark:bg-zinc-800" />
+
+            <TaskMonitor />
           </div>
         </header>
 
