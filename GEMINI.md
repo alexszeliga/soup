@@ -65,22 +65,23 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [ ] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
 - [x] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
-- [ ] **UI/UX Hardening:** Replace all browser-native `alert()` and `confirm()` dialogs with integrated Material 3 components.
-    - [ ] Implement a reusable `ConfirmDialog` component for destructive actions.
-    - [ ] Implement a `Snackbar` system for non-intrusive error/success feedback.
-    - [ ] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
+- [x] **UI/UX Hardening:** Replace all browser-native `alert()` and `confirm()` dialogs with integrated Material 3 components.
+    - [x] Implement a reusable `ConfirmDialog` component for destructive actions.
+    - [x] Implement a `Snackbar` system for non-intrusive error/success feedback.
+    - [x] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
 - [x] **Manual Metadata Management:** Support "Unmatch" and "Mark as Non-Media" within the Detailed View, with a fallback visual style for generic assets.
 - [x] **File Selection:** View torrent file lists and set download priorities.
 - [ ] **File Management:** Move/copy files to media server ingestion directories.
-- [ ] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
+- [x] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
 
 ### Phase 4: Architecture & Infrastructure
 - [ ] **Deployment:** Plan and implement a container hosting strategy.
 
 ## Handoff Notes (Session 1)
+- **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
 - **Database Location:** The active database is located at `apps/server/soup.db`. If you add columns to the schema, you must manually handle migrations in `MetadataCache.ts` or nuke this file to trigger recreation.
 - **qBittorrent v5.0+ Compatibility:** Crucial! Use `/torrents/stop` and `/torrents/start`. The old `/pause` and `/resume` endpoints are removed and will return 404.
 - **Security Headers:** All state-changing POST/DELETE requests *must* include `Referer: <base_url>/` and `Origin: <origin>` to bypass CSRF protection.
