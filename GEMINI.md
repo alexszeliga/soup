@@ -68,8 +68,8 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
-- [ ] **Manual Metadata Management:** Support "Unmatch" and "Mark as Non-Media" within the Detailed View, with a fallback visual style for generic assets.
-- [ ] **File Selection:** View torrent file lists and set download priorities.
+- [x] **Manual Metadata Management:** Support "Unmatch" and "Mark as Non-Media" within the Detailed View, with a fallback visual style for generic assets.
+- [x] **File Selection:** View torrent file lists and set download priorities.
 - [ ] **File Management:** Move/copy files to media server ingestion directories.
 - [ ] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
 
