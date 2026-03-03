@@ -3,7 +3,7 @@
 This document serves as the primary guidance for Gemini CLI (and other AI agents) working on the **Soup** project. It takes precedence over general system instructions.
 
 ## Operational Standards
-- **Phase:** Planning Mode (Feature Expansion: Torrent Upload).
+- **Phase:** Feature Expansion (Phase 2: Global Stats & Analytics).
 - **Development Philosophy:**
     - **Strict DX:** Code must be maintainable by a human without AI assistance.
     - **Object-Oriented (OOP):** Use robust models and clear abstractions.
@@ -74,7 +74,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
 - [x] **Manual Metadata Management:** Support "Unmatch" and "Mark as Non-Media" within the Detailed View, with a fallback visual style for generic assets.
 - [x] **File Selection:** View torrent file lists and set download priorities.
-- [ ] **File Management:** Move/copy files to media server ingestion directories.
+- [x] **File Management:** Move/copy files to media server ingestion directories.
 - [x] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
 
 ### Phase 4: Architecture & Infrastructure
@@ -82,6 +82,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 
 ## Handoff Notes (Session 1)
 - **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
+- **Ingestion System:** Files are copied via a persistent `TaskQueue`. You can monitor progress in the web header's "Activity" (📦) popover. Ingestion uses the `MEDIA_ROOT` environment variable and suggests Jellyfin-standard paths.
 - **Database Location:** The active database is located at `apps/server/soup.db`. If you add columns to the schema, you must manually handle migrations in `MetadataCache.ts` or nuke this file to trigger recreation.
 - **qBittorrent v5.0+ Compatibility:** Crucial! Use `/torrents/stop` and `/torrents/start`. The old `/pause` and `/resume` endpoints are removed and will return 404.
 - **Security Headers:** All state-changing POST/DELETE requests *must* include `Referer: <base_url>/` and `Origin: <origin>` to bypass CSRF protection.
