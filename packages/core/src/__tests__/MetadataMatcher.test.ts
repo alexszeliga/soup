@@ -16,7 +16,9 @@ describe('MetadataMatcher Service', () => {
     });
 
     const mockProvider: MetadataProvider = {
-      search: vi.fn().mockResolvedValue(mockMetadata)
+      search: vi.fn().mockResolvedValue(mockMetadata),
+      searchCandidates: vi.fn(),
+      getById: vi.fn()
     };
 
     const matcher = new MetadataMatcher(mockProvider);

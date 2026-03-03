@@ -45,4 +45,61 @@ describe('TMDBMetadataProvider', () => {
     expect(result?.year).toBe(2024);
     expect(result?.cast).toEqual(['Actor One', 'Actor Two']);
   });
+
+  it('should search for candidates and return multiple results', async () => {
+    const mockMovieResponse = {
+      results: [
+        { id: 1, title: 'Movie 1', release_date: '2021-01-01', overview: 'Plot 1', poster_path: '/p1.jpg' }
+      ]
+    };
+    const mockTvResponse = {
+      results: [
+        { id: 2, name: 'TV Show 1', first_air_date: '2022-01-01', overview: 'Plot 2', poster_path: '/p2.jpg' }
+      ]
+    };
+
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockMovieResponse
+    });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockTvResponse
+    });
+
+    const provider = new TMDBMetadataProvider('fake-api-key');
+    const results = await provider.searchCandidates('Query');
+
+    expect(results).toHaveLength(2);
+    expect(results[0].id).toBe('tmdb-movie-1');
+    expect(results[1].id).toBe('tmdb-tv-2');
+  });
+
+  it('should fetch specific metadata by ID', async () => {
+    const mockResponse = {
+      id: 550,
+      title: 'Fight Club',
+      release_date: '1999-10-15',
+      overview: 'Plot...',
+      poster_path: '/path.jpg'
+    };
+
+    const mockCreditsResponse = { cast: [{ name: 'Brad Pitt' }] };
+
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse
+    });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockCreditsResponse
+    });
+
+    const provider = new TMDBMetadataProvider('fake-api-key');
+    const result = await provider.getById('tmdb-movie-550');
+
+    expect(result?.id).toBe('tmdb-movie-550');
+    expect(result?.title).toBe('Fight Club');
+    expect(result?.cast).toContain('Brad Pitt');
+  });
 });

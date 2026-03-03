@@ -61,6 +61,54 @@ export class TMDBMetadataProvider implements MetadataProvider {
   }
 
   /**
+   * Returns a combined list of movie and TV show candidates for a query.
+   * 
+   * @param query - The search query.
+   * @returns List of potential MediaMetadata matches.
+   */
+  public async searchCandidates(query: string): Promise<MediaMetadata[]> {
+    const [movieData, tvData] = await Promise.all([
+      this.fetchSearchData('movie', query),
+      this.fetchSearchData('tv', query)
+    ]);
+
+    const candidates: MediaMetadata[] = [];
+
+    if (movieData?.results) {
+      candidates.push(...movieData.results.map(item => this.mapToMetadata('movie', item, [])));
+    }
+
+    if (tvData?.results) {
+      candidates.push(...tvData.results.map(item => this.mapToMetadata('tv', item, [])));
+    }
+
+    return candidates;
+  }
+
+  /**
+   * Retrieves specific metadata by its TMDB-formatted ID (e.g., 'tmdb-movie-123').
+   * 
+   * @param id - The unique ID.
+   * @returns MediaMetadata if found, otherwise null.
+   */
+  public async getById(id: string): Promise<MediaMetadata | null> {
+    const match = id.match(/^tmdb-(movie|tv)-(\d+)$/);
+    if (!match) return null;
+
+    const type = match[1] as 'movie' | 'tv';
+    const tmdbId = match[2];
+
+    const [item, credits] = await Promise.all([
+      this.fetchItemDetails(type, tmdbId),
+      this.fetchCredits(type, tmdbId)
+    ]);
+
+    if (!item) return null;
+
+    return this.mapToMetadata(type, item, credits);
+  }
+
+  /**
    * Internal helper to perform category-specific searches and fetch cast details.
    * 
    * @param type - 'movie' or 'tv'.
@@ -69,34 +117,55 @@ export class TMDBMetadataProvider implements MetadataProvider {
    * @returns MediaMetadata instance or null.
    */
   private async performSearch(type: 'movie' | 'tv', title: string, year?: number): Promise<MediaMetadata | null> {
-    const searchUrl = new URL(`${this.baseUrl}/search/${type}`);
-    searchUrl.searchParams.set('api_key', this.apiKey);
-    searchUrl.searchParams.set('query', title);
-    if (year) {
-      const yearParam = type === 'movie' ? 'primary_release_year' : 'first_air_date_year';
-      searchUrl.searchParams.set(yearParam, year.toString());
-    }
-
-    const response = await fetch(searchUrl.toString());
-    if (!response.ok) return null;
-
-    const data = await response.json() as TMDBSearchResponse;
-    if (!data.results || data.results.length === 0) return null;
+    const data = await this.fetchSearchData(type, title, year);
+    if (!data?.results || data.results.length === 0) return null;
 
     const item = data.results[0];
-    const id = item.id;
+    const cast = await this.fetchCredits(type, item.id.toString());
+
+    return this.mapToMetadata(type, item, cast);
+  }
+
+  private async fetchSearchData(type: 'movie' | 'tv', query: string, year?: number): Promise<TMDBSearchResponse | null> {
+    const url = new URL(`${this.baseUrl}/search/${type}`);
+    url.searchParams.set('api_key', this.apiKey);
+    url.searchParams.set('query', query);
+    if (year) {
+      const yearParam = type === 'movie' ? 'primary_release_year' : 'first_air_date_year';
+      url.searchParams.set(yearParam, year.toString());
+    }
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+    return await response.json() as TMDBSearchResponse;
+  }
+
+  private async fetchItemDetails(type: 'movie' | 'tv', id: string): Promise<TMDBResult | null> {
+    const url = new URL(`${this.baseUrl}/${type}/${id}`);
+    url.searchParams.set('api_key', this.apiKey);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+    return await response.json() as TMDBResult;
+  }
+
+  private async fetchCredits(type: 'movie' | 'tv', id: string): Promise<string[]> {
+    const url = new URL(`${this.baseUrl}/${type}/${id}/credits`);
+    url.searchParams.set('api_key', this.apiKey);
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) return [];
+
+    const data = await response.json() as TMDBCreditsResponse;
+    return data.cast ? data.cast.slice(0, 5).map(c => c.name) : [];
+  }
+
+  private mapToMetadata(type: 'movie' | 'tv', item: TMDBResult, cast: string[]): MediaMetadata {
     const name = item.title || item.name || 'Unknown';
     const releaseDate = item.release_date || item.first_air_date;
 
-    // Fetch credits
-    const creditsUrl = new URL(`${this.baseUrl}/${type}/${id}/credits`);
-    creditsUrl.searchParams.set('api_key', this.apiKey);
-    const creditsResponse = await fetch(creditsUrl.toString());
-    const creditsData = creditsResponse.ok ? await creditsResponse.json() as TMDBCreditsResponse : { cast: [] };
-    const cast = creditsData.cast ? creditsData.cast.slice(0, 5).map(c => c.name) : [];
-
     return new MediaMetadata({
-      id: `tmdb-${type}-${id}`,
+      id: `tmdb-${type}-${item.id}`,
       title: name,
       year: releaseDate ? new Date(releaseDate).getFullYear() : 0,
       plot: item.overview,

@@ -15,4 +15,20 @@ export interface MetadataProvider {
    * @returns MediaMetadata if a high-confidence match is found, otherwise null.
    */
   search(title: string, year?: number): Promise<MediaMetadata | null>;
+
+  /**
+   * Returns a list of potential matches for a given query.
+   * 
+   * @param query - The search query (title).
+   * @returns Array of potential MediaMetadata matches.
+   */
+  searchCandidates(query: string): Promise<MediaMetadata[]>;
+
+  /**
+   * Retrieves specific metadata by its provider-specific ID.
+   * 
+   * @param id - The unique ID (e.g., 'tmdb-movie-123').
+   * @returns MediaMetadata if found, otherwise null.
+   */
+  getById(id: string): Promise<MediaMetadata | null>;
 }

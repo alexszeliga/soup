@@ -29,9 +29,12 @@ const tmdb = new TMDBMetadataProvider(
 const matcher = new MetadataMatcher(tmdb);
 const cache = new MetadataCache(db);
 const engine = new SyncEngine(qb);
-const liveSync = new LiveSyncService(engine, matcher, cache);
+const liveSync = new LiveSyncService(engine, matcher, cache, tmdb);
 
 await cache.ensureTables();
+
+// Track the hash currently being "viewed" by a user to prioritize file syncing.
+let currentFocus: string | null = null;
 
 // Login to qBittorrent before starting
 try {
@@ -46,7 +49,8 @@ try {
 const startSync = async () => {
   while (true) {
     try {
-      await liveSync.sync();
+      // Pass the current globally tracked focus to the sync method
+      await liveSync.sync(currentFocus);
     } catch (error) {
       fastify.log.error(error, 'Sync error');
     }
@@ -57,13 +61,24 @@ const startSync = async () => {
 startSync();
 
 fastify.get('/api/torrents', async (request) => {
-  const { focus } = request.query as { focus?: string };
-  if (focus) {
-    liveSync.setFocus(focus);
-  } else {
-    liveSync.setFocus(null);
-  }
+  fastify.log.info({ url: request.url, query: request.query }, 'Received torrents request');
+  currentFocus = null; // Clear focus if we hit the standard list
   return liveSync.getTorrentsWithMetadata();
+});
+
+fastify.get('/api/torrents/focus/:hash', async (request) => {
+  const { hash } = request.params as { hash: string };
+  fastify.log.info(`[API] Focus requested via PATH for: ${hash}`);
+  
+  currentFocus = hash;
+  
+  // Force an immediate sync to get file data right now
+  await liveSync.sync(currentFocus);
+  
+  const torrents = liveSync.getTorrentsWithMetadata();
+  const focused = torrents.find(t => t.hash === hash);
+  fastify.log.info(`[API] Returning focused list. Files found: ${focused?.files?.length ?? 0}`);
+  return torrents;
 });
 
 fastify.get('/api/torrents/:hash/files', async (request) => {
@@ -128,6 +143,18 @@ async function handleAPIAction(reply: any, action: () => Promise<void>) {
 fastify.post('/api/preferences', async (request, reply) => {
   const prefs = request.body as Partial<QBPreferences>;
   return handleAPIAction(reply, () => qb.setPreferences(prefs));
+});
+
+fastify.get('/api/metadata/search', async (request) => {
+  const { query } = request.query as { query: string };
+  if (!query) return [];
+  return tmdb.searchCandidates(query);
+});
+
+fastify.post('/api/torrents/:hash/metadata', async (request, reply) => {
+  const { hash } = request.params as { hash: string };
+  const { metadataId } = request.body as { metadataId: string };
+  return handleAPIAction(reply, () => liveSync.linkMetadata(hash, metadataId));
 });
 
 fastify.post('/api/torrents/:hash/unmatch', async (request, reply) => {

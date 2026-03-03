@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
+import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
 
 interface TorrentDetailModalProps {
   torrent: TorrentWithMetadata | null;
@@ -30,6 +31,32 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
   // Map of file index -> target priority
   const [pendingFiles, setPendingFiles] = useState<Map<number, number>>(new Map());
 
+  // Search State
+  const [isSearchView, setIsSearchView] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchCandidates, setSearchCandidates] = useState<MediaMetadata[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Reset search view when modal opens or torrent changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsSearchView(false);
+      setSearchCandidates([]);
+      setSearchQuery(torrent?.mediaMetadata?.title || '');
+    }
+  }, [isOpen, torrent?.hash]);
+
+  // Debug: Log the incoming torrent object to see if files exist
+  useEffect(() => {
+    if (isOpen && torrent) {
+      console.log(`[DetailModal] Incoming torrent: ${torrent.name}`, { 
+        hash: torrent.hash, 
+        fileCount: torrent.files?.length ?? 0,
+        hasFiles: !!torrent.files 
+      });
+    }
+  }, [isOpen, torrent?.hash, torrent?.files?.length]);
+
   // Resolve pending states if priorities match the incoming live data
   useEffect(() => {
     if (torrent?.files) {
@@ -53,6 +80,43 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       await fetch(`/api/torrents/${torrent.hash}/unmatch`, { method: 'POST' });
     } catch (err) {
       console.error('Unmatch failed', err);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleSearchMetadata = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/metadata/search?query=${encodeURIComponent(searchQuery)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchCandidates(data);
+      }
+    } catch (err) {
+      console.error('Search failed', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleLinkMetadata = async (metadataId: string) => {
+    if (!torrent) return;
+    setIsActionPending(true);
+    try {
+      const response = await fetch(`/api/torrents/${torrent.hash}/metadata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metadataId })
+      });
+      if (response.ok) {
+        setIsSearchView(false);
+      }
+    } catch (err) {
+      console.error('Linking failed', err);
     } finally {
       setIsActionPending(false);
     }
@@ -146,13 +210,20 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               {Torrent.ACTIVE_STATES.includes(state) ? '⏸️ Pause' : '▶️ Resume'}
             </button>
             
-            {mediaMetadata && (
+            {mediaMetadata ? (
               <button 
                 disabled={isActionPending}
                 onClick={handleUnmatch}
                 className="h-12 px-6 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
               >
                 Unmatch
+              </button>
+            ) : (
+              <button 
+                onClick={() => { setIsSearchView(true); setActiveTab('details'); }}
+                className="h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all"
+              >
+                🔍 Find Media Match
               </button>
             )}
 
@@ -177,24 +248,91 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="flex px-6 sm:px-10 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800">
-          <button 
-            onClick={() => setActiveTab('details')}
-            className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
-          >
-            Details
-          </button>
-          <button 
-            onClick={() => setActiveTab('files')}
-            className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
-          >
-            Files ({files?.length || 0})
-          </button>
-        </div>
+        {!isSearchView && (
+          <div className="flex px-6 sm:px-10 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800">
+            <button 
+              onClick={() => setActiveTab('details')}
+              className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+            >
+              Details
+            </button>
+            <button 
+              onClick={() => setActiveTab('files')}
+              className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+            >
+              Files ({files?.length || 0})
+            </button>
+          </div>
+        )}
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar bg-white dark:bg-zinc-950">
-          {activeTab === 'details' ? (
+          {isSearchView ? (
+            <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+              <header className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight">Find Media Match</h3>
+                  <p className="text-sm font-bold text-zinc-500">Search TMDB for the correct movie or show.</p>
+                </div>
+                <button 
+                  onClick={() => setIsSearchView(false)}
+                  className="px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </header>
+
+              <form onSubmit={handleSearchMetadata} className="flex gap-2">
+                <div className="flex-1 h-14 px-6 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
+                  <input 
+                    autoFocus
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-transparent border-none outline-none text-sm font-bold w-full" 
+                    placeholder="Enter movie or show title..." 
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isSearching}
+                  className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
+              </form>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {searchCandidates.map(candidate => (
+                  <button 
+                    key={candidate.id}
+                    onClick={() => handleLinkMetadata(candidate.id)}
+                    className="group text-left space-y-3 p-2 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all active:scale-95"
+                  >
+                    <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md border border-black/5 bg-zinc-200 dark:bg-zinc-800 relative">
+                      {candidate.posterPath ? (
+                        <img src={candidate.posterPath} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={candidate.title} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-400 font-serif italic">Soup</div>
+                      )}
+                      <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-colors" />
+                    </div>
+                    <div>
+                      <p className="font-black text-xs line-clamp-1 group-hover:text-blue-600 transition-colors">{candidate.title}</p>
+                      <p className="text-[10px] font-black uppercase text-zinc-500">{candidate.year || 'Unknown'}</p>
+                    </div>
+                  </button>
+                ))}
+                
+                {!isSearching && searchCandidates.length === 0 && searchQuery && (
+                  <div className="col-span-full py-20 text-center space-y-4">
+                    <p className="text-4xl">🔎</p>
+                    <p className="text-zinc-500 font-bold">No results found for "{searchQuery}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : activeTab === 'details' ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
               <div className="lg:col-span-2 space-y-8">
                 <section>
