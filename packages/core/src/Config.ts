@@ -57,18 +57,9 @@ export class ConfigLoader {
   public static load(dotEnvPath?: string): Config {
     if (this.instance) return this.instance;
 
-    // Try multiple possible locations for .env
-    const possiblePaths = [
-      dotEnvPath,
-      path.resolve(process.cwd(), '.env'),
-      path.resolve(process.cwd(), '../../.env'),
-      path.resolve(__dirname, '../../../.env')
-    ].filter(Boolean) as string[];
-
-    for (const p of possiblePaths) {
-      const result = dotenv.config({ path: p });
-      if (result.parsed) break;
-    }
+    // The .env file is always expected at the project root
+    const rootEnv = dotEnvPath || path.resolve(__dirname, '../../../.env');
+    dotenv.config({ path: rootEnv });
 
     const result = configSchema.safeParse(process.env);
 
