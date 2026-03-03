@@ -58,7 +58,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 ### Phase 2: Management & Health
 - [ ] **Global Stats:** Real-time aggregate upload/download speeds in the web header.
 - [ ] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
-- [ ] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
+- [x] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [ ] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
 
 ### Phase 3: Advanced Workflow
