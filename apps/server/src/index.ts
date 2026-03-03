@@ -1,18 +1,16 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import dotenv from 'dotenv';
-import path from 'path';
 import { QBClient, QBPreferences } from '@soup/core/QBClient.js';
 import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
 import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
 import { MetadataCache } from '@soup/core/MetadataCache.js';
 import { SyncEngine } from '@soup/core/SyncEngine.js';
 import { LiveSyncService } from '@soup/core/LiveSyncService.js';
+import { ConfigLoader } from '@soup/core/Config.js';
 import { createDatabase } from '@soup/database';
 
-dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
-
+const config = ConfigLoader.load();
 const fastify = Fastify({ logger: true });
 
 await fastify.register(cors, {
@@ -21,20 +19,13 @@ await fastify.register(cors, {
 
 await fastify.register(multipart);
 
-const qbUrl = process.env.QB_URL || 'https://qb.osage.lol/api/v2';
-const qbUsername = process.env.QB_USERNAME;
-const qbPassword = process.env.QB_PASSWORD;
-const tmdbApiKey = process.env.TMDB_API_KEY!;
-const dbPath = process.env.DB_PATH || './soup.db';
-
-if (!tmdbApiKey) {
-  console.error('Error: TMDB_API_KEY is not defined in .env');
-  process.exit(1);
-}
-
-const db = createDatabase(dbPath);
-const qb = new QBClient(qbUrl);
-const tmdb = new TMDBMetadataProvider(tmdbApiKey);
+const db = createDatabase(config.DB_PATH);
+const qb = new QBClient(config.QB_URL);
+const tmdb = new TMDBMetadataProvider(
+  config.TMDB_API_KEY, 
+  config.TMDB_BASE_URL, 
+  config.TMDB_IMAGE_BASE_URL
+);
 const matcher = new MetadataMatcher(tmdb);
 const cache = new MetadataCache(db);
 const engine = new SyncEngine(qb);
@@ -45,7 +36,7 @@ await cache.ensureTables();
 // Login to qBittorrent before starting
 try {
   fastify.log.info('Logging in to qBittorrent...');
-  await qb.login(qbUsername, qbPassword);
+  await qb.login(config.QB_USERNAME, config.QB_PASSWORD);
   fastify.log.info('Login successful');
 } catch (error) {
   fastify.log.error(error, 'Login failed');
@@ -59,7 +50,7 @@ const startSync = async () => {
     } catch (error) {
       fastify.log.error(error, 'Sync error');
     }
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, config.SYNC_INTERVAL_MS));
   }
 };
 
@@ -75,6 +66,10 @@ fastify.get('/api/state', async () => {
 
 fastify.get('/api/preferences', async () => {
   return qb.getPreferences();
+});
+
+fastify.get('/api/config', async () => {
+  return ConfigLoader.getClientConfig(config);
 });
 
 fastify.post('/api/torrents', async (request, reply) => {
@@ -141,7 +136,7 @@ fastify.delete('/api/torrents', async (request, reply) => {
 
 const start = async () => {
   try {
-    const port = parseInt(process.env.PORT || '3001', 10);
+    const port = config.PORT;
     await fastify.listen({ port, host: '0.0.0.0' });
   } catch (err) {
     fastify.log.error(err);

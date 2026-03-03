@@ -17,6 +17,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [config, setConfig] = useState<{ syncInterval: number } | null>(null);
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
 
@@ -116,10 +117,23 @@ function App() {
   };
 
   useEffect(() => {
-    fetchTorrents();
-    const interval = setInterval(fetchTorrents, 2000);
-    return () => clearInterval(interval);
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch(`${API_URL}/config`);
+        const data = await res.json();
+        setConfig(data);
+      } catch (err) {
+        console.error('Failed to fetch config', err);
+      }
+    };
+    fetchConfig();
   }, []);
+
+  useEffect(() => {
+    fetchTorrents();
+    const interval = setInterval(fetchTorrents, config?.syncInterval || 2000);
+    return () => clearInterval(interval);
+  }, [config?.syncInterval]);
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30">

@@ -8,14 +8,18 @@ import { MetadataProvider } from './MetadataProvider.js';
  * if both match the title.
  */
 export class TMDBMetadataProvider implements MetadataProvider {
-  private readonly baseUrl = 'https://api.themoviedb.org/3';
-
   /**
    * Creates an instance of TMDBMetadataProvider.
    * 
    * @param apiKey - The TMDB API key.
+   * @param baseUrl - The base URL for the TMDB API.
+   * @param imageBaseUrl - The base URL for TMDB images.
    */
-  constructor(private readonly apiKey: string) {}
+  constructor(
+    private readonly apiKey: string,
+    private readonly baseUrl: string = 'https://api.themoviedb.org/3',
+    private readonly imageBaseUrl: string = 'https://image.tmdb.org/t/p/w500'
+  ) {}
 
   /**
    * Orchestrates a search across TMDB categories.
@@ -79,7 +83,7 @@ export class TMDBMetadataProvider implements MetadataProvider {
       year: releaseDate ? new Date(releaseDate).getFullYear() : 0,
       plot: item.overview,
       cast,
-      posterPath: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
+      posterPath: item.poster_path ? `${this.imageBaseUrl}${item.poster_path}` : '',
     });
   }
 }
