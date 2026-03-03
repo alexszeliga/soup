@@ -132,12 +132,20 @@ fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
     // qBittorrent relative file names (f.name) start with the torrent root folder.
     // contentPath is the absolute path to that root folder.
     // To get the absolute path of a file, we join the PARENT of contentPath with f.name.
-    const sourcePath = path.join(path.dirname(torrent.contentPath), f.name);
+    let absolutePath = path.join(path.dirname(torrent.contentPath), f.name);
+
+    // Path Mapping: Map qBittorrent's download root to Soup's local access point
+    const qbRoot = config.QB_DOWNLOAD_ROOT;
+    const localRoot = config.LOCAL_DOWNLOAD_ROOT;
+    
+    if (absolutePath.startsWith(qbRoot)) {
+      absolutePath = path.join(localRoot, absolutePath.substring(qbRoot.length));
+    }
 
     return {
       index: f.index,
       originalName: f.name,
-      sourcePath,
+      sourcePath: absolutePath,
       suggestedPath: library ? path.join(library, suggestion) : suggestion
     };
   });

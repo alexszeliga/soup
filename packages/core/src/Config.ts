@@ -27,6 +27,8 @@ const configSchema = z.object({
   // App Logic
   SYNC_INTERVAL_MS: z.coerce.number().default(2000),
   MEDIA_ROOT: z.string().default('./media'),
+  QB_DOWNLOAD_ROOT: z.string().default('/downloads'),
+  LOCAL_DOWNLOAD_ROOT: z.string().default('./downloads'),
 });
 
 /**
