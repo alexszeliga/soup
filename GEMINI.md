@@ -12,6 +12,9 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - Minimalist Dependencies:** Favor well-maintained, documented libraries only when necessary; avoid bloat.
     - **Conventional Commits:** Use the [Conventional Commits](https://www.conventionalcommits.org/) specification for all changes. Commit logically and frequently during development rather than waiting until the end.
     - **RTFM Mandate:** If errors recur or technical ambiguity arises, consult official documentation (API specs, library docs) immediately. Move exclusively from one validated fact to the next; never rely on assumptions when documentation is available.
+    - **Code Quality & De-duplication:** 
+        - Periodically run `npx jscpd apps packages --ignore "**/node_modules/**,**/dist/**,**/__tests__/**"` to identify structural duplication.
+        - **DRY Mandate:** Repetitive logic MUST be refactored into shared helpers. Refer to [docs/helpers.md](docs/helpers.md) for existing patterns.
     - **Context:** Use this file to maintain a high-level understanding of the project's evolution, architectural decisions, and specific coding standards as they are established.
 - **Consistency:** Ensure all implementation follows the architectural patterns defined during the planning phase.
 
