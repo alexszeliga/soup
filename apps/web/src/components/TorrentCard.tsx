@@ -19,7 +19,14 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
-  const isPaused = torrent.state.includes('paused') || torrent.state.includes('stalled');
+  
+  // Define explicit active states based on qBittorrent v2 API documentation.
+  const activeStates = [
+    'allocating', 'downloading', 'metaDL', 'stalledDL', 'checkingDL', 
+    'forcedDL', 'queuedDL', 'uploading', 'stalledUP', 'forcedUP', 
+    'queuedUP', 'checkingUP', 'moving'
+  ];
+  const isActive = activeStates.includes(torrent.state);
 
   return (
     <div className="group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 active:scale-[0.98] shadow-sm hover:shadow-xl">
@@ -44,7 +51,7 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
 
-          <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${isPaused ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
+          <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${!isActive ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
             {torrent.state}
           </span>
         </div>
@@ -83,13 +90,13 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, onPause, onResume, o
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2 pt-1">
-            {isPaused ? (
+            {!isActive ? (
               <button 
                 onClick={(e) => { e.stopPropagation(); onResume(torrent.hash); }}
                 className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all"
               >
                 <span className="text-xs">▶️</span>
-                <span className="text-[10px] font-black uppercase tracking-widest">Resume</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Start</span>
               </button>
             ) : (
               <button 
