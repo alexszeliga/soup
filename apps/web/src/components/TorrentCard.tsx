@@ -1,4 +1,5 @@
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import { Torrent } from '@soup/core/Torrent.js';
 
 interface TorrentCardProps {
   torrent: TorrentWithMetadata;
@@ -6,23 +7,21 @@ interface TorrentCardProps {
   onPause: (hash: string) => void;
   onResume: (hash: string) => void;
   onDelete: (hash: string) => void;
+  onClick: () => void;
 }
 
-const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, onResume, onDelete }) => {
+const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onPause, onResume, onDelete, onClick }) => {
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
   
-  // Define explicit active states based on qBittorrent v2 API documentation.
-  const activeStates = [
-    'allocating', 'downloading', 'metaDL', 'stalledDL', 'checkingDL', 
-    'forcedDL', 'queuedDL', 'uploading', 'stalledUP', 'forcedUP', 
-    'queuedUP', 'checkingUP', 'moving'
-  ];
-  const isActive = activeStates.includes(torrent.state);
+  const isActive = Torrent.ACTIVE_STATES.includes(torrent.state);
 
   return (
-    <div className={`group relative flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 shadow-sm hover:shadow-xl ${isLoading ? 'opacity-70 pointer-events-none' : 'active:scale-[0.98]'}`}>
+    <div 
+      onClick={onClick}
+      className={`group relative cursor-pointer flex flex-row sm:flex-col bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 hover:border-blue-500/50 transition-all duration-300 shadow-sm hover:shadow-xl ${isLoading ? 'opacity-70 pointer-events-none' : 'active:scale-[0.98]'}`}
+    >
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/10 dark:bg-black/10 backdrop-blur-[1px]">

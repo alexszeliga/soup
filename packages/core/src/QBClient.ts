@@ -1,6 +1,22 @@
 import { Torrent } from './Torrent.js';
 
 /**
+ * Interface representing a file within a torrent.
+ */
+export interface TorrentFile {
+  /** Filename (including relative path). */
+  name: string;
+  /** File size in bytes. */
+  size: number;
+  /** Download progress (0-1). */
+  progress: number;
+  /** File priority (0: skip, 1: normal, 6: high, 7: maximal). */
+  priority: number;
+  /** Index of the file in the torrent. */
+  index: number;
+}
+
+/**
  * Interface representing qBittorrent application preferences.
  * This is a partial map of the many settings available.
  */
@@ -196,6 +212,37 @@ export class QBClient {
     await this.post('/app/setPreferences', {
       json: JSON.stringify(prefs)
     });
+  }
+
+  /**
+   * Retrieves the list of files for a specific torrent.
+   * 
+   * @param hash - The torrent hash.
+   * @returns List of TorrentFile objects.
+   */
+  public async getTorrentFiles(hash: string): Promise<TorrentFile[]> {
+    const filesUrl = new URL(`${this.baseUrl}/torrents/files`);
+    filesUrl.searchParams.set('hash', hash);
+
+    const response = await fetch(filesUrl.toString(), {
+      headers: {
+        'Cookie': this.cookies.join('; '),
+        'Referer': this.baseUrl + '/',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`qBittorrent getTorrentFiles error: ${response.statusText}`);
+    }
+
+    const data = await response.json() as any[];
+    return data.map((f, index) => ({
+      name: f.name,
+      size: f.size,
+      progress: f.progress,
+      priority: f.priority,
+      index
+    }));
   }
 
   /**

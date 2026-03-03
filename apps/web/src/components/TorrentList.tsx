@@ -8,9 +8,12 @@ interface TorrentListProps {
   onPause: (hash: string) => void;
   onResume: (hash: string) => void;
   onDelete: (hash: string) => void;
+  onSelect: (hash: string) => void;
 }
 
-const TorrentList: React.FC<TorrentListProps> = ({ torrents, isLoading, pendingHashes, onPause, onResume, onDelete }) => {
+const TorrentList: React.FC<TorrentListProps> = ({ 
+  torrents, isLoading, pendingHashes, onPause, onResume, onDelete, onSelect 
+}) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-4">
@@ -42,6 +45,7 @@ const TorrentList: React.FC<TorrentListProps> = ({ torrents, isLoading, pendingH
           onPause={onPause}
           onResume={onResume}
           onDelete={onDelete}
+          onClick={() => onSelect(torrent.hash)}
         />
       ))}
     </div>

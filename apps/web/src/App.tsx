@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import TorrentList from './components/TorrentList';
 import AddTorrentModal from './components/AddTorrentModal';
 import SettingsModal from './components/SettingsModal';
+import TorrentDetailModal from './components/TorrentDetailModal';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -22,9 +23,12 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [selectedTorrentHash, setSelectedTorrentHash] = useState<string | null>(null);
   const [config, setConfig] = useState<ClientConfig | null>(null);
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
+
+  const selectedTorrent = torrents.find(t => t.hash === selectedTorrentHash) || null;
 
   const fetchTorrents = async () => {
     try {
@@ -158,6 +162,16 @@ function App() {
         apiUrl={API_URL}
       />
 
+      {/* Detail Modal */}
+      <TorrentDetailModal
+        torrent={selectedTorrent}
+        isOpen={!!selectedTorrentHash}
+        onClose={() => setSelectedTorrentHash(null)}
+        onPause={handlePause}
+        onResume={handleResume}
+        onDelete={handleDelete}
+      />
+
       {/* Material 3 Sidebar */}
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen">
         <div className="p-6 flex items-center space-x-3">
@@ -241,6 +255,7 @@ function App() {
               onPause={handlePause}
               onResume={handleResume}
               onDelete={handleDelete}
+              onSelect={setSelectedTorrentHash}
             />
           </div>
         </div>

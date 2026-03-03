@@ -26,7 +26,7 @@ describe('TorrentCard', () => {
   };
 
   it('renders the media title', () => {
-    render(<TorrentCard torrent={mockTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    render(<TorrentCard torrent={mockTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} onClick={vi.fn()} />);
     expect(screen.getByText(/The Great Movie/i)).toBeInTheDocument();
   });
 
@@ -38,7 +38,7 @@ describe('TorrentCard', () => {
       isActive: true,
       getMediaInfo: () => ({ title: 'The.Great.Movie.2024.1080p.WEB-DL', year: null })
     };
-    render(<TorrentCard torrent={noMetaTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    render(<TorrentCard torrent={noMetaTorrent} onPause={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} onClick={vi.fn()} />);
     expect(screen.getAllByText(/The.Great.Movie.2024.1080p.WEB-DL/i)[0]).toBeInTheDocument();
   });
 });

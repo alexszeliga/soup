@@ -60,6 +60,11 @@ fastify.get('/api/torrents', async () => {
   return liveSync.getTorrentsWithMetadata();
 });
 
+fastify.get('/api/torrents/:hash/files', async (request) => {
+  const { hash } = request.params as { hash: string };
+  return qb.getTorrentFiles(hash);
+});
+
 fastify.get('/api/state', async () => {
   return liveSync.getServerState();
 });

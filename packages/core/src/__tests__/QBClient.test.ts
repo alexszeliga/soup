@@ -71,4 +71,26 @@ describe('QBClient', () => {
     const body = call[1].body as URLSearchParams;
     expect(body.get('json')).toBe(JSON.stringify({ save_path: '/new/path' }));
   });
+
+  it('should fetch torrent files', async () => {
+    const mockFilesResponse = [
+      { name: 'file1.mp4', size: 1024, progress: 1, priority: 1 },
+      { name: 'file2.txt', size: 512, progress: 0, priority: 0 }
+    ];
+
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockFilesResponse
+    });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    const files = await client.getTorrentFiles('h1');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/torrents/files?hash=h1'),
+      expect.any(Object)
+    );
+    expect(files).toHaveLength(2);
+    expect(files[0].name).toBe('file1.mp4');
+  });
 });
