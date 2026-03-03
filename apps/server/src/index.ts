@@ -7,6 +7,8 @@ import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
 import { MetadataCache } from '@soup/core/MetadataCache.js';
 import { SyncEngine } from '@soup/core/SyncEngine.js';
 import { LiveSyncService } from '@soup/core/LiveSyncService.js';
+import { IngestionService } from '@soup/core/IngestionService.js';
+import { TaskQueue } from '@soup/core/TaskQueue.js';
 import { ConfigLoader } from '@soup/core/Config.js';
 import { createDatabase } from '@soup/database';
 
@@ -30,6 +32,8 @@ const matcher = new MetadataMatcher(tmdb);
 const cache = new MetadataCache(db);
 const engine = new SyncEngine(qb);
 const liveSync = new LiveSyncService(engine, matcher, cache, tmdb);
+const ingestion = new IngestionService(config.MEDIA_ROOT);
+const queue = new TaskQueue();
 
 await cache.ensureTables();
 
@@ -96,6 +100,30 @@ fastify.get('/api/preferences', async () => {
 
 fastify.get('/api/config', async () => {
   return ConfigLoader.getClientConfig(config);
+});
+
+fastify.get('/api/tasks', async () => {
+  return queue.getTasks();
+});
+
+fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
+  const { hash } = request.params as { hash: string };
+  const torrents = liveSync.getTorrentsWithMetadata();
+  const torrent = torrents.find(t => t.hash === hash);
+  
+  if (!torrent) return [];
+
+  const title = torrent.mediaMetadata?.title || torrent.getMediaInfo().title;
+  const year = torrent.mediaMetadata?.year || torrent.getMediaInfo().year;
+
+  // We need to fetch files if they aren't in memory
+  const files = torrent.files || await qb.getTorrentFiles(hash);
+  
+  return files.map(f => ({
+    index: f.index,
+    originalName: f.name,
+    suggestedPath: ingestion.suggestPath(title, f.name, year ?? undefined)
+  }));
 });
 
 fastify.post('/api/torrents', async (request, reply) => {
@@ -166,6 +194,16 @@ fastify.post('/api/torrents/:hash/non-media', async (request, reply) => {
   const { hash } = request.params as { hash: string };
   const { isNonMedia } = request.body as { isNonMedia: boolean };
   return handleAPIAction(reply, () => liveSync.markAsNonMedia(hash, isNonMedia));
+});
+
+fastify.post('/api/torrents/:hash/ingest', async (request) => {
+  const { hash } = request.params as { hash: string };
+  const { fileMap } = request.body as { fileMap: Record<string, string> };
+  
+  const task = ingestion.createCopyTask(hash, fileMap);
+  queue.enqueue(task);
+  
+  return { success: true, taskId: task.id };
 });
 
 fastify.post('/api/torrents/:hash/files/priority', async (request, reply) => {

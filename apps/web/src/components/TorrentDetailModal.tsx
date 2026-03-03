@@ -3,6 +3,7 @@ import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
 import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
 import ConfirmDialog from './ConfirmDialog';
+import IngestTab from './IngestTab';
 
 interface TorrentDetailModalProps {
   torrent: TorrentWithMetadata | null;
@@ -27,7 +28,7 @@ const formatBytes = (bytes: number) => {
 const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({ 
   torrent, isOpen, onClose, onPause, onResume, onDelete 
 }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'files'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'ingest'>('details');
   const [isActionPending, setIsActionPending] = useState(false);
   // Map of file index -> target priority
   const [pendingFiles, setPendingFiles] = useState<Map<number, number>>(new Map());
@@ -52,6 +53,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       setSearchCandidates([]);
       setSearchQuery(torrent?.mediaMetadata?.title || '');
       setConfirmState(null);
+      setActiveTab('details');
     }
   }, [isOpen, torrent?.hash]);
 
@@ -348,6 +350,12 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               >
                 Files ({files?.length || 0})
               </button>
+              <button 
+                onClick={() => setActiveTab('ingest')}
+                className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'ingest' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+              >
+                📦 Ingest
+              </button>
             </div>
           )}
 
@@ -459,7 +467,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   </section>
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'files' ? (
               <div className="space-y-2">
                 <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
                   <table className="w-full text-left text-sm">
@@ -504,6 +512,14 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   </table>
                 </div>
               </div>
+            ) : (
+              <IngestTab 
+                torrent={torrent} 
+                onIngestStarted={() => {
+                  setActiveTab('details');
+                  onClose();
+                }} 
+              />
             )}
           </div>
         </div>

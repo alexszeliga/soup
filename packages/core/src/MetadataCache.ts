@@ -42,6 +42,19 @@ export class MetadataCache {
       is_non_media INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     )`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      torrent_hash TEXT NOT NULL,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      progress INTEGER NOT NULL DEFAULT 0,
+      total_bytes INTEGER NOT NULL DEFAULT 0,
+      completed_bytes INTEGER NOT NULL DEFAULT 0,
+      file_map TEXT NOT NULL,
+      error_message TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`);
 
     // Ensure is_non_media column exists for migrations from older versions
     try {

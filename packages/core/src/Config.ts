@@ -26,6 +26,7 @@ const configSchema = z.object({
   
   // App Logic
   SYNC_INTERVAL_MS: z.coerce.number().default(2000),
+  MEDIA_ROOT: z.string().default('./media'),
 });
 
 /**
