@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
+import path from 'path';
 import { QBClient, QBPreferences } from '@soup/core/QBClient.js';
 import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
 import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
@@ -106,8 +107,13 @@ fastify.get('/api/tasks', async () => {
   return queue.getTasks();
 });
 
+fastify.get('/api/libraries', async () => {
+  return ingestion.getLibraryOptions();
+});
+
 fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
   const { hash } = request.params as { hash: string };
+  const { library } = request.query as { library?: string };
   const torrents = liveSync.getTorrentsWithMetadata();
   const torrent = torrents.find(t => t.hash === hash);
   
@@ -119,11 +125,14 @@ fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
   // We need to fetch files if they aren't in memory
   const files = torrent.files || await qb.getTorrentFiles(hash);
   
-  return files.map(f => ({
-    index: f.index,
-    originalName: f.name,
-    suggestedPath: ingestion.suggestPath(title, f.name, year ?? undefined)
-  }));
+  return files.map(f => {
+    const suggestion = ingestion.suggestPath(title, f.name, year ?? undefined);
+    return {
+      index: f.index,
+      originalName: f.name,
+      suggestedPath: library ? path.join(library, suggestion) : suggestion
+    };
+  });
 });
 
 fastify.post('/api/torrents', async (request, reply) => {

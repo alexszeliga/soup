@@ -15,6 +15,24 @@ export class IngestionService {
   constructor(private readonly mediaRoot: string) {}
 
   /**
+   * Returns a list of top-level directories within the media root.
+   * These represent individual Jellyfin libraries (e.g. Movies, TV Shows).
+   * 
+   * @returns Array of directory names.
+   */
+  public async getLibraryOptions(): Promise<string[]> {
+    try {
+      const entries = await fs.promises.readdir(this.mediaRoot, { withFileTypes: true });
+      return entries
+        .filter(e => e.isDirectory())
+        .map(e => e.name);
+    } catch (err) {
+      console.error('Failed to read media root:', err);
+      return [];
+    }
+  }
+
+  /**
    * Analyzes a filename and metadata to suggest a Jellyfin-compatible path.
    * 
    * @param cleanTitle - The cleaned title of the show/movie.

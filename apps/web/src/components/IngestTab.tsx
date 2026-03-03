@@ -15,24 +15,53 @@ interface SuggestedPath {
 
 const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
   const [suggestions, setSuggestedPaths] = useState<SuggestedPath[]>([]);
+  const [libraries, setLibraries] = useState<string[]>([]);
+  const [selectedLibrary, setSelectedLibrary] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [isIngesting, setIsIngesting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { showNotification } = useNotification();
 
+  // Load Libraries
+  useEffect(() => {
+    const fetchLibraries = async () => {
+      try {
+        const res = await fetch('/api/libraries');
+        const data = await res.json();
+        setLibraries(data);
+        if (data.length > 0) {
+          // Intelligent default: If it's a TV show (has SxxExx), pick 'TV' or 'Shows'
+          const name = torrent.name.toLowerCase();
+          const tvKeywords = ['s0', 's1', 's2', 's3', 'season', 'x0', 'x1'];
+          const isTV = tvKeywords.some(k => name.includes(k));
+          
+          const defaultLib = data.find((l: string) => 
+            isTV ? (l.toLowerCase().includes('tv') || l.toLowerCase().includes('show')) 
+                 : (l.toLowerCase().includes('movie'))
+          ) || data[0];
+          
+          setSelectedLibrary(defaultLib);
+        }
+      } catch (err) {
+        console.error('Failed to fetch libraries', err);
+      }
+    };
+    fetchLibraries();
+  }, [torrent.hash, torrent.name]);
+
+  // Load Suggestions (depends on hash AND selected library)
   useEffect(() => {
     const fetchSuggestions = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/torrents/${torrent.hash}/suggest-paths`);
+        const url = `/api/torrents/${torrent.hash}/suggest-paths${selectedLibrary ? `?library=${encodeURIComponent(selectedLibrary)}` : ''}`;
+        const res = await fetch(url);
         const data = await res.json();
         setSuggestedPaths(data);
         
-        // Only set default selections if we haven't selected anything yet
-        // and we are not currently in an ingestion process
+        // Initial defaults for selection
         setSelectedIndices(prev => {
           if (prev.size > 0) return prev;
-          
           const defaults = new Set<number>();
           const files = torrent.files || [];
           files.forEach(f => {
@@ -47,7 +76,7 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
       }
     };
     fetchSuggestions();
-  }, [torrent.hash]); // Only depend on hash, not files reference
+  }, [torrent.hash, selectedLibrary]);
 
   const handleToggleFile = (index: number) => {
     setSelectedIndices(prev => {
@@ -64,12 +93,10 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     setIsIngesting(true);
     const fileMap: Record<string, string> = {};
     
-    // Construct mapping of absolute source -> relative destination
     selectedIndices.forEach(idx => {
       const suggestion = suggestions.find(s => s.index === idx);
       const file = torrent.files?.find(f => f.index === idx);
       if (suggestion && file) {
-        // Source is the torrent content path + filename
         const source = torrent.contentPath.endsWith(file.name) 
           ? torrent.contentPath 
           : `${torrent.contentPath}/${file.name}`;
@@ -97,13 +124,27 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     }
   };
 
-  if (isLoading) return <div className="py-20 text-center animate-pulse font-bold text-zinc-400">Analyzing files...</div>;
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header>
-        <h3 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Prepare Ingestion</h3>
-        <p className="text-sm font-medium text-zinc-500">Select files to copy to your media library. We've suggested Jellyfin-compatible paths.</p>
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+        <div>
+          <h3 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Prepare Ingestion</h3>
+          <p className="text-sm font-medium text-zinc-500">Select files and the target library for your media.</p>
+        </div>
+
+        <div className="flex flex-col space-y-2">
+          <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Target Library</label>
+          <select 
+            value={selectedLibrary}
+            onChange={(e) => setSelectedLibrary(e.target.value)}
+            className="h-12 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 font-bold text-sm"
+          >
+            {libraries.length === 0 && <option value="">(No subdirectories found)</option>}
+            {libraries.map(lib => (
+              <option key={lib} value={lib}>{lib}</option>
+            ))}
+          </select>
+        </div>
       </header>
 
       <div className="border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden">
@@ -112,11 +153,15 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
             <tr>
               <th className="px-6 py-4 w-10"></th>
               <th className="px-4 py-4 font-black text-[10px] uppercase text-zinc-500">Original File</th>
-              <th className="px-4 py-4 font-black text-[10px] uppercase text-zinc-500">Suggested Library Path</th>
+              <th className="px-4 py-4 font-black text-[10px] uppercase text-zinc-500">Target Path</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
-            {suggestions.map(s => (
+            {isLoading ? (
+              <tr>
+                <td colSpan={3} className="py-20 text-center animate-pulse font-bold text-zinc-400">Recalculating paths...</td>
+              </tr>
+            ) : suggestions.map(s => (
               <tr key={s.index} className={`hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors ${selectedIndices.has(s.index) ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
                 <td className="px-6 py-4">
                   <input 
@@ -142,12 +187,12 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-blue-600/10 text-blue-600 rounded-2xl flex items-center justify-center text-xl">📦</div>
           <div>
-            <p className="text-xs font-black uppercase text-zinc-400 tracking-widest">Ready to Process</p>
-            <p className="text-lg font-black">{selectedIndices.size} files selected</p>
+            <p className="text-xs font-black uppercase text-zinc-400 tracking-widest">Destination Root</p>
+            <p className="text-lg font-black">{selectedLibrary || 'Media Root'}</p>
           </div>
         </div>
         <button 
-          disabled={selectedIndices.size === 0 || isIngesting}
+          disabled={selectedIndices.size === 0 || isIngesting || isLoading}
           onClick={handleStartIngestion}
           className="h-14 px-10 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
         >
