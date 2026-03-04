@@ -8,7 +8,7 @@ import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
-import { Soup, Download, Plus, Settings, AlertTriangle } from 'lucide-react';
+import { Soup, Download, Plus, Settings, AlertTriangle, FileText } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -20,6 +20,8 @@ const ACTIVE_STATES = [
 
 interface ClientConfig {
   syncInterval: number;
+  tmdbImageBase: string;
+  env: string;
 }
 
 function App() {
@@ -225,6 +227,18 @@ function App() {
             <Settings size={20} />
             <span className="hidden lg:block font-bold text-sm">Settings</span>
           </button>
+
+          {config?.env === 'development' && (
+            <a 
+              href="/coverage/index.html" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
+            >
+              <FileText size={20} />
+              <span className="hidden lg:block font-bold text-sm">Coverage Report</span>
+            </a>
+          )}
         </nav>
 
         <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
