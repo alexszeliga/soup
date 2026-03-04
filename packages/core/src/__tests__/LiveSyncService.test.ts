@@ -256,14 +256,14 @@ describe('LiveSyncService', () => {
     // 2. Mark as non-media
     await service.markAsNonMedia('h1', true);
 
-    expect(cache.setNonMedia).toHaveBeenCalledWith('h1', true);
+    expect(cache.setNonMedia).toHaveBeenCalledWith('h1', true, 'ISO File');
     const result = service.getTorrentsWithMetadata()[0];
     expect(result.isNonMedia).toBe(true);
     expect(result.mediaMetadata).toBeNull();
 
     // 3. Mark back as media
     await service.markAsNonMedia('h1', false);
-    expect(cache.setNonMedia).toHaveBeenCalledWith('h1', false);
+    expect(cache.setNonMedia).toHaveBeenCalledWith('h1', false, 'ISO File');
     expect(service.getTorrentsWithMetadata()[0].isNonMedia).toBe(false);
   });
 });

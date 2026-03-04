@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import TorrentDetailModal from './TorrentDetailModal';
+import { Torrent } from '@soup/core/Torrent.js';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 
 // Mock fetch globally
 global.fetch = vi.fn();
 
 describe('TorrentDetailModal', () => {
-  const baseMockTorrent: TorrentWithMetadata = {
+  const baseTorrentProps = {
     hash: 'h1',
     name: 'Movie.2024.1080p',
     progress: 0.5,
@@ -15,12 +16,16 @@ describe('TorrentDetailModal', () => {
     downloadSpeed: 1000,
     uploadSpeed: 500,
     contentPath: '/downloads/Movie.2024.1080p',
-    isComplete: false,
-    isActive: true,
-    getMediaInfo: () => ({ title: 'Movie', year: 2024 }),
-    mediaMetadata: null,
-    isNonMedia: false,
     files: []
+  };
+
+  const createMockTorrent = (overrides: Partial<TorrentWithMetadata> = {}): TorrentWithMetadata => {
+    const torrent = new Torrent(baseTorrentProps);
+    return Object.assign(torrent, {
+      mediaMetadata: null,
+      isNonMedia: false,
+      ...overrides
+    }) as TorrentWithMetadata;
   };
 
   const defaultProps = {
@@ -36,7 +41,8 @@ describe('TorrentDetailModal', () => {
   });
 
   it('enables "Find Media Match" button when metadata is missing and is NOT non-media', () => {
-    render(<TorrentDetailModal {...defaultProps} torrent={baseMockTorrent} />);
+    const torrent = createMockTorrent();
+    render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
     
     const findButton = screen.getByRole('button', { name: /find media match/i });
     expect(findButton).toBeInTheDocument();
@@ -44,8 +50,8 @@ describe('TorrentDetailModal', () => {
   });
 
   it('disables "Find Media Match" button when item is marked as "Non-Media"', () => {
-    const nonMediaTorrent = { ...baseMockTorrent, isNonMedia: true };
-    render(<TorrentDetailModal {...defaultProps} torrent={nonMediaTorrent} />);
+    const torrent = createMockTorrent({ isNonMedia: true });
+    render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
     
     const findButton = screen.getByRole('button', { name: /find media match/i });
     expect(findButton).toBeInTheDocument();
@@ -53,18 +59,17 @@ describe('TorrentDetailModal', () => {
   });
 
   it('shows "Unmatch" button instead of "Find Media Match" when metadata exists', () => {
-    const withMetaTorrent = { 
-      ...baseMockTorrent, 
+    const torrent = createMockTorrent({ 
       mediaMetadata: {
         id: 'm1',
         title: 'Matched Movie',
         year: 2024,
         plot: 'Plot',
         cast: [],
-        posterPath: null
+        posterPath: ''
       } 
-    };
-    render(<TorrentDetailModal {...defaultProps} torrent={withMetaTorrent} />);
+    });
+    render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
     
     expect(screen.queryByRole('button', { name: /find media match/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /unmatch/i })).toBeInTheDocument();

@@ -97,18 +97,37 @@ describe('MetadataCache Service', () => {
 
   it('should mark a torrent as non-media', async () => {
     const hash = 'h1';
+    const name = 'Non-Media File';
     await db.insert(torrentsSchema).values({
       hash,
-      name: 'Non-Media File',
+      name,
       updatedAt: Date.now(),
       isNonMedia: false
     }).run();
 
-    await cache.setNonMedia(hash, true);
+    await cache.setNonMedia(hash, true, name);
     const isNonMedia = await cache.isNonMedia(hash);
     expect(isNonMedia).toBe(true);
 
     const metadata = await cache.getMetadataForTorrent(hash);
     expect(metadata).toBeNull();
+  });
+
+  it('should persist non-media status even if torrent record did not exist', async () => {
+    const torrent = new Torrent({
+      hash: 'new-hash',
+      name: 'Untracked File',
+      progress: 0,
+      state: 'downloading',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p'
+    });
+
+    await cache.setNonMedia(torrent.hash, true, torrent.name);
+    
+    // Verify it exists in DB
+    const isNonMedia = await cache.isNonMedia(torrent.hash);
+    expect(isNonMedia).toBe(true);
   });
 });

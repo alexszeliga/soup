@@ -156,7 +156,7 @@ export class LiveSyncService {
   public async markAsNonMedia(hash: string, isNonMedia: boolean): Promise<void> {
     const existing = this.torrentsWithMetadata.get(hash);
     if (existing) {
-      await this.cache.setNonMedia(hash, isNonMedia);
+      await this.cache.setNonMedia(hash, isNonMedia, existing.name);
       
       let metadata = existing.mediaMetadata;
       if (isNonMedia) {

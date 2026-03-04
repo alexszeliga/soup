@@ -110,14 +110,30 @@ export class MetadataCache {
   /**
    * Marks or unmarks a torrent as non-media content.
    * 
+   * Performs an upsert to ensure the status is persisted even if the torrent 
+   * record does not yet exist in the database.
+   * 
    * @param hash - The torrent hash.
    * @param isNonMedia - True to mark as non-media.
+   * @param name - The torrent name (required for initial insertion).
    */
-  public async setNonMedia(hash: string, isNonMedia: boolean): Promise<void> {
-    this.db.update(torrentsSchema)
-      .set({ isNonMedia, metadataId: isNonMedia ? null : undefined, updatedAt: Date.now() })
-      .where(eq(torrentsSchema.hash, hash))
-      .run();
+  public async setNonMedia(hash: string, isNonMedia: boolean, name: string): Promise<void> {
+    const now = Date.now();
+    
+    this.db.insert(torrentsSchema).values({
+      hash,
+      name,
+      isNonMedia,
+      metadataId: isNonMedia ? null : undefined,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: torrentsSchema.hash,
+      set: {
+        isNonMedia,
+        metadataId: isNonMedia ? null : undefined,
+        updatedAt: now,
+      }
+    }).run();
   }
 
   /**
