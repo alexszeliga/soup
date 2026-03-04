@@ -293,7 +293,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               ) : (
                 <div className="flex items-center space-x-2">
                   <button 
-                    disabled={isActionPending}
+                    disabled={isActionPending || isNonMedia}
                     onClick={() => { setIsSearchView(true); setActiveTab('details'); }}
                     className="h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                   >
