@@ -27,6 +27,7 @@ await fastify.register(cors, {
 
 await fastify.register(multipart);
 
+// 1. Serve Coverage Reports (Dev Only)
 if (config.NODE_ENV === 'development') {
   const coveragePath = path.resolve(__dirname, '../../../coverage');
   fastify.register(fastifyStatic, {
@@ -36,6 +37,14 @@ if (config.NODE_ENV === 'development') {
   });
   fastify.log.info(`[Dev] Serving coverage reports from: ${coveragePath}`);
 }
+
+// 2. Serve Web Assets
+const webDistPath = path.resolve(__dirname, config.WEB_DIST_PATH);
+fastify.register(fastifyStatic, {
+  root: webDistPath,
+  prefix: '/',
+  wildcard: false // Don't match everything here, we use setNotFoundHandler for SPA
+});
 
 const db = createDatabase(config.DB_PATH);
 const qb = new QBClient(config.QB_URL);
@@ -312,6 +321,16 @@ fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) 
   const stream = fs.createReadStream(absolutePath);
   reply.header('Content-Disposition', `attachment; filename="${path.basename(file.name)}"`);
   return reply.send(stream);
+});
+
+// 3. SPA Fallback: Catch-all for React routing
+fastify.setNotFoundHandler((request, reply) => {
+  // If it's an API request that 404'd, return JSON
+  if (request.url.startsWith('/api')) {
+    return reply.status(404).send({ error: 'API route not found' });
+  }
+  // Otherwise, serve the SPA index.html
+  return reply.sendFile('index.html');
 });
 
 const start = async () => {

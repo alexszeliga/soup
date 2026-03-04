@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { QBPreferences } from '@soup/core/QBClient.js';
+import type { QBPreferences, QBServerState } from '@soup/core/QBClient.js';
 import { useNotification } from '../context/NotificationContext';
 
 interface SettingsModalProps {
@@ -14,6 +14,7 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }) => {
   const [settings, setSettings] = useState<QBPreferences | null>(null);
   const [initialSettings, setInitialSettings] = useState<QBPreferences | null>(null);
+  const [isAltSpeedsEnabled, setIsAltSpeedsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { showNotification } = useNotification();
@@ -27,16 +28,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/preferences`);
-      if (!response.ok) throw new Error('Failed to fetch settings');
-      const data = await response.json() as QBPreferences;
-      setSettings(data);
-      setInitialSettings(data);
+      const [prefsRes, stateRes] = await Promise.all([
+        fetch(`${apiUrl}/preferences`),
+        fetch(`${apiUrl}/state`)
+      ]);
+
+      if (!prefsRes.ok || !stateRes.ok) throw new Error('Failed to fetch data');
+      
+      const prefs = await prefsRes.json() as QBPreferences;
+      const state = await stateRes.json() as QBServerState;
+
+      setSettings(prefs);
+      setInitialSettings(prefs);
+      setIsAltSpeedsEnabled(!!state.use_alt_speed_limits);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       showNotification('Failed to load settings', 'error');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleAltSpeeds = async (enabled: boolean) => {
+    if (enabled === isAltSpeedsEnabled) return;
+    
+    try {
+      const res = await fetch(`${apiUrl}/toggle-alt-speeds`, { method: 'POST' });
+      if (!res.ok) throw new Error('Toggle failed');
+      setIsAltSpeedsEnabled(enabled);
+    } catch (err) {
+      console.error('Failed to toggle alt speeds:', err);
+      showNotification('Failed to toggle speed mode', 'error');
     }
   };
 
@@ -46,7 +68,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
 
     setIsSaving(true);
     try {
-      // Find only changed keys to avoid potential side effects of sending the whole object
+      // Find only changed keys to avoid potential side effects
       const changes: Partial<QBPreferences> = {};
       for (const key in settings) {
         if (settings[key] !== initialSettings[key]) {
@@ -168,8 +190,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                   <span className="text-sm font-bold">Enable Alt Limits Globally</span>
                   <input
                     type="checkbox"
-                    checked={!!settings.alt_speeds_on}
-                    onChange={(e) => setSettings({ ...settings, alt_speeds_on: e.target.checked })}
+                    checked={isAltSpeedsEnabled}
+                    onChange={(e) => handleToggleAltSpeeds(e.target.checked)}
                     className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500/50"
                   />
                 </label>

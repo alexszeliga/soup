@@ -77,7 +77,7 @@ function App() {
       setServerState(stateData);
       setError(null);
 
-      // Resolve pending alt speed transition if server state matches our target
+      // Resolve pending alt speed transition
       setPendingAltSpeedTarget(prev => {
         if (prev !== null && stateData.use_alt_speed_limits === prev) {
           return null;
@@ -186,7 +186,6 @@ function App() {
         throw new Error(errorData.error || 'Failed to toggle speed limits');
       }
       showNotification('Speed limits toggled', 'success');
-      // We don't clear the pending state here; fetchData will clear it when qB reports the change
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       showNotification(message, 'error');

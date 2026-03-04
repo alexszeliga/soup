@@ -33,6 +33,7 @@ const configSchema = z.object({
   MEDIA_ROOT: z.string().default('./media'),
   QB_DOWNLOAD_ROOT: z.string().default('/downloads'),
   LOCAL_DOWNLOAD_ROOT: z.string().default('./downloads'),
+  WEB_DIST_PATH: z.string().default('../web/dist'),
 });
 
 /**
