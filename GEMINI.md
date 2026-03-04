@@ -62,9 +62,9 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Code Quality:** Establish a long-term goal and plan to find and refactor repetitive code (MVP Priority).
 
 ### Phase 2: Management & Health
-- [ ] **Global Stats:** Real-time aggregate upload/download speeds and remaining disk space in the web header.
-- [ ] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
-- [x] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
+- [x] **Global Stats:** Real-time aggregate upload/download speeds and remaining disk space in the web header.
+- [x] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
+- [ ] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
 - [x] **UI/UX Hardening:** Replace all browser-native `alert()` and `confirm()` dialogs with integrated Material 3 components.
     - [x] Implement a reusable `ConfirmDialog` component for destructive actions.
