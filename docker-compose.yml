@@ -1,0 +1,19 @@
+services:
+  soup:
+    build: .
+    container_name: soup
+    ports:
+      - "${SOUP_PORT:-3001}:3001"
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - QB_URL=${QB_URL:-https://qb.osage.lol/api/v2}
+      - QB_USERNAME=${QB_USERNAME}
+      - QB_PASSWORD=${QB_PASSWORD}
+      - MEDIA_ROOT=/media
+      - LOCAL_DOWNLOAD_ROOT=/downloads
+      - QB_DOWNLOAD_ROOT=${QB_DOWNLOAD_ROOT:-/downloads}
+    volumes:
+      - ./data:/data
+      - /path/to/your/downloads:/downloads:ro
+      - /path/to/your/media:/media
+    restart: unless-stopped

@@ -1,4 +1,4 @@
-.PHONY: up down status tail clean
+.PHONY: up down status tail clean docker-up docker-down
 
 # Default ports
 API_PORT=3001
@@ -17,8 +17,8 @@ up:
 
 down:
 	@echo "Shutting down Soup services..."
-	@lsof -t -i :$(API_PORT),$(WEB_PORT) | xargs -r kill -9
-	@rm -f .api.pid .web.pid
+	@if [ -f .api.pid ]; then kill $$(cat .api.pid) 2>/dev/null && rm .api.pid; fi
+	@if [ -f .web.pid ]; then kill $$(cat .web.pid) 2>/dev/null && rm .web.pid; fi
 	@echo "Done."
 
 status:
@@ -33,3 +33,9 @@ tail:
 clean:
 	@echo "Cleaning up logs and pids..."
 	@rm -f $(API_LOG) $(WEB_LOG) .api.pid .web.pid
+
+docker-up:
+	@docker compose up -d --build
+
+docker-down:
+	@docker compose down
