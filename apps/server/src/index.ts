@@ -1,7 +1,9 @@
 import Fastify, { FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { QBClient, QBPreferences } from '@soup/core/QBClient.js';
 import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
 import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
@@ -13,6 +15,9 @@ import { TaskQueue } from '@soup/core/TaskQueue.js';
 import { ConfigLoader } from '@soup/core/Config.js';
 import { createDatabase } from '@soup/database';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const config = ConfigLoader.load();
 const fastify = Fastify({ logger: true });
 
@@ -21,6 +26,16 @@ await fastify.register(cors, {
 });
 
 await fastify.register(multipart);
+
+if (config.NODE_ENV === 'development') {
+  const coveragePath = path.resolve(__dirname, '../../../coverage');
+  fastify.register(fastifyStatic, {
+    root: coveragePath,
+    prefix: '/coverage/',
+    decorateReply: false
+  });
+  fastify.log.info(`[Dev] Serving coverage reports from: ${coveragePath}`);
+}
 
 const db = createDatabase(config.DB_PATH);
 const qb = new QBClient(config.QB_URL);
@@ -136,15 +151,14 @@ fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
     // qBittorrent relative file names (f.name) start with the torrent root folder.
     // contentPath is the absolute path to that root folder.
     // To get the absolute path of a file, we join the PARENT of contentPath with f.name.
-    let absolutePath = path.join(path.dirname(torrent.contentPath), f.name);
+    const rawAbsolutePath = path.join(path.dirname(torrent.contentPath), f.name);
 
     // Path Mapping: Map qBittorrent's download root to Soup's local access point
-    const qbRoot = config.QB_DOWNLOAD_ROOT;
-    const localRoot = config.LOCAL_DOWNLOAD_ROOT;
-    
-    if (absolutePath.startsWith(qbRoot)) {
-      absolutePath = path.join(localRoot, absolutePath.substring(qbRoot.length));
-    }
+    const absolutePath = ingestion.mapRemoteToLocalPath(
+      rawAbsolutePath,
+      config.QB_DOWNLOAD_ROOT,
+      config.LOCAL_DOWNLOAD_ROOT
+    );
 
     return {
       index: f.index,
