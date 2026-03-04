@@ -38,7 +38,7 @@ function App() {
   const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
   const [serverState, setServerState] = useState<QBServerState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isTogglingAltSpeeds, setIsTogglingAltSpeeds] = useState(false);
+  const [pendingAltSpeedTarget, setPendingAltSpeedTarget] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -76,6 +76,14 @@ function App() {
       setTorrents(torrentsData);
       setServerState(stateData);
       setError(null);
+
+      // Resolve pending alt speed transition if server state matches our target
+      setPendingAltSpeedTarget(prev => {
+        if (prev !== null && stateData.use_alt_speed_limits === prev) {
+          return null;
+        }
+        return prev;
+      });
 
       // Clean up pending transitions that have completed
       setPendingTransitions(prev => {
@@ -167,7 +175,10 @@ function App() {
   };
 
   const handleToggleAltSpeeds = async () => {
-    setIsTogglingAltSpeeds(true);
+    if (!serverState) return;
+    const target = !serverState.use_alt_speed_limits;
+    setPendingAltSpeedTarget(target);
+    
     try {
       const res = await fetch(`${API_URL}/toggle-alt-speeds`, { method: 'POST' });
       if (!res.ok) {
@@ -175,12 +186,11 @@ function App() {
         throw new Error(errorData.error || 'Failed to toggle speed limits');
       }
       showNotification('Speed limits toggled', 'success');
-      await fetchData();
+      // We don't clear the pending state here; fetchData will clear it when qB reports the change
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       showNotification(message, 'error');
-    } finally {
-      setIsTogglingAltSpeeds(false);
+      setPendingAltSpeedTarget(null);
     }
   };
 
@@ -201,7 +211,7 @@ function App() {
     fetchData();
     const interval = setInterval(fetchData, config?.syncInterval || 2000);
     return () => clearInterval(interval);
-  }, [config?.syncInterval, selectedTorrentHash]);
+  }, [config?.syncInterval, selectedTorrentHash, pendingAltSpeedTarget]);
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30">
@@ -310,8 +320,8 @@ function App() {
             {/* Alt Speed Limits Toggle */}
             <button 
               onClick={handleToggleAltSpeeds}
-              disabled={isTogglingAltSpeeds}
-              className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${isTogglingAltSpeeds ? 'opacity-50 cursor-wait' : ''} ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
+              disabled={pendingAltSpeedTarget !== null}
+              className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${pendingAltSpeedTarget !== null ? 'opacity-50 cursor-default' : 'cursor-pointer'} ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
             >
               <div className="flex items-center space-x-2">
                 {serverState?.use_alt_speed_limits ? <Zap size={14} /> : <ZapOff size={14} />}
