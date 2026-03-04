@@ -10,10 +10,12 @@ class MockTask implements Task {
   public torrentHash = 'h1';
   public currentFile: string | null = null;
   public fileMap = { 's': 'd' };
+  public runCount = 0;
   
   constructor(private duration: number = 100, public shouldFail: boolean = false) {}
 
   async run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void> {
+    this.runCount++;
     this.status = 'processing';
     if (this.shouldFail) {
       throw new Error('Task failed');
@@ -89,5 +91,23 @@ describe('TaskQueue', () => {
     const setMock = mockDb.update().set;
     expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'processing' }));
     expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
+  });
+
+  it('should retry a failed task up to 3 times', async () => {
+    const task = new MockTask(10, true); // Fail every time
+    queue.enqueue(task);
+
+    // Wait for failure
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (task.status === 'failed') {
+          clearInterval(check);
+          resolve(true);
+        }
+      }, 50);
+    });
+
+    // We expect it to have run 3 times (initial + 2 retries) before finally failing
+    expect(task.runCount).toBe(3);
   });
 });

@@ -26,6 +26,7 @@ export interface Task {
   status: TaskStatus;
   progress: number;
   currentFile: string | null;
+  retries?: number; // Internal tracking for retry logic
   run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void>;
   /** Must return a DB-serializable representation of the task. */
   toJSON(): TaskJSON;
@@ -37,6 +38,7 @@ export interface Task {
 export class TaskQueue {
   private tasks: Task[] = [];
   private isProcessing = false;
+  private readonly MAX_RETRIES = 3;
 
   /**
    * Creates an instance of TaskQueue.
@@ -51,6 +53,7 @@ export class TaskQueue {
    * @param task - The task to enqueue.
    */
   public enqueue(task: Task): void {
+    task.retries = 0;
     this.tasks.push(task);
     
     // Persist to DB
@@ -114,8 +117,16 @@ export class TaskQueue {
 
       this.updateTaskStatus(nextTask, 'completed');
     } catch (err) {
-      console.error(`Task ${nextTask.id} failed:`, err);
-      this.updateTaskStatus(nextTask, 'failed', (err as Error).message);
+      const retries = (nextTask.retries ?? 0) + 1;
+      nextTask.retries = retries;
+
+      if (retries < this.MAX_RETRIES) {
+        console.warn(`Task ${nextTask.id} failed (attempt ${retries}), retrying...`, err);
+        this.updateTaskStatus(nextTask, 'queued'); // Put back in queue
+      } else {
+        console.error(`Task ${nextTask.id} failed after ${retries} attempts:`, err);
+        this.updateTaskStatus(nextTask, 'failed', (err as Error).message);
+      }
     } finally {
       this.isProcessing = false;
       this.processNext();
