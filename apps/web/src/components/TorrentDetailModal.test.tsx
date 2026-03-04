@@ -40,25 +40,26 @@ describe('TorrentDetailModal', () => {
     vi.clearAllMocks();
   });
 
-  it('enables "Find Media Match" button when metadata is missing and is NOT non-media', () => {
+  it('enables "Match" button when metadata is missing and is NOT non-media', () => {
     const torrent = createMockTorrent();
     render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
     
-    const findButton = screen.getByRole('button', { name: /find media match/i });
+    // Use exact match to avoid collision with "Unmatch"
+    const findButton = screen.getByRole('button', { name: /^Match$/i });
     expect(findButton).toBeInTheDocument();
     expect(findButton).not.toBeDisabled();
   });
 
-  it('disables "Find Media Match" button when item is marked as "Non-Media"', () => {
+  it('disables "Match" button when item is marked as "Non-Media"', () => {
     const torrent = createMockTorrent({ isNonMedia: true });
     render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
     
-    const findButton = screen.getByRole('button', { name: /find media match/i });
+    const findButton = screen.getByRole('button', { name: /^Match$/i });
     expect(findButton).toBeInTheDocument();
     expect(findButton).toBeDisabled();
   });
 
-  it('shows "Unmatch" button instead of "Find Media Match" when metadata exists', () => {
+  it('shows "Unmatch" button instead of "Match" when metadata exists', () => {
     const torrent = createMockTorrent({ 
       mediaMetadata: {
         id: 'm1',
@@ -71,7 +72,7 @@ describe('TorrentDetailModal', () => {
     });
     render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
     
-    expect(screen.queryByRole('button', { name: /find media match/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /unmatch/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Match$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Unmatch$/i })).toBeInTheDocument();
   });
 });

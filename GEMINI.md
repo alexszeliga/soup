@@ -62,7 +62,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Code Quality:** Establish a long-term goal and plan to find and refactor repetitive code (MVP Priority).
 
 ### Phase 2: Management & Health
-- [ ] **Global Stats:** Real-time aggregate upload/download speeds in the web header.
+- [ ] **Global Stats:** Real-time aggregate upload/download speeds and remaining disk space in the web header.
 - [ ] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
 - [x] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
@@ -83,7 +83,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
 
 ### Phase 4: Architecture & Infrastructure
-- [ ] **Deployment:** Plan and implement a container hosting strategy.
+- [x] **Deployment:** Plan and implement a container hosting strategy.
 
 ### Phase 5: CLI Parity
 - [ ] **CLI Control:** Implement `start`, `stop`, and `delete` commands for torrent management.

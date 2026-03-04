@@ -12,7 +12,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['**/*.test.ts'],
+    setupFiles: ['./apps/web/src/test/setup.ts'],
+    include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     pool: 'forks',
     poolOptions: {
@@ -28,6 +29,7 @@ export default defineConfig({
         '**/node_modules/**',
         '**/dist/**',
         '**/*.test.ts',
+        '**/*.test.tsx',
         '**/*.d.ts',
         'packages/database/src/schema.ts',
       ],
