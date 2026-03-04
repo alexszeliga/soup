@@ -87,30 +87,50 @@ export class Torrent {
    * Attempts to extract a clean title and release year from the raw torrent name.
    * 
    * Supports common Scene/P2P naming conventions:
-   * 1. TV Shows: `Title.S01E01...`
+   * 1. TV Shows: `Title.S01E01...` or `Title.2019.S01E01...`
    * 2. Movies: `Title.2024...`
    * 
    * @returns An object containing the parsed title and optional year.
    */
   public getMediaInfo(): { title: string; year: number | null } {
-    // 1. Try TV Show pattern: Title.S01E01...
-    const tvMatch = this.name.match(/^(.*?)[. ]S(\d{1,2})E(\d{1,2})/i);
+    // Clean up common noise first (dots, underscores to spaces)
+    const cleanName = this.name.replace(/[.]/g, ' ').replace(/_/g, ' ').trim();
+
+    // 1. Try TV Show pattern with year: Title.2019.S01E01...
+    const tvYearMatch = cleanName.match(/^(.*?)\s+(\d{4})\s+S(\d{1,2})E(\d{1,2})/i);
+    if (tvYearMatch) {
+      return {
+        title: tvYearMatch[1].trim(),
+        year: parseInt(tvYearMatch[2], 10)
+      };
+    }
+
+    // 2. Try standard TV Show pattern: Title.S01E01...
+    const tvMatch = cleanName.match(/^(.*?)\s+S(\d{1,2})E(\d{1,2})/i);
     if (tvMatch) {
-      const title = tvMatch[1].replace(/[.]/g, ' ').trim();
-      return { title, year: null };
+      return {
+        title: tvMatch[1].trim(),
+        year: null
+      };
     }
 
-    // 2. Try Movie pattern with Year: Title.2024...
-    const yearMatch = this.name.match(/^(.*?)[. ](\d{4})[. ]/);
-    if (yearMatch) {
-      const title = yearMatch[1].replace(/[.]/g, ' ').trim();
-      const year = parseInt(yearMatch[2], 10);
-      return { title, year };
+    // 3. Try Movie pattern: Title.2024...
+    // Look for a 4-digit year that isn't at the very start (unless it's the only thing)
+    const movieMatch = cleanName.match(/^(.*?)\s+(\d{4})(?:\s+|$)/i);
+    if (movieMatch) {
+      const title = movieMatch[1].trim();
+      const year = parseInt(movieMatch[2], 10);
+      
+      // Special case: if the title is empty (name starts with year), use the year as title
+      return {
+        title: title || year.toString(),
+        year: title ? year : null
+      };
     }
 
-    // Fallback: use the whole name as title if no pattern found
+    // Fallback: use the whole name as title
     return {
-      title: this.name.replace(/[.]/g, ' ').trim(),
+      title: cleanName,
       year: null
     };
   }

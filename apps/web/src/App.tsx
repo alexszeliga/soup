@@ -5,10 +5,11 @@ import SettingsModal from './components/SettingsModal';
 import TorrentDetailModal from './components/TorrentDetailModal';
 import TaskMonitor from './components/TaskMonitor';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import type { QBServerState } from '@soup/core/QBClient.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
-import { Soup, Download, Plus, Settings, AlertTriangle, FileText } from 'lucide-react';
+import { Soup, Download, Plus, Settings, AlertTriangle, FileText, ArrowDown, ArrowUp, HardDrive, Zap, ZapOff } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -24,8 +25,18 @@ interface ClientConfig {
   env: string;
 }
 
+function formatBytes(bytes: number, decimals = 2) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 function App() {
   const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
+  const [serverState, setServerState] = useState<QBServerState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -43,24 +54,33 @@ function App() {
     return sortTorrents(torrents, sortBy);
   }, [torrents, sortBy]);
 
-  const fetchTorrents = async () => {
+  const fetchData = async () => {
     try {
-      const url = selectedTorrentHash 
+      const torrentsUrl = selectedTorrentHash 
         ? `${API_URL}/torrents/focus/${selectedTorrentHash}`
         : `${API_URL}/torrents`;
         
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch torrents');
-      const data = await response.json() as TorrentWithMetadata[];
+      const [torrentsRes, stateRes] = await Promise.all([
+        fetch(torrentsUrl),
+        fetch(`${API_URL}/state`)
+      ]);
+
+      if (!torrentsRes.ok || !stateRes.ok) throw new Error('Failed to fetch data');
       
-      setTorrents(data);
+      const [torrentsData, stateData] = await Promise.all([
+        torrentsRes.json() as Promise<TorrentWithMetadata[]>,
+        stateRes.json() as Promise<QBServerState>
+      ]);
+      
+      setTorrents(torrentsData);
+      setServerState(stateData);
       setError(null);
 
       // Clean up pending transitions that have completed
       setPendingTransitions(prev => {
         if (prev.size === 0) return prev;
         const next = new Map(prev);
-        data.forEach((t) => {
+        torrentsData.forEach((t) => {
           const target = next.get(t.hash);
           if (target) {
             const isCurrentlyActive = ACTIVE_STATES.includes(t.state);
@@ -94,7 +114,7 @@ function App() {
 
       if (!response.ok) throw new Error('Failed to add torrent');
       showNotification('Torrent added successfully', 'success');
-      fetchTorrents();
+      fetchData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       showNotification(message, 'error');
@@ -145,6 +165,21 @@ function App() {
     }
   };
 
+  const handleToggleAltSpeeds = async () => {
+    try {
+      const res = await fetch(`${API_URL}/toggle-alt-speeds`, { method: 'POST' });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to toggle speed limits');
+      }
+      showNotification('Speed limits toggled', 'success');
+      fetchData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showNotification(message, 'error');
+    }
+  };
+
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -159,8 +194,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetchTorrents();
-    const interval = setInterval(fetchTorrents, config?.syncInterval || 2000);
+    fetchData();
+    const interval = setInterval(fetchData, config?.syncInterval || 2000);
     return () => clearInterval(interval);
   }, [config?.syncInterval, selectedTorrentHash]);
 
@@ -191,7 +226,7 @@ function App() {
       />
 
       {/* Material 3 Sidebar */}
-      <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen">
+      <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen overflow-hidden">
         <div className="p-6 flex items-center space-x-3">
           <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
             <Soup size={24} strokeWidth={2.5} />
@@ -199,7 +234,7 @@ function App() {
           <span className="hidden lg:block font-black text-xl tracking-tight">SOUP</span>
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
           <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hidden lg:block">Library</div>
           
           <button 
@@ -241,13 +276,55 @@ function App() {
           )}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
+        <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-3">
+          {/* Real-time Global Stats */}
+          <div className="hidden lg:block bg-zinc-100 dark:bg-zinc-900 rounded-3xl p-4 border border-zinc-200/50 dark:border-zinc-800/50 space-y-4 shadow-inner">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ArrowDown size={14} className="text-blue-500" />
+                <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.dl_info_speed) : '0 B'}/s</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <ArrowUp size={14} className="text-emerald-500" />
+                <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.up_info_speed) : '0 B'}/s</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
+                <div className="flex items-center space-x-1">
+                  <HardDrive size={10} />
+                  <span>Free Space</span>
+                </div>
+                <span className="text-zinc-600 dark:text-zinc-300">{serverState ? formatBytes(serverState.free_space_on_disk, 1) : '0 GB'}</span>
+              </div>
+              <div className="h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500/50 w-[70%]" /> {/* Mock fill until we have total capacity */}
+              </div>
+            </div>
+
+            {/* Alt Speed Limits Toggle */}
+            <button 
+              onClick={handleToggleAltSpeeds}
+              className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
+            >
+              <div className="flex items-center space-x-2">
+                {serverState?.use_alt_speed_limits ? <Zap size={14} /> : <ZapOff size={14} />}
+                <span className="text-[10px] font-black uppercase tracking-tight">Alt Speeds</span>
+              </div>
+              <div className={`w-6 h-3 rounded-full relative transition-colors ${serverState?.use_alt_speed_limits ? 'bg-orange-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
+                <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-all ${serverState?.use_alt_speed_limits ? 'left-3.5' : 'left-0.5'}`} />
+              </div>
+            </button>
+          </div>
+
           <div className={`p-3 rounded-2xl flex flex-col items-center lg:items-start ${error ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10'}`}>
-            <span className={`w-2 h-2 rounded-full mb-2 ${error ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-            <span className="hidden lg:block text-[10px] font-black uppercase tracking-tighter opacity-50">Basement Link</span>
-            <span className="hidden lg:block text-[11px] font-bold truncate w-full italic">
-              {error ? 'Disconnected' : 'Online'}
-            </span>
+            <div className="flex items-center space-x-2 mb-1">
+              <span className={`w-2 h-2 rounded-full ${error ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+              <span className="hidden lg:block text-[10px] font-black uppercase tracking-tighter opacity-50 italic">
+                {error ? 'Basement Offline' : 'Basement Online'}
+              </span>
+            </div>
           </div>
         </div>
       </aside>

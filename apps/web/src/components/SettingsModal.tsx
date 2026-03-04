@@ -149,8 +149,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
                   <span className="text-sm font-bold">Enable Alt Limits Globally</span>
                   <input
                     type="checkbox"
-                    checked={!!settings.use_alt_speed_limits}
-                    onChange={(e) => setSettings({ ...settings, use_alt_speed_limits: e.target.checked })}
+                    checked={!!settings.alt_speeds_on}
+                    onChange={(e) => setSettings({ ...settings, alt_speeds_on: e.target.checked })}
                     className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500/50"
                   />
                 </label>

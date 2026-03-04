@@ -20,6 +20,8 @@ describe('QBClient Security Integration', () => {
 
     // This is the expected failure: Referer must match the base URL
     expect(headers).toHaveProperty('Referer');
-    expect(headers['Referer']).toBe(baseUrl + '/');
+    // We updated the logic to use the base origin for the Referer
+    const expectedReferer = new URL(baseUrl).origin + '/';
+    expect(headers['Referer']).toBe(expectedReferer);
   });
 });

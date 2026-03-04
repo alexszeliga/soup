@@ -62,4 +62,52 @@ describe('Torrent Model', () => {
     expect(info.title).toBe('The Great Movie');
     expect(info.year).toBe(2024);
   });
+
+  it('should handle years in the title', () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: '2012.2009.1080p.BluRay',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p1'
+    });
+
+    const info = torrent.getMediaInfo();
+    expect(info.title).toBe('2012');
+    expect(info.year).toBe(2009);
+  });
+
+  it('should handle dual language and complex tags', () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'Spider-Man.No.Way.Home.2021.GERMAN.DL.1080p.BluRay.x264',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p1'
+    });
+
+    const info = torrent.getMediaInfo();
+    expect(info.title).toBe('Spider-Man No Way Home');
+    expect(info.year).toBe(2021);
+  });
+
+  it('should handle TV show with year in name', () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'The.Boys.2019.S01E01.1080p',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p1'
+    });
+
+    const info = torrent.getMediaInfo();
+    expect(info.title).toBe('The Boys');
+    expect(info.year).toBe(2019);
+  });
 });

@@ -47,6 +47,25 @@ export interface RawTorrentData {
 }
 
 /**
+ * Interface representing the global server state from qBittorrent.
+ */
+export interface QBServerState {
+  /** Global download speed in bytes per second. */
+  dl_info_speed: number;
+  /** Global upload speed in bytes per second. */
+  up_info_speed: number;
+  /** Free space on disk in bytes. */
+  free_space_on_disk: number;
+  /** True if alternative speed limits are enabled. */
+  use_alt_speed_limits: boolean;
+  /** Global download speed limit in bytes per second. */
+  dl_rate_limit: number;
+  /** Global upload speed limit in bytes per second. */
+  up_rate_limit: number;
+  [key: string]: unknown;
+}
+
+/**
  * Interface representing the structure of the qBittorrent sync/maindata response.
  */
 export interface SyncResponse {
@@ -67,7 +86,7 @@ export interface SyncResponse {
   /** List of tags that were removed. */
   tags_removed?: string[];
   /** Global server-wide state (speeds, free space, etc.). */
-  server_state?: Record<string, unknown>;
+  server_state?: QBServerState;
 }
 
 /**
@@ -98,29 +117,23 @@ export class QBClient {
    * 
    * @param baseUrl - The base URL of the qBittorrent API (e.g. 'http://localhost:8080/api/v2').
    */
-  constructor(private readonly baseUrl: string) {}
+  constructor(public readonly baseUrl: string) {}
 
   /**
-   * Authenticates with the qBittorrent server.
+   * Authenticates with the qBittorrent server and stores the SID cookie.
    * 
-   * Extracts and stores the SID cookie for use in subsequent requests.
-   * 
-   * @param username - Optional username.
-   * @param password - Optional password.
-   * @returns A promise that resolves on successful login.
+   * @param username - The Web UI username.
+   * @param password - The Web UI password.
+   * @throws Error if authentication fails.
    */
   public async login(username?: string, password?: string): Promise<void> {
     const loginUrl = new URL(`${this.baseUrl}/auth/login`);
     const params = new URLSearchParams();
-    if (username) params.set('username', username);
-    if (password) params.set('password', password);
+    if (username) params.append('username', username);
+    if (password) params.append('password', password);
 
     const response = await fetch(loginUrl.toString(), {
       method: 'POST',
-      headers: {
-        'Referer': this.baseUrl + '/',
-        'Origin': new URL(this.baseUrl).origin,
-      },
       body: params,
     });
 
@@ -128,15 +141,22 @@ export class QBClient {
       throw new Error(`qBittorrent login failed: ${response.statusText}`);
     }
 
+    // Extract SID from Set-Cookie header
     const setCookie = response.headers.get('set-cookie');
     if (setCookie) {
       const sidMatch = setCookie.match(/SID=[^;]+/);
       if (sidMatch) {
         this.cookies = [sidMatch[0]];
-      } else {
-        this.cookies = [setCookie];
       }
     }
+  }
+
+  /**
+   * Logs out from the qBittorrent server.
+   */
+  public async logout(): Promise<void> {
+    await this.post('/auth/logout');
+    this.cookies = [];
   }
 
   /**
@@ -199,11 +219,10 @@ export class QBClient {
   /**
    * Retrieves all application preferences.
    * 
-   * @returns A promise that resolves to the preferences object.
+   * @returns Object containing all settings.
    */
   public async getPreferences(): Promise<QBPreferences> {
     const prefsUrl = new URL(`${this.baseUrl}/app/preferences`);
-
     const response = await fetch(prefsUrl.toString(), {
       headers: {
         'Cookie': this.cookies.join('; '),
@@ -221,20 +240,18 @@ export class QBClient {
   /**
    * Updates one or more application preferences.
    * 
-   * @param prefs - Partial preferences object containing keys to update.
+   * @param prefs - Partial map of settings to update.
    * @returns A promise that resolves when update is complete.
    */
   public async setPreferences(prefs: Partial<QBPreferences>): Promise<void> {
-    await this.post('/app/setPreferences', {
-      json: JSON.stringify(prefs)
-    });
+    await this.post('/app/setPreferences', { json: JSON.stringify(prefs) });
   }
 
   /**
-   * Retrieves the list of files for a specific torrent.
+   * Fetches the individual files for a specific torrent.
    * 
    * @param hash - The torrent hash.
-   * @returns List of TorrentFile objects.
+   * @returns Array of file objects.
    */
   public async getTorrentFiles(hash: string): Promise<TorrentFile[]> {
     const filesUrl = new URL(`${this.baseUrl}/torrents/files`);
@@ -319,7 +336,6 @@ export class QBClient {
    * Pauses the specified torrents (using v5.0+ /stop endpoint).
    * 
    * @param hashes - List of torrent hashes to pause.
-   * @returns A promise that resolves when action is complete.
    */
   public async pauseTorrents(hashes: string[]): Promise<void> {
     await this.post('/torrents/stop', { hashes: hashes.join('|') });
@@ -329,72 +345,61 @@ export class QBClient {
    * Resumes the specified torrents (using v5.0+ /start endpoint).
    * 
    * @param hashes - List of torrent hashes to resume.
-   * @returns A promise that resolves when action is complete.
    */
-  public async resumeTorrents(hashes: string[]): Promise<void> {
+  public async forceStartTorrents(hashes: string[]): Promise<void> {
     await this.post('/torrents/start', { hashes: hashes.join('|') });
   }
 
   /**
-   * Force-starts the specified torrents.
+   * Deletes one or more torrents from the server.
    * 
-   * @param hashes - List of torrent hashes.
-   * @returns A promise that resolves when action is complete.
-   */
-  public async forceStartTorrents(hashes: string[]): Promise<void> {
-    await this.post('/torrents/setForceStart', { 
-      hashes: hashes.join('|'),
-      value: 'true'
-    });
-  }
-
-  /**
-   * Deletes specified torrents from the server.
-   * 
-   * @param hashes - List of torrent hashes.
+   * @param hashes - List of torrent hashes to delete.
    * @param deleteFiles - If true, downloaded data will be deleted from disk.
-   * @returns A promise that resolves when deletion is complete.
    */
   public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
     await this.post('/torrents/delete', {
       hashes: hashes.join('|'),
-      deleteFiles: deleteFiles.toString()
+      deleteFiles: deleteFiles.toString(),
     });
   }
 
   /**
-   * Centralized helper for all qBittorrent POST requests.
-   * 
-   * Handles:
-   * 1. URL construction with base URL and endpoint.
-   * 2. URL-encoded parameter serialization.
-   * 3. Standard headers (Cookies for Auth, Referer/Origin for CSRF bypass).
-   * 4. Error reporting with endpoint context.
-   * 
-   * @param endpoint - The API endpoint path (e.g., '/torrents/stop').
-   * @param params - Key-value pairs to be sent as URLSearchParams in the body.
-   * @throws {Error} If the response is not OK.
-   * @returns A promise that resolves when the request is complete.
+   * Toggles the alternative speed limits mode.
    */
-  private async post(endpoint: string, params: Record<string, string>): Promise<void> {
+  public async toggleAltSpeedLimits(): Promise<void> {
+    await this.post('/transfer/toggleSpeedLimitsMode');
+  }
+
+  /**
+   * Internal helper to perform authenticated POST requests with CSRF protection.
+   * 
+   * @param endpoint - API endpoint path.
+   * @param params - Optional key-value pairs for the POST body.
+   */
+  private async post(endpoint: string, params: Record<string, string> = {}): Promise<void> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     const body = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
-      body.set(key, value);
+      body.append(key, value);
     }
+
+    // Determine the base URL for Referer/Origin. 
+    // Usually qBittorrent wants the root URL (e.g. https://qb.osage.lol/)
+    const baseOrigin = new URL(this.baseUrl).origin;
 
     const response = await fetch(url.toString(), {
       method: 'POST',
       headers: {
         'Cookie': this.cookies.join('; '),
-        'Referer': this.baseUrl + '/',
-        'Origin': new URL(this.baseUrl).origin,
+        'Referer': baseOrigin + '/',
+        'Origin': baseOrigin,
       },
       body,
     });
 
     if (!response.ok) {
-      throw new Error(`qBittorrent ${endpoint} error: ${response.statusText}`);
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`qBittorrent ${endpoint} error (${response.status}): ${errorText}`);
     }
   }
 }

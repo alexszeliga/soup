@@ -110,6 +110,10 @@ fastify.get('/api/state', async () => {
   return liveSync.getServerState();
 });
 
+fastify.post('/api/toggle-alt-speeds', async (request, reply) => {
+  return handleAPIAction(reply, () => qb.toggleAltSpeedLimits());
+});
+
 fastify.get('/api/preferences', async () => {
   return qb.getPreferences();
 });

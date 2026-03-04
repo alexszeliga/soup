@@ -194,4 +194,18 @@ describe('QBClient', () => {
     expect(body.get('hashes')).toBe('h1');
     expect(body.get('deleteFiles')).toBe('true');
   });
+
+  it('should toggle alternative speed limits', async () => {
+    (fetch as any).mockResolvedValueOnce({ ok: true });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    await client.toggleAltSpeedLimits();
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/transfer/toggleSpeedLimitsMode'),
+      expect.objectContaining({
+        method: 'POST'
+      })
+    );
+  });
 });

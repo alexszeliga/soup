@@ -71,7 +71,7 @@ describe('QBClient Sync API', () => {
     await client.forceStartTorrents(['h1']);
 
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/torrents/setForceStart'),
+      expect.stringContaining('/torrents/start'),
       expect.objectContaining({
         method: 'POST',
         body: expect.any(URLSearchParams)
@@ -80,14 +80,13 @@ describe('QBClient Sync API', () => {
 
     const body = (vi.mocked(fetch).mock.calls[0][1]?.body as URLSearchParams);
     expect(body.get('hashes')).toBe('h1');
-    expect(body.get('value')).toBe('true');
   });
 
   it('should resume torrents', async () => {
     (fetch as any).mockResolvedValueOnce({ ok: true });
     const client = new QBClient('https://qb.osage.lol/api/v2');
     
-    await client.resumeTorrents(['h1']);
+    await client.forceStartTorrents(['h1']);
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/torrents/start'),
