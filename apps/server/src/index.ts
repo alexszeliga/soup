@@ -257,6 +257,45 @@ fastify.delete('/api/torrents', async (request, reply) => {
   return handleAPIAction(reply, () => qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true'));
 });
 
+fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) => {
+  const { hash, index: indexStr } = request.params as { hash: string, index: string };
+  const index = parseInt(indexStr, 10);
+  
+  const torrents = liveSync.getTorrentsWithMetadata();
+  const torrent = torrents.find(t => t.hash === hash);
+  if (!torrent) {
+    return reply.status(404).send({ error: 'Torrent not found' });
+  }
+
+  const files = torrent.files || await qb.getTorrentFiles(hash);
+  const file = files.find(f => f.index === index);
+  if (!file) {
+    return reply.status(404).send({ error: 'File not found' });
+  }
+
+  // Calculate actual source path on disk
+  let absolutePath = path.join(path.dirname(torrent.contentPath), file.name);
+
+  // Path Mapping: Map qBittorrent's download root to Soup's local access point
+  const qbRoot = config.QB_DOWNLOAD_ROOT;
+  const localRoot = config.LOCAL_DOWNLOAD_ROOT;
+  
+  if (absolutePath.startsWith(qbRoot)) {
+    absolutePath = path.join(localRoot, absolutePath.substring(qbRoot.length));
+  }
+
+  fastify.log.info(`[Download] Serving file: ${absolutePath}`);
+  
+  const fs = await import('fs');
+  if (!fs.existsSync(absolutePath)) {
+    return reply.status(404).send({ error: 'File not found on disk' });
+  }
+
+  const stream = fs.createReadStream(absolutePath);
+  reply.header('Content-Disposition', `attachment; filename="${path.basename(file.name)}"`);
+  return reply.send(stream);
+});
+
 const start = async () => {
   try {
     const port = config.PORT;

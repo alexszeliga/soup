@@ -477,6 +477,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                         <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Size</th>
                         <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-center">Priority</th>
                         <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-right">Progress</th>
+                        <th className="px-4 py-3 font-black text-[10px] uppercase text-zinc-500 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
@@ -501,6 +502,21 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                             <span className={`font-black ${file.progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
                               {Math.round(file.progress * 100)}%
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {file.progress === 1 ? (
+                              <button 
+                                onClick={() => window.location.assign(`/api/torrents/${torrent.hash}/files/${file.index}/download`)}
+                                className="px-3 py-1 bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                                title="Download Locally"
+                              >
+                                Download
+                              </button>
+                            ) : (
+                              <div className="text-[10px] font-black uppercase text-zinc-300 dark:text-zinc-700 cursor-not-allowed" title="Download only available when complete">
+                                Locked
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )) || (

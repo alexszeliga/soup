@@ -16,6 +16,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
         - Periodically run `npx jscpd apps packages --ignore "**/node_modules/**,**/dist/**,**/__tests__/**"` to identify structural duplication.
         - **DRY Mandate:** Repetitive logic MUST be refactored into shared helpers. 
         - **Self-Documenting Code:** Helpers and core logic must include JSDoc/TSDoc docblocks so their intent and usage are visible during codebase investigation.
+    - **Zero-Emoji Policy:** Emojis are strictly forbidden in the codebase and UI. Use Lucide icons, standard SVG primitives, or descriptive text instead.
     - **Handoff Validation:** 
         - **Mandatory Final Step:** No task is considered "Complete" until `pnpm handoff` has been run across the monorepo and all failing tests, documentation/style errors are resolved, and the project builds successfully.
     - **Warning Management (Zero-Debt Policy):**
@@ -71,6 +72,8 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - [x] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
 - [ ] **Resilient Media Parsing:** Enhance regex in `Torrent.ts` to handle complex scene names (e.g., dual-language, non-standard tags).
 - [ ] **UI Error Boundaries:** Implement React Error Boundaries around `TorrentList` to isolate metadata rendering failures.
+- [ ] **Local File Download:** Allow users to download individual torrent files directly to their browser for local use.
+- [ ] **Emoji Wipeout:** Remove all emojis from the codebase and UI, replacing them with icons or text.
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
