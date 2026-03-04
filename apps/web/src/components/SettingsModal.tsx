@@ -13,8 +13,9 @@ interface SettingsModalProps {
  */
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }) => {
   const [settings, setSettings] = useState<QBPreferences | null>(null);
+  const [initialSettings, setInitialSettings] = useState<QBPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { showNotification } = useNotification();
 
   useEffect(() => {
@@ -27,8 +28,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
     setIsLoading(true);
     try {
       const response = await fetch(`${apiUrl}/preferences`);
+      if (!response.ok) throw new Error('Failed to fetch settings');
       const data = await response.json() as QBPreferences;
       setSettings(data);
+      setInitialSettings(data);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       showNotification('Failed to load settings', 'error');
@@ -39,26 +42,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!settings) return;
+    if (!settings || !initialSettings) return;
 
-    setIsSubmitting(true);
+    setIsSaving(true);
     try {
+      // Find only changed keys to avoid potential side effects of sending the whole object
+      const changes: Partial<QBPreferences> = {};
+      for (const key in settings) {
+        if (settings[key] !== initialSettings[key]) {
+          changes[key] = settings[key];
+        }
+      }
+
+      if (Object.keys(changes).length === 0) {
+        onClose();
+        return;
+      }
+
       const response = await fetch(`${apiUrl}/preferences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(changes)
       });
+
       if (response.ok) {
         showNotification('Settings saved successfully', 'success');
         onClose();
       } else {
-        throw new Error('Save failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Save failed');
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
       console.error('Failed to save settings:', err);
-      showNotification('Failed to save settings', 'error');
+      showNotification(message, 'error');
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
 
@@ -72,14 +91,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
             <h2 className="text-xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">App Preferences</h2>
             <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mt-1">qBittorrent Configuration</p>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors text-2xl leading-none">&times;</button>
+          <button onClick={onClose} disabled={isSaving} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors text-2xl leading-none disabled:opacity-30">&times;</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           {isLoading ? (
             <div className="py-20 text-center font-bold text-zinc-400 animate-pulse">Loading settings...</div>
           ) : settings ? (
-            <form id="settings-form" onSubmit={handleSave} className="space-y-8">
+            <form id="settings-form" onSubmit={handleSave} className={`space-y-8 ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
               {/* Downloads Section */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Downloads</h3>
@@ -164,7 +183,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, apiUrl }
         <div className="p-6 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex space-x-4">
           <button
             onClick={onClose}
-            className="flex-1 h-14 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black rounded-2xl transition-all"
+            disabled={isSaving}
+            className="flex-1 h-14 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black rounded-2xl transition-all disabled:opacity-50"
           >
             Cancel
           </button>

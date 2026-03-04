@@ -38,6 +38,7 @@ function App() {
   const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
   const [serverState, setServerState] = useState<QBServerState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTogglingAltSpeeds, setIsTogglingAltSpeeds] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -166,6 +167,7 @@ function App() {
   };
 
   const handleToggleAltSpeeds = async () => {
+    setIsTogglingAltSpeeds(true);
     try {
       const res = await fetch(`${API_URL}/toggle-alt-speeds`, { method: 'POST' });
       if (!res.ok) {
@@ -173,10 +175,12 @@ function App() {
         throw new Error(errorData.error || 'Failed to toggle speed limits');
       }
       showNotification('Speed limits toggled', 'success');
-      fetchData();
+      await fetchData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       showNotification(message, 'error');
+    } finally {
+      setIsTogglingAltSpeeds(false);
     }
   };
 
@@ -306,7 +310,8 @@ function App() {
             {/* Alt Speed Limits Toggle */}
             <button 
               onClick={handleToggleAltSpeeds}
-              className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
+              disabled={isTogglingAltSpeeds}
+              className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${isTogglingAltSpeeds ? 'opacity-50 cursor-wait' : ''} ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
             >
               <div className="flex items-center space-x-2">
                 {serverState?.use_alt_speed_limits ? <Zap size={14} /> : <ZapOff size={14} />}
