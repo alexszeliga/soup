@@ -35,7 +35,7 @@ clean:
 	@rm -f $(API_LOG) $(WEB_LOG) .api.pid .web.pid
 
 docker-up:
-	@docker compose up -d --build
+	@docker compose --env-file .env up -d --build
 
 docker-down:
-	@docker compose down
+	@docker compose --env-file .env down

@@ -14,6 +14,6 @@ services:
       - QB_DOWNLOAD_ROOT=${QB_DOWNLOAD_ROOT:-/downloads}
     volumes:
       - ./data:/data
-      - /path/to/your/downloads:/downloads:ro
-      - /path/to/your/media:/media
+      - ${LOCAL_DOWNLOAD_ROOT}:/downloads:ro
+      - ${MEDIA_ROOT}:/media
     restart: unless-stopped
