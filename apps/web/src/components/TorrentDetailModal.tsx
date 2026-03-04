@@ -5,6 +5,7 @@ import { Torrent } from '@soup/core/Torrent.js';
 import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
 import ConfirmDialog from './ConfirmDialog';
 import IngestTab from './IngestTab';
+import { formatBytes } from '../utils/format';
 
 interface TorrentDetailModalProps {
   torrent: TorrentWithMetadata | null;
@@ -15,22 +16,22 @@ interface TorrentDetailModalProps {
   onDelete: (hash: string) => void;
 }
 
-/**
- * Formats bytes into a human-readable string (KiB, MiB, GiB).
- */
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
+interface TorrentFile {
+  index: number;
+  name: string;
+  size: number;
+  progress: number;
+  priority: number;
+  is_seed?: boolean;
+  piece_range?: [number, number];
+  availability?: number;
+}
 
 /**
  * Renders a single file row for the desktop table view.
  */
 const FileRow: React.FC<{ 
-  file: any; 
+  file: TorrentFile; 
   torrentHash: string; 
   isPending: boolean; 
   onSetPriority: (indices: number[], priority: number) => void 
@@ -77,7 +78,7 @@ const FileRow: React.FC<{
  * Renders a file card for the mobile list view.
  */
 const FileCard: React.FC<{ 
-  file: any; 
+  file: TorrentFile; 
   torrentHash: string; 
   isPending: boolean; 
   onSetPriority: (indices: number[], priority: number) => void 
@@ -373,7 +374,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                 <button 
                   disabled={isActionPending || isNonMedia}
                   onClick={() => { setIsSearchView(true); setActiveTab('details'); }}
-                  className="h-10 sm:h-12 px-4 sm:px-6 bg-green-600 hover:bg-green-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+                  className="h-10 sm:h-12 px-4 sm:px-6 bg-green-600 hover:bg-green-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   <Search size={14} strokeWidth={3} /> Match
                 </button>

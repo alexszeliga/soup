@@ -4,12 +4,13 @@ import AddTorrentModal from './components/AddTorrentModal';
 import SettingsModal from './components/SettingsModal';
 import TorrentDetailModal from './components/TorrentDetailModal';
 import TaskMonitor from './components/TaskMonitor';
+import GlobalStats from './components/GlobalStats';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import type { QBServerState } from '@soup/core/QBClient.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
-import { Soup, Download, Plus, Settings, AlertTriangle, FileText, ArrowDown, ArrowUp, HardDrive, Zap, ZapOff } from 'lucide-react';
+import { Soup, Download, Plus, Settings, AlertTriangle, FileText, Activity } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -25,15 +26,6 @@ interface ClientConfig {
   env: string;
 }
 
-function formatBytes(bytes: number, decimals = 2) {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
 function App() {
   const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
   const [serverState, setServerState] = useState<QBServerState | null>(null);
@@ -42,6 +34,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTorrentHash, setSelectedTorrentHash] = useState<string | null>(null);
   const [config, setConfig] = useState<ClientConfig | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('dateAdded');
@@ -213,7 +206,7 @@ function App() {
   }, [config?.syncInterval, selectedTorrentHash, pendingAltSpeedTarget]);
 
   return (
-    <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30">
+    <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30 relative">
       {/* Add Torrent Modal */}
       <AddTorrentModal 
         isOpen={isAddModalOpen} 
@@ -237,6 +230,24 @@ function App() {
         onResume={handleResume}
         onDelete={handleDelete}
       />
+
+      {/* Mobile Stats Modal */}
+      {isStatsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] shadow-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 p-6 space-y-6 animate-in slide-in-from-bottom-8 duration-500">
+            <div className="flex justify-between items-center">
+              <h2 className="font-black text-xl tracking-tight">Server Data</h2>
+              <button onClick={() => setIsStatsModalOpen(false)} className="text-zinc-400 text-2xl">&times;</button>
+            </div>
+            <GlobalStats 
+              serverState={serverState}
+              pendingAltSpeedTarget={pendingAltSpeedTarget}
+              onToggleAltSpeeds={handleToggleAltSpeeds}
+              isMobile={true}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Material 3 Sidebar */}
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen overflow-hidden">
@@ -289,47 +300,16 @@ function App() {
           )}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-3">
-          {/* Real-time Global Stats */}
-          <div className="hidden lg:block bg-zinc-100 dark:bg-zinc-900 rounded-3xl p-4 border border-zinc-200/50 dark:border-zinc-800/50 space-y-4 shadow-inner">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <ArrowDown size={14} className="text-blue-500" />
-                <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.dl_info_speed) : '0 B'}/s</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ArrowUp size={14} className="text-emerald-500" />
-                <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.up_info_speed) : '0 B'}/s</span>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
-                <div className="flex items-center space-x-1">
-                  <HardDrive size={10} />
-                  <span>Free Space</span>
-                </div>
-                <span className="text-zinc-600 dark:text-zinc-300">{serverState ? formatBytes(serverState.free_space_on_disk, 1) : '0 GB'}</span>
-              </div>
-              <div className="h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500/50 w-[70%]" /> {/* Mock fill until we have total capacity */}
-              </div>
-            </div>
-
-            {/* Alt Speed Limits Toggle */}
-            <button 
-              onClick={handleToggleAltSpeeds}
-              disabled={pendingAltSpeedTarget !== null}
-              className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${pendingAltSpeedTarget !== null ? 'opacity-50 cursor-default' : 'cursor-pointer'} ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
-            >
-              <div className="flex items-center space-x-2">
-                {serverState?.use_alt_speed_limits ? <Zap size={14} /> : <ZapOff size={14} />}
-                <span className="text-[10px] font-black uppercase tracking-tight">Alt Speeds</span>
-              </div>
-              <div className={`w-6 h-3 rounded-full relative transition-colors ${serverState?.use_alt_speed_limits ? 'bg-orange-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
-                <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-all ${serverState?.use_alt_speed_limits ? 'left-3.5' : 'left-0.5'}`} />
-              </div>
-            </button>
+        <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
+          <div className="hidden lg:block">
+            <GlobalStats 
+              serverState={serverState}
+              pendingAltSpeedTarget={pendingAltSpeedTarget}
+              onToggleAltSpeeds={handleToggleAltSpeeds}
+            />
+          </div>
+          <div className="lg:hidden flex justify-center py-2">
+            <div className={`w-2 h-2 rounded-full ${error ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
           </div>
         </div>
       </aside>
@@ -338,31 +318,29 @@ function App() {
       <main className="flex-1 flex flex-col max-h-screen overflow-hidden bg-white dark:bg-zinc-950">
         {/* Modern Header */}
         <header className="h-20 flex items-center justify-between px-6 lg:px-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50 sticky top-0 z-20">
-          <div>
-            <h2 className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Dashboard</h2>
-            <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mt-1">Active Transfers</h1>
+          <div className="min-w-0">
+            <h2 className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] truncate">Dashboard</h2>
+            <h1 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mt-1 truncate">Active Transfers</h1>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4 sm:space-x-6">
             <div className="flex items-center space-x-2">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mr-2">Sort by</p>
+              <p className="hidden md:block text-[10px] font-black text-zinc-400 uppercase tracking-widest mr-2">Sort by</p>
               <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-1 border border-zinc-200/50 dark:border-zinc-800/50">
                 <button 
                   onClick={() => setSortBy('dateAdded')}
-                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'dateAdded' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'dateAdded' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                 >
                   Date
                 </button>
                 <button 
                   onClick={() => setSortBy('alphabetical')}
-                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'alphabetical' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  className={`px-4 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${sortBy === 'alphabetical' ? 'bg-white dark:bg-zinc-800 text-blue-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                 >
                   Name
                 </button>
               </div>
             </div>
-
-            <div className="h-10 w-px bg-zinc-200 dark:bg-zinc-800" />
 
             <TaskMonitor />
           </div>
@@ -392,6 +370,14 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* Mobile Stats FAB */}
+      <button 
+        onClick={() => setIsStatsModalOpen(true)}
+        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/40 active:scale-90 transition-all z-40"
+      >
+        <Activity size={24} strokeWidth={2.5} />
+      </button>
     </div>
   );
 }
