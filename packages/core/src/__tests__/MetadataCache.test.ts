@@ -14,7 +14,7 @@ describe('MetadataCache Service', () => {
   beforeEach(() => {
     db = createDatabase(dbPath);
     cache = new MetadataCache(db);
-    
+
     // Create tables manually for testing if migrations are not used
     db.run(`CREATE TABLE IF NOT EXISTS metadata (
       id TEXT PRIMARY KEY,
@@ -38,6 +38,24 @@ describe('MetadataCache Service', () => {
     if (fs.existsSync(dbPath)) {
       fs.unlinkSync(dbPath);
     }
+  });
+
+  it('should ensure all tables exist via ensureTables', async () => {
+    const freshDbPath = './ensure-tables-test.db';
+    if (fs.existsSync(freshDbPath)) fs.unlinkSync(freshDbPath);
+
+    const freshDb = createDatabase(freshDbPath);
+    const freshCache = new MetadataCache(freshDb);
+
+    await freshCache.ensureTables();
+
+    // Verify tables exist by attempting to select from them
+    // If they don't exist, these will throw
+    expect(() => freshDb.run('SELECT count(*) FROM metadata')).not.toThrow();
+    expect(() => freshDb.run('SELECT count(*) FROM torrents')).not.toThrow();
+    expect(() => freshDb.run('SELECT count(*) FROM tasks')).not.toThrow();
+
+    if (fs.existsSync(freshDbPath)) fs.unlinkSync(freshDbPath);
   });
 
   it('should save and retrieve metadata for a torrent', async () => {
