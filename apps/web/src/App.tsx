@@ -8,6 +8,7 @@ import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
+import { Soup, Download, Plus, Settings, AlertTriangle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -191,7 +192,7 @@ function App() {
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen">
         <div className="p-6 flex items-center space-x-3">
           <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
-            <span className="text-xl">🥣</span>
+            <Soup size={24} strokeWidth={2.5} />
           </div>
           <span className="hidden lg:block font-black text-xl tracking-tight">SOUP</span>
         </div>
@@ -203,7 +204,7 @@ function App() {
             onClick={() => { setSelectedTorrentHash(null); setIsAddModalOpen(false); setIsSettingsModalOpen(false); }}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${(!isAddModalOpen && !isSettingsModalOpen && !selectedTorrentHash) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
           >
-            <span className="text-xl">📥</span>
+            <Download size={20} />
             <span className="hidden lg:block font-bold text-sm">Downloads</span>
           </button>
 
@@ -211,7 +212,7 @@ function App() {
             onClick={() => { setIsAddModalOpen(true); setIsSettingsModalOpen(false); }}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${isAddModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
           >
-            <span className="text-xl">➕</span>
+            <Plus size={20} />
             <span className="hidden lg:block font-bold text-sm">Add Torrent</span>
           </button>
 
@@ -221,7 +222,7 @@ function App() {
             onClick={() => { setIsSettingsModalOpen(true); setIsAddModalOpen(false); }}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${isSettingsModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
           >
-            <span className="text-xl">⚙️</span>
+            <Settings size={20} />
             <span className="hidden lg:block font-bold text-sm">Settings</span>
           </button>
         </nav>
@@ -276,7 +277,9 @@ function App() {
           <div className="max-w-[1400px] mx-auto w-full p-4 lg:p-8">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl mb-8 flex items-center space-x-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-red-500/20">⚠️</div>
+                <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-red-500/20">
+                  <AlertTriangle size={24} strokeWidth={2.5} />
+                </div>
                 <div>
                   <p className="font-black text-red-600 dark:text-red-400">Basement Connection Error</p>
                   <p className="text-sm font-bold text-red-500/60 truncate">{error}</p>

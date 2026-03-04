@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Package } from 'lucide-react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { useNotification } from '../context/NotificationContext';
 
@@ -93,7 +94,7 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     const fileMap: Record<string, string> = {};
     
     selectedIndices.forEach(idx => {
-      const suggestion = suggestions.find(s => s.index === idx);
+      const suggestion = suggestions.find(s => idx === s.index);
       if (suggestion) {
         fileMap[suggestion.sourcePath] = suggestion.suggestedPath;
       }
@@ -180,7 +181,9 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
 
       <div className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-[24px] flex items-center justify-between border border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-blue-600/10 text-blue-600 rounded-2xl flex items-center justify-center text-xl">📦</div>
+          <div className="w-12 h-12 bg-blue-600/10 text-blue-600 rounded-2xl flex items-center justify-center">
+            <Package size={24} />
+          </div>
           <div>
             <p className="text-xs font-black uppercase text-zinc-400 tracking-widest">Destination Root</p>
             <p className="text-lg font-black">{selectedLibrary || 'Media Root'}</p>

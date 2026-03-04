@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FileText, Folder } from 'lucide-react';
 
 interface AddTorrentModalProps {
   isOpen: boolean;
@@ -70,7 +71,11 @@ const AddTorrentModal: React.FC<AddTorrentModalProps> = ({ isOpen, onClose, onAd
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   accept=".torrent"
                 />
-                <span className="text-xl mb-1">{file ? '📄' : '📁'}</span>
+                {file ? (
+                  <FileText size={24} className="mb-1 text-blue-500" />
+                ) : (
+                  <Folder size={24} className="mb-1 text-zinc-400" />
+                )}
                 <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 truncate max-w-[200px]">
                   {file ? file.name : 'Click or drop .torrent file'}
                 </span>

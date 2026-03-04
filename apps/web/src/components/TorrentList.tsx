@@ -1,5 +1,6 @@
 import TorrentCard from './TorrentCard';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import { Soup } from 'lucide-react';
 
 interface TorrentListProps {
   torrents: TorrentWithMetadata[];
@@ -23,7 +24,7 @@ const TorrentList: React.FC<TorrentListProps> = ({
   if (torrents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl m-4">
-        <div className="text-4xl mb-4 text-zinc-300 dark:text-zinc-700">🥣</div>
+        <Soup size={48} className="mb-4 text-zinc-300 dark:text-zinc-700" strokeWidth={1.5} />
         <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">No torrents found</h3>
         <p className="text-zinc-500 dark:text-zinc-400 max-w-xs mt-1">
           Your qBittorrent instance seems empty or Soup is still matching metadata.

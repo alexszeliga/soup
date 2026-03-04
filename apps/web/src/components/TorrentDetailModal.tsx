@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Pause, Play, Search, Trash2, Package, Download, Lock } from 'lucide-react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
 import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
@@ -123,6 +124,9 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         break;
       case 'non-media':
         handleToggleNonMedia(true);
+        break;
+      case 'mark-media':
+        handleToggleNonMedia(false);
         break;
       case 'delete':
         onDelete(torrent.hash);
@@ -265,9 +269,13 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
             <div className="flex items-center space-x-3">
               <button 
                 onClick={() => Torrent.ACTIVE_STATES.includes(state) ? onPause(torrent.hash) : onResume(torrent.hash)}
-                className="h-12 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+                className="h-12 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2"
               >
-                {Torrent.ACTIVE_STATES.includes(state) ? '⏸️ Pause' : '▶️ Resume'}
+                {Torrent.ACTIVE_STATES.includes(state) ? (
+                  <><Pause size={16} strokeWidth={3} /> Pause</>
+                ) : (
+                  <><Play size={16} strokeWidth={3} /> Resume</>
+                )}
               </button>
               
               {mediaMetadata ? (
@@ -285,17 +293,21 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               ) : (
                 <div className="flex items-center space-x-2">
                   <button 
-                    disabled={isActionPending || isNonMedia}
+                    disabled={isActionPending}
                     onClick={() => { setIsSearchView(true); setActiveTab('details'); }}
-                    className="h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    className="h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                   >
-                    🔍 Find Media Match
+                    <Search size={16} strokeWidth={3} /> Find Media Match
                   </button>
                   <button 
                     disabled={isActionPending}
                     onClick={() => {
                       if (isNonMedia) {
-                        handleToggleNonMedia(false);
+                        setConfirmState({
+                          type: 'mark-media',
+                          title: 'Mark as Media Content',
+                          message: 'Marking this as media content will allow Soup to automatically search for movie and TV show metadata again.'
+                        });
                       } else {
                         setConfirmState({
                           type: 'non-media',
@@ -304,7 +316,11 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                         });
                       }
                     }}
-                    className="h-12 px-6 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
+                    className={`h-12 px-6 font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50 ${
+                      isNonMedia 
+                        ? 'bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white' 
+                        : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+                    }`}
                   >
                     {isNonMedia ? 'Mark as Media' : 'Non-Media'}
                   </button>
@@ -317,9 +333,9 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   title: 'Delete Torrent',
                   message: 'Are you sure you want to delete this torrent and all of its downloaded files from disk? This action cannot be undone.'
                 })}
-                className="h-12 px-6 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95"
+                className="h-12 px-6 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 flex items-center gap-2"
               >
-                🗑️ Delete
+                <Trash2 size={16} strokeWidth={3} /> Delete
               </button>
             </div>
             
@@ -352,9 +368,9 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               </button>
               <button 
                 onClick={() => setActiveTab('ingest')}
-                className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all ${activeTab === 'ingest' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+                className={`py-4 px-6 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ingest' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
               >
-                📦 Ingest
+                <Package size={14} strokeWidth={3} /> Ingest
               </button>
             </div>
           )}
@@ -365,7 +381,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
                 <header className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-2xl font-black tracking-tight">Find Media Match</h3>
+                    <h3 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Find Media Match</h3>
                     <p className="text-sm font-bold text-zinc-500">Search TMDB for the correct movie or show.</p>
                   </div>
                   <button 
@@ -390,9 +406,9 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   <button 
                     type="submit"
                     disabled={isSearching}
-                    className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                   >
-                    {isSearching ? 'Searching...' : 'Search'}
+                    {isSearching ? 'Searching...' : <><Search size={16} strokeWidth={3} /> Search</>}
                   </button>
                 </form>
 
@@ -420,7 +436,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   
                   {!isSearching && searchCandidates.length === 0 && searchQuery && (
                     <div className="col-span-full py-20 text-center space-y-4">
-                      <p className="text-4xl">🔎</p>
+                      <Search size={48} className="mx-auto text-zinc-300 dark:text-zinc-700" />
                       <p className="text-zinc-500 font-bold">No results found for "{searchQuery}"</p>
                     </div>
                   )}
@@ -507,21 +523,21 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                             {file.progress === 1 ? (
                               <button 
                                 onClick={() => window.location.assign(`/api/torrents/${torrent.hash}/files/${file.index}/download`)}
-                                className="px-3 py-1 bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                                className="px-3 py-1 bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1 mx-auto"
                                 title="Download Locally"
                               >
-                                Download
+                                <Download size={12} strokeWidth={3} /> Download
                               </button>
                             ) : (
-                              <div className="text-[10px] font-black uppercase text-zinc-300 dark:text-zinc-700 cursor-not-allowed" title="Download only available when complete">
-                                Locked
+                              <div className="text-[10px] font-black uppercase text-zinc-300 dark:text-zinc-700 cursor-not-allowed flex items-center gap-1 justify-center" title="Download only available when complete">
+                                <Lock size={12} strokeWidth={3} /> Locked
                               </div>
                             )}
                           </td>
                         </tr>
                       )) || (
                         <tr>
-                          <td colSpan={4} className="px-4 py-10 text-center text-zinc-500 font-bold">No files discovered.</td>
+                          <td colSpan={5} className="px-4 py-10 text-center text-zinc-500 font-bold">No files discovered.</td>
                         </tr>
                       )}
                     </tbody>

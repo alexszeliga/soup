@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Package } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -50,7 +51,7 @@ const TaskMonitor: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="relative h-10 w-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all"
       >
-        <span className="text-xl">📦</span>
+        <Package size={20} className={activeTasks.length > 0 ? 'animate-pulse text-blue-600' : 'text-zinc-600 dark:text-zinc-400'} />
         {activeTasks.length > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
             {activeTasks.length}
