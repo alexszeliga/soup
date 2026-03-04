@@ -43,5 +43,5 @@ Thumbs.db
 *.swo
 
 # generated code coverage reports.
-
 coverage/
+scripts/inspect-*.ts
