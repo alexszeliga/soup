@@ -71,6 +71,20 @@ export interface SyncResponse {
 }
 
 /**
+ * Interface representing raw file data from the qBittorrent API.
+ */
+export interface RawTorrentFileData {
+  name: string;
+  size: number;
+  progress: number;
+  priority: number;
+  is_seed?: boolean;
+  piece_range?: [number, number];
+  availability?: number;
+  [key: string]: unknown;
+}
+
+/**
  * Client for interacting with the qBittorrent Web API (v2).
  * 
  * Centralizes authentication, data synchronization, and torrent management actions.
@@ -237,7 +251,7 @@ export class QBClient {
       throw new Error(`qBittorrent getTorrentFiles error: ${response.statusText}`);
     }
 
-    const data = await response.json() as any[];
+    const data = await response.json() as RawTorrentFileData[];
     console.log(`[QBClient] Raw files for ${hash}:`, Array.isArray(data) ? data.length : 'NOT AN ARRAY');
     
     return data.map((f, index) => ({

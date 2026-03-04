@@ -5,6 +5,19 @@ import { tasks as tasksSchema } from '@soup/database/schema.js';
 export type TaskStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
 /**
+ * Serializable representation of a Task for database persistence.
+ */
+export interface TaskJSON {
+  id: string;
+  torrentHash: string;
+  status: TaskStatus;
+  progress: number;
+  currentFile: string | null;
+  fileMap: string; // JSON-serialized mapping
+  [key: string]: unknown; // Allow for extra metadata
+}
+
+/**
  * Interface representing a generic unit of work that can be queued.
  */
 export interface Task {
@@ -15,7 +28,7 @@ export interface Task {
   currentFile: string | null;
   run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void>;
   /** Must return a DB-serializable representation of the task. */
-  toJSON(): any;
+  toJSON(): TaskJSON;
 }
 
 /**

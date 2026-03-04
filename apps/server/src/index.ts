@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import path from 'path';
@@ -160,7 +160,7 @@ fastify.post('/api/torrents', async (request, reply) => {
   
   if (data) {
     const buffer = await data.toBuffer();
-    const file = new File([buffer as any], data.filename, { type: data.mimetype });
+    const file = new File([new Uint8Array(buffer)], data.filename, { type: data.mimetype });
     await qb.addTorrents([], [file]);
     return { success: true };
   }
@@ -187,13 +187,14 @@ fastify.post('/api/torrents', async (request, reply) => {
  * @param action - The async function to execute.
  * @returns Standard { success: true } or error object.
  */
-async function handleAPIAction(reply: any, action: () => Promise<void>) {
+async function handleAPIAction(reply: FastifyReply, action: () => Promise<void>) {
   try {
     await action();
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     fastify.log.error(error);
-    reply.status(500).send({ error: error.message });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(500).send({ error: message });
   }
 }
 

@@ -1,6 +1,6 @@
 import path from 'path';
 import * as fs from 'fs';
-import { Task, TaskStatus } from './TaskQueue.js';
+import { Task, TaskStatus, TaskJSON } from './TaskQueue.js';
 
 /**
  * Service responsible for suggesting media-standard file paths
@@ -178,7 +178,7 @@ export class CopyTask implements Task {
    * 
    * @returns Plain object representation.
    */
-  public toJSON(): any {
+  public toJSON(): TaskJSON {
     return {
       id: this.id,
       torrentHash: this.torrentHash,

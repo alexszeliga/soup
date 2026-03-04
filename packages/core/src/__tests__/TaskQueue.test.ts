@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TaskQueue, Task, TaskStatus } from '../TaskQueue.js';
+import { TaskQueue, Task, TaskStatus, TaskJSON } from '../TaskQueue.js';
 import { DatabaseInstance } from '@soup/database';
 
 // A simple mock task for testing the queue logic
@@ -27,12 +27,13 @@ class MockTask implements Task {
     this.status = 'completed';
   }
 
-  toJSON() {
+  toJSON(): TaskJSON {
     return {
       id: this.id,
       torrentHash: this.torrentHash,
       status: this.status,
       progress: this.progress,
+      currentFile: this.currentFile,
       fileMap: JSON.stringify(this.fileMap)
     };
   }

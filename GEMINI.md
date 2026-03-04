@@ -69,6 +69,8 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - [x] Implement a reusable `ConfirmDialog` component for destructive actions.
     - [x] Implement a `Snackbar` system for non-intrusive error/success feedback.
     - [x] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
+- [ ] **Resilient Media Parsing:** Enhance regex in `Torrent.ts` to handle complex scene names (e.g., dual-language, non-standard tags).
+- [ ] **UI Error Boundaries:** Implement React Error Boundaries around `TorrentList` to isolate metadata rendering failures.
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).

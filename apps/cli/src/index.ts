@@ -68,8 +68,9 @@ program
 
         console.log(`${name.padEnd(40)} | ${progress.padEnd(10)} | ${mediaTitle}`);
       }
-    } catch (error: any) {
-      console.error(chalk.red(`Error: ${error.message}`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
     }
   });
 
@@ -110,8 +111,9 @@ program
       } else {
         console.log(chalk.yellow('\nNo media metadata found.'));
       }
-    } catch (error: any) {
-      console.error(chalk.red(`Error: ${error.message}`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
     }
   });
 
