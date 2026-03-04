@@ -72,8 +72,8 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - [x] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
 - [ ] **Resilient Media Parsing:** Enhance regex in `Torrent.ts` to handle complex scene names (e.g., dual-language, non-standard tags).
 - [ ] **UI Error Boundaries:** Implement React Error Boundaries around `TorrentList` to isolate metadata rendering failures.
-- [ ] **Local File Download:** Allow users to download individual torrent files directly to their browser for local use.
-- [ ] **Emoji Wipeout:** Remove all emojis from the codebase and UI, replacing them with icons or text.
+- [x] **Local File Download:** Allow users to download individual torrent files directly to their browser for local use.
+- [x] **Emoji Wipeout:** Remove all emojis from the codebase and UI, replacing them with icons or text.
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
