@@ -85,9 +85,18 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 ### Phase 4: Architecture & Infrastructure
 - [ ] **Deployment:** Plan and implement a container hosting strategy.
 
+### Phase 5: CLI Parity
+- [ ] **CLI Control:** Implement `start`, `stop`, and `delete` commands for torrent management.
+- [ ] **CLI Add:** Implement `add` command supporting both local `.torrent` files and magnet links.
+- [ ] **CLI Metadata Management:** Implement `unmatch`, `mark-non-media`, and manual `match` (search/override) commands.
+- [ ] **CLI File Management:** Implement `files` (listing) and `priority` (set download priority) commands.
+- [ ] **CLI Ingestion:** Implement `ingest` command to trigger file movement and a `tasks` command to monitor progress.
+- [ ] **CLI Settings:** Implement a `settings` command to view and modify qBittorrent preferences.
+- [ ] **CLI Stats:** Add a `stats` or `dashboard` command for real-time global speed and health monitoring.
+
 ## Handoff Notes (Session 1)
 - **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
-- **Ingestion System:** Files are copied via a persistent `TaskQueue`. You can monitor progress in the web header's "Activity" (📦) popover. Ingestion uses the `MEDIA_ROOT` environment variable and suggests Jellyfin-standard paths.
+- **Ingestion System:** Files are copied via a persistent `TaskQueue`. You can monitor progress in the web header's "Activity" (Package icon) popover. Ingestion uses the `MEDIA_ROOT` environment variable and suggests Jellyfin-standard paths.
 - **Database Location:** The active database is located at `apps/server/soup.db`. If you add columns to the schema, you must manually handle migrations in `MetadataCache.ts` or nuke this file to trigger recreation.
 - **qBittorrent v5.0+ Compatibility:** Crucial! Use `/torrents/stop` and `/torrents/start`. The old `/pause` and `/resume` endpoints are removed and will return 404.
 - **Security Headers:** All state-changing POST/DELETE requests *must* include `Referer: <base_url>/` and `Origin: <origin>` to bypass CSRF protection.
