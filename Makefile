@@ -17,8 +17,16 @@ up:
 
 down:
 	@echo "Shutting down Soup services..."
-	@if [ -f .api.pid ]; then kill $$(cat .api.pid) 2>/dev/null && rm .api.pid; fi
-	@if [ -f .web.pid ]; then kill $$(cat .web.pid) 2>/dev/null && rm .web.pid; fi
+	@# Try killing using PID files if they exist
+	@if [ -f .api.pid ]; then kill $$(cat .api.pid) 2>/dev/null && rm .api.pid || true; fi
+	@if [ -f .web.pid ]; then kill $$(cat .web.pid) 2>/dev/null && rm .web.pid || true; fi
+	@# Robust fallback: kill anything listening on the configured ports
+	@echo "Ensuring ports $(API_PORT) and $(WEB_PORT) are cleared..."
+	@PIDS=$$(lsof -t -i :$(API_PORT),$(WEB_PORT) 2>/dev/null); \
+	if [ -n "$$PIDS" ]; then \
+		echo "Killing remaining PIDs: $$PIDS"; \
+		kill -9 $$PIDS 2>/dev/null || true; \
+	fi
 	@echo "Done."
 
 status:
