@@ -33,15 +33,31 @@ export class IngestionService {
   }
 
   /**
+   * Sanitizes a title by removing or replacing illegal filesystem characters.
+   * 
+   * @param title - The raw title to sanitize.
+   * @returns The sanitized title.
+   */
+  private sanitizeTitle(title: string): string {
+    // Replace illegal characters: / \ : * ? " < > |
+    // Most common is ":" which we replace with " -"
+    return title
+      .replace(/:/g, ' -')
+      .replace(/[\\*?"<>|]/g, '')
+      .trim();
+  }
+
+  /**
    * Analyzes a filename and metadata to suggest a Jellyfin-compatible path.
    * 
-   * @param cleanTitle - The cleaned title of the show/movie.
+   * @param title - The title of the show/movie.
    * @param originalFilename - The raw filename from the torrent.
    * @param year - Optional release year.
    * @returns A relative path from the media root.
    */
-  public suggestPath(cleanTitle: string, originalFilename: string, year?: number): string {
+  public suggestPath(title: string, originalFilename: string, year?: number): string {
     const ext = path.extname(originalFilename);
+    const cleanTitle = this.sanitizeTitle(title);
     const titleWithYear = year ? `${cleanTitle} (${year})` : cleanTitle;
     
     // 1. Try TV Show Pattern: S01E01, 1x01, S1E1
@@ -68,6 +84,21 @@ export class IngestionService {
 
     // 3. Fallback: Simple folder
     return path.join(cleanTitle, originalFilename);
+  }
+
+  /**
+   * Maps a remote qBittorrent path to a local filesystem path.
+   * 
+   * @param remotePath - The absolute path reported by qBittorrent.
+   * @param remoteRoot - qBittorrent's download root folder.
+   * @param localRoot - The local filesystem mount point for the downloads.
+   * @returns The mapped local absolute path.
+   */
+  public mapRemoteToLocalPath(remotePath: string, remoteRoot: string, localRoot: string): string {
+    if (remotePath.startsWith(remoteRoot)) {
+      return path.join(localRoot, remotePath.substring(remoteRoot.length));
+    }
+    return remotePath;
   }
 
   /**

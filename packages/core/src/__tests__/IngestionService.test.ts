@@ -18,6 +18,23 @@ describe('IngestionService', () => {
     expect(results[2]).toBe('The Office/Season 03/The Office - S03E01.avi');
   });
 
+  it('should sanitize illegal characters in suggested paths', () => {
+    const filename = 'Star.Wars.Episode.IV.1977.mkv';
+    const result = service.suggestPath('Star Wars: Episode IV', filename, 1977);
+    
+    // ":" should be replaced with " -"
+    expect(result).toBe('Star Wars - Episode IV (1977)/Star Wars - Episode IV (1977).mkv');
+  });
+
+  it('should map remote qBittorrent paths to local filesystem paths', () => {
+    const remotePath = '/downloads/Movie/file.mkv';
+    const remoteRoot = '/downloads';
+    const localRoot = './downloads';
+
+    const result = service.mapRemoteToLocalPath(remotePath, remoteRoot, localRoot);
+    expect(result).toBe('downloads/Movie/file.mkv');
+  });
+
   it('should handle movie naming with year', () => {
     const filename = 'Fight.Club.1999.1080p.BluRay.mkv';
     const result = service.suggestPath('Fight Club', filename, 1999);
