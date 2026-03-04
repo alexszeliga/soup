@@ -6,6 +6,48 @@ describe('QBClient', () => {
     vi.stubGlobal('fetch', vi.fn());
   });
 
+  it('should authenticate and store SID cookie', async () => {
+    const mockHeaders = new Headers();
+    mockHeaders.append('set-cookie', 'SID=12345; HttpOnly; Path=/');
+
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      headers: mockHeaders,
+    });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    await client.login('admin', 'password');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/login'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(URLSearchParams)
+      })
+    );
+
+    // Verify subsequent request includes the SID cookie
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => []
+    });
+
+    await client.getTorrents();
+    
+    const secondCallHeaders = (fetch as any).mock.calls[1][1].headers;
+    expect(secondCallHeaders.Cookie).toBe('SID=12345');
+  });
+
+  it('should throw an error on login failure', async () => {
+    (fetch as any).mockResolvedValueOnce({
+      ok: false,
+      statusText: 'Forbidden'
+    });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    await expect(client.login('admin', 'wrong')).rejects.toThrow('qBittorrent login failed: Forbidden');
+  });
+
   it('should fetch torrents and return Torrent objects', async () => {
     const mockTorrentsResponse = [
       {
@@ -46,7 +88,7 @@ describe('QBClient', () => {
     });
 
     const client = new QBClient('https://qb.osage.lol/api/v2');
-    const prefs = await (client as any).getPreferences();
+    const prefs = await client.getPreferences();
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/app/preferences'),
@@ -59,7 +101,7 @@ describe('QBClient', () => {
     (fetch as any).mockResolvedValueOnce({ ok: true });
 
     const client = new QBClient('https://qb.osage.lol/api/v2');
-    await (client as any).setPreferences({ save_path: '/new/path' });
+    await client.setPreferences({ save_path: '/new/path' });
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/app/setPreferences'),
@@ -114,5 +156,42 @@ describe('QBClient', () => {
     expect(body.get('hash')).toBe('h1');
     expect(body.get('id')).toBe('0|2');
     expect(body.get('priority')).toBe('1');
+  });
+
+  it('should pause torrents using the stop endpoint', async () => {
+    (fetch as any).mockResolvedValueOnce({ ok: true });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    await client.pauseTorrents(['h1', 'h2']);
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/torrents/stop'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(URLSearchParams)
+      })
+    );
+
+    const body = (fetch as any).mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('hashes')).toBe('h1|h2');
+  });
+
+  it('should delete torrents and optionally delete files', async () => {
+    (fetch as any).mockResolvedValueOnce({ ok: true });
+
+    const client = new QBClient('https://qb.osage.lol/api/v2');
+    await client.deleteTorrents(['h1'], true);
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/torrents/delete'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(URLSearchParams)
+      })
+    );
+
+    const body = (fetch as any).mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('hashes')).toBe('h1');
+    expect(body.get('deleteFiles')).toBe('true');
   });
 });
