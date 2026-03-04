@@ -10,7 +10,7 @@ import type { QBServerState } from '@soup/core/QBClient.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
-import { Soup, Download, Plus, Settings, AlertTriangle, FileText, Activity } from 'lucide-react';
+import { Soup, Plus, Settings, AlertTriangle, FileText, Activity } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -251,8 +251,8 @@ function App() {
 
       {/* Material 3 Sidebar */}
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen overflow-hidden">
-        <div className="p-6 flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
+        <div className="p-5 lg:p-6 flex items-center lg:space-x-3 justify-center lg:justify-start">
+          <div className="w-10 h-10 flex-shrink-0 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
             <Soup size={24} strokeWidth={2.5} />
           </div>
           <span className="hidden lg:block font-black text-xl tracking-tight">SOUP</span>
@@ -262,18 +262,10 @@ function App() {
           <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hidden lg:block">Library</div>
           
           <button 
-            onClick={() => { setSelectedTorrentHash(null); setIsAddModalOpen(false); setIsSettingsModalOpen(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${(!isAddModalOpen && !isSettingsModalOpen && !selectedTorrentHash) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
-          >
-            <Download size={20} />
-            <span className="hidden lg:block font-bold text-sm">Downloads</span>
-          </button>
-
-          <button 
             onClick={() => { setIsAddModalOpen(true); setIsSettingsModalOpen(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${isAddModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
+            className={`w-full flex items-center justify-center lg:justify-start lg:space-x-3 px-2 lg:px-4 py-3 rounded-2xl transition-all ${isAddModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
           >
-            <Plus size={20} />
+            <Plus size={24} className="flex-shrink-0" />
             <span className="hidden lg:block font-bold text-sm">Add Torrent</span>
           </button>
 
@@ -281,9 +273,9 @@ function App() {
 
           <button 
             onClick={() => { setIsSettingsModalOpen(true); setIsAddModalOpen(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${isSettingsModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
+            className={`w-full flex items-center justify-center lg:justify-start lg:space-x-3 px-2 lg:px-4 py-3 rounded-2xl transition-all ${isSettingsModalOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
           >
-            <Settings size={20} />
+            <Settings size={24} className="flex-shrink-0" />
             <span className="hidden lg:block font-bold text-sm">Settings</span>
           </button>
 
@@ -292,25 +284,20 @@ function App() {
               href="/coverage/index.html" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
+              className="w-full flex items-center justify-center lg:justify-start lg:space-x-3 px-2 lg:px-4 py-3 rounded-2xl transition-all text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
             >
-              <FileText size={20} />
+              <FileText size={24} className="flex-shrink-0" />
               <span className="hidden lg:block font-bold text-sm">Coverage Report</span>
             </a>
           )}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
-          <div className="hidden lg:block">
-            <GlobalStats 
-              serverState={serverState}
-              pendingAltSpeedTarget={pendingAltSpeedTarget}
-              onToggleAltSpeeds={handleToggleAltSpeeds}
-            />
-          </div>
-          <div className="lg:hidden flex justify-center py-2">
-            <div className={`w-2 h-2 rounded-full ${error ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-          </div>
+        <div className="hidden lg:block p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
+          <GlobalStats 
+            serverState={serverState}
+            pendingAltSpeedTarget={pendingAltSpeedTarget}
+            onToggleAltSpeeds={handleToggleAltSpeeds}
+          />
         </div>
       </aside>
 
