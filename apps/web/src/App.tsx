@@ -331,15 +331,6 @@ function App() {
               </div>
             </button>
           </div>
-
-          <div className={`p-3 rounded-2xl flex flex-col items-center lg:items-start ${error ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10'}`}>
-            <div className="flex items-center space-x-2 mb-1">
-              <span className={`w-2 h-2 rounded-full ${error ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-              <span className="hidden lg:block text-[10px] font-black uppercase tracking-tighter opacity-50 italic">
-                {error ? 'Basement Offline' : 'Basement Online'}
-              </span>
-            </div>
-          </div>
         </div>
       </aside>
 
