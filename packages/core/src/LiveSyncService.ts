@@ -158,8 +158,16 @@ export class LiveSyncService {
     if (existing) {
       await this.cache.setNonMedia(hash, isNonMedia);
       
+      let metadata = existing.mediaMetadata;
+      if (isNonMedia) {
+        metadata = null;
+      } else if (!metadata) {
+        // If we are unmarking as non-media and have no metadata, try matching again
+        metadata = await this.fetchMetadata(existing as Torrent);
+      }
+
       this.torrentsWithMetadata.set(hash, Object.assign(existing, {
-        mediaMetadata: isNonMedia ? null : existing.mediaMetadata,
+        mediaMetadata: metadata,
         isNonMedia
       }) as TorrentWithMetadata);
     }

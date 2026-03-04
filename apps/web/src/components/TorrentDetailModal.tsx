@@ -41,7 +41,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   // Confirmation State
   const [confirmState, setConfirmState] = useState<{
-    type: 'unmatch' | 'non-media' | 'delete';
+    type: 'unmatch' | 'non-media' | 'mark-media' | 'delete';
     title: string;
     message: string;
   } | null>(null);
