@@ -8,8 +8,9 @@
     "build": "pnpm -r build",
     "pretest": "pnpm build",
     "test": "pnpm -r test",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "handoff": "pnpm lint && pnpm build && pnpm test"
+    "handoff": "pnpm lint && pnpm build && pnpm test:coverage"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "@eslint/js": "^9.39.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.3.3",
+    "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9.39.3",
     "eslint-plugin-jsdoc": "^62.7.1",

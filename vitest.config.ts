@@ -20,5 +20,17 @@ export default defineConfig({
         singleFork: true,
       },
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['packages/*/src/**', 'apps/*/src/**'],
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/*.test.ts',
+        '**/*.d.ts',
+        'packages/database/src/schema.ts',
+      ],
+    },
   },
 });
