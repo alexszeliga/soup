@@ -160,15 +160,10 @@ fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
   return files.map(f => {
     const suggestion = ingestion.suggestPath(title, f.name, year ?? undefined);
     
-    // Calculate actual source path on disk
-    // qBittorrent relative file names (f.name) start with the torrent root folder.
-    // contentPath is the absolute path to that root folder.
-    // To get the absolute path of a file, we join the PARENT of contentPath with f.name.
-    const rawAbsolutePath = path.join(path.dirname(torrent.contentPath), f.name);
-
-    // Path Mapping: Map qBittorrent's download root to Soup's local access point
-    const absolutePath = ingestion.mapRemoteToLocalPath(
-      rawAbsolutePath,
+    // Resolve absolute source path (handling path mapping and potential duplication)
+    const absolutePath = ingestion.resolveSourcePath(
+      torrent,
+      f,
       config.QB_DOWNLOAD_ROOT,
       config.LOCAL_DOWNLOAD_ROOT
     );
@@ -300,16 +295,13 @@ fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) 
     return reply.status(404).send({ error: 'File not found' });
   }
 
-  // Calculate actual source path on disk
-  let absolutePath = path.join(path.dirname(torrent.contentPath), file.name);
-
-  // Path Mapping: Map qBittorrent's download root to Soup's local access point
-  const qbRoot = config.QB_DOWNLOAD_ROOT;
-  const localRoot = config.LOCAL_DOWNLOAD_ROOT;
-  
-  if (absolutePath.startsWith(qbRoot)) {
-    absolutePath = path.join(localRoot, absolutePath.substring(qbRoot.length));
-  }
+  // Resolve absolute source path (handling path mapping and potential duplication)
+  const absolutePath = ingestion.resolveSourcePath(
+    torrent,
+    file,
+    config.QB_DOWNLOAD_ROOT,
+    config.LOCAL_DOWNLOAD_ROOT
+  );
 
   fastify.log.info(`[Download] Serving file: ${absolutePath}`);
   

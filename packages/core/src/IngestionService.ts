@@ -87,6 +87,67 @@ export class IngestionService {
   }
 
   /**
+   * Resolves the absolute source path for a file in a torrent,
+   * handling path mapping and potential directory duplication.
+   * 
+   * @param torrent - The torrent containing the file.
+   * @param torrent.hash - The torrent hash.
+   * @param torrent.contentPath - The absolute path to the torrent data.
+   * @param torrent.name - The torrent name.
+   * @param file - The specific file to resolve.
+   * @param file.name - The filename (relative to save path).
+   * @param file.index - The file index.
+   * @param remoteRoot - qBittorrent's download root folder.
+   * @param localRoot - The local filesystem mount point for the downloads.
+   * @returns The resolved local absolute path.
+   */
+  public resolveSourcePath(
+    torrent: { hash: string; contentPath: string; name: string },
+    file: { name: string; index: number },
+    remoteRoot: string,
+    localRoot: string
+  ): string {
+    const contentBase = path.basename(torrent.contentPath);
+    const parentPath = path.dirname(torrent.contentPath);
+    const parentBase = path.basename(parentPath);
+    
+    const fileNameParts = file.name.split(/[/\\]/);
+    const fileNameFirstPart = fileNameParts[0];
+
+    let rawAbsolutePath: string;
+
+    // Logic for Case 2 (The Tripled Path Bug):
+    // remoteRoot = /media/fast_media/torrent_download
+    // contentPath = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers
+    // f.name = BluesBrothers/BluesBrothers.mkv
+    
+    // In this case:
+    // contentBase = BluesBrothers
+    // parentBase = BluesBrothers
+    // fileNameFirstPart = BluesBrothers
+    
+    // If contentPath ALREADY has the root folder twice, and f.name has it once, 
+    // we should use the parent of the parent.
+    
+    if (fileNameFirstPart === contentBase && contentBase === parentBase) {
+      // It's tripled. f.name is relative to parent of parent.
+      rawAbsolutePath = path.join(path.dirname(parentPath), file.name);
+    } else if (fileNameFirstPart === contentBase) {
+      // It's standard folder torrent. f.name is relative to parent of contentPath.
+      rawAbsolutePath = path.join(parentPath, file.name);
+    } else {
+      // It's a single file or weird layout. f.name is relative to contentPath itself.
+      rawAbsolutePath = path.join(torrent.contentPath, file.name);
+    }
+
+    return this.mapRemoteToLocalPath(
+      rawAbsolutePath,
+      remoteRoot,
+      localRoot
+    );
+  }
+
+  /**
    * Maps a remote qBittorrent path to a local filesystem path.
    * 
    * @param remotePath - The absolute path reported by qBittorrent.

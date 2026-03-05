@@ -49,6 +49,46 @@ describe('IngestionService', () => {
     expect(result).toBe('The Office (2005)/Season 09/The Office (2005) - S09E01.mkv');
   });
 
+  describe('resolveSourcePath (TDD Reproduction)', () => {
+    const remoteRoot = '/media/fast_media/torrent_download';
+    const localRoot = '/mnt/downloads';
+
+    it('should correctly resolve paths for folder-based torrents (Standard)', () => {
+      const torrent = {
+        hash: 'h1',
+        name: 'The.Office.S01.1080p',
+        contentPath: `${remoteRoot}/The.Office.S01.1080p`
+      };
+      const file = { name: 'The.Office.S01.1080p/S01E01.mkv', index: 0 };
+
+      const result = service.resolveSourcePath(torrent, file, remoteRoot, localRoot);
+      expect(result).toBe(`${localRoot}/The.Office.S01.1080p/S01E01.mkv`);
+    });
+
+    it('should NOT triple paths for nested-folder torrents (REPRODUCTION)', () => {
+      // The REAL Blues Brothers Case from logs:
+      // remoteRoot = /media/fast_media/torrent_download
+      // contentPath = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers
+      // file.name = BluesBrothers/BluesBrothers.mkv
+      // Buggy Result = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers/BluesBrothers.mkv
+      // Expected (actual disk) = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers.mkv
+      
+      const torrent = {
+        hash: 'h1',
+        name: 'BluesBrothers',
+        contentPath: `${remoteRoot}/BluesBrothers/BluesBrothers`
+      };
+      const file = { name: 'BluesBrothers/BluesBrothers.mkv', index: 0 };
+
+      const result = service.resolveSourcePath(torrent, file, remoteRoot, localRoot);
+      
+      // We want ONLY two levels of BluesBrothers in the final local path:
+      // 1. The one from remoteRoot mapping
+      // 2. The one from the filename
+      expect(result).toBe(`${localRoot}/BluesBrothers/BluesBrothers.mkv`);
+    });
+  });
+
   it('should use high-performance copy logic with progress polling', async () => {
     vi.mock('fs', async () => {
       const actual = await vi.importActual('fs') as any;
