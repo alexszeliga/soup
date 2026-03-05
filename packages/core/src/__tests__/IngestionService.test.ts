@@ -65,27 +65,25 @@ describe('IngestionService', () => {
       expect(result).toBe(`${localRoot}/The.Office.S01.1080p/S01E01.mkv`);
     });
 
-    it('should NOT triple paths for nested-folder torrents (REPRODUCTION)', () => {
-      // The REAL Blues Brothers Case from logs:
+    it('should NOT produce ENOTDIR by appending to a file path (REPRODUCTION)', () => {
+      // The Blues Brothers Case from logs:
       // remoteRoot = /media/fast_media/torrent_download
-      // contentPath = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers
-      // file.name = BluesBrothers/BluesBrothers.mkv
-      // Buggy Result = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers/BluesBrothers.mkv
-      // Expected (actual disk) = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers.mkv
+      // contentPath points to the MKV file directly
+      // file.name includes the root folder
+      const folderName = 'The.Blues.Brothers.1980.Extended.Cut.1080p.BluRay.DTS.x264-DON';
+      const fileName = `${folderName}.mkv`;
       
       const torrent = {
         hash: 'h1',
-        name: 'BluesBrothers',
-        contentPath: `${remoteRoot}/BluesBrothers/BluesBrothers`
+        name: folderName,
+        contentPath: `${remoteRoot}/${folderName}/${fileName}`
       };
-      const file = { name: 'BluesBrothers/BluesBrothers.mkv', index: 0 };
+      const file = { name: `${folderName}/${fileName}`, index: 0 };
 
       const result = service.resolveSourcePath(torrent, file, remoteRoot, localRoot);
       
-      // We want ONLY two levels of BluesBrothers in the final local path:
-      // 1. The one from remoteRoot mapping
-      // 2. The one from the filename
-      expect(result).toBe(`${localRoot}/BluesBrothers/BluesBrothers.mkv`);
+      // Expected (actual disk) = /mnt/downloads/The.Blues.Brothers...DON/The.Blues.Brothers...DON.mkv
+      expect(result).toBe(`${localRoot}/${folderName}/${fileName}`);
     });
   });
 

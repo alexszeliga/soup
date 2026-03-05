@@ -116,27 +116,24 @@ export class IngestionService {
 
     let rawAbsolutePath: string;
 
-    // Logic for Case 2 (The Tripled Path Bug):
-    // remoteRoot = /media/fast_media/torrent_download
-    // contentPath = /media/fast_media/torrent_download/BluesBrothers/BluesBrothers
-    // f.name = BluesBrothers/BluesBrothers.mkv
-    
-    // In this case:
-    // contentBase = BluesBrothers
-    // parentBase = BluesBrothers
-    // fileNameFirstPart = BluesBrothers
-    
-    // If contentPath ALREADY has the root folder twice, and f.name has it once, 
-    // we should use the parent of the parent.
-    
-    if (fileNameFirstPart === contentBase && contentBase === parentBase) {
-      // It's tripled. f.name is relative to parent of parent.
+    // Case 3: ENOTDIR - contentPath IS the file, but file.name also includes folder.
+    // contentPath = /downloads/Folder/File.mkv
+    // file.name = Folder/File.mkv
+    // If we join them, we get /downloads/Folder/File.mkv/Folder/File.mkv -> ENOTDIR
+    if (torrent.contentPath.endsWith(file.name.replace(/\\/g, '/')) || 
+        torrent.contentPath.endsWith(file.name.replace(/\//g, '\\'))) {
+      rawAbsolutePath = torrent.contentPath;
+    } 
+    // Case 2: Tripled Path Bug
+    else if (fileNameFirstPart === contentBase && contentBase === parentBase) {
       rawAbsolutePath = path.join(path.dirname(parentPath), file.name);
-    } else if (fileNameFirstPart === contentBase) {
-      // It's standard folder torrent. f.name is relative to parent of contentPath.
+    } 
+    // Case 1: Standard folder torrent
+    else if (fileNameFirstPart === contentBase) {
       rawAbsolutePath = path.join(parentPath, file.name);
-    } else {
-      // It's a single file or weird layout. f.name is relative to contentPath itself.
+    } 
+    // Fallback
+    else {
       rawAbsolutePath = path.join(torrent.contentPath, file.name);
     }
 
