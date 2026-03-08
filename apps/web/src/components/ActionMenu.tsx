@@ -28,7 +28,7 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ primaryLabel, primaryIcon, onPr
       const rect = containerRef.current.getBoundingClientRect();
       setCoords({
         top: rect.bottom + window.scrollY + 8,
-        left: rect.right + window.scrollX - 220, // Align right, assume menu width 220
+        left: rect.left + window.scrollX, // Align start (left)
       });
     }
     setIsOpen(!isOpen);
