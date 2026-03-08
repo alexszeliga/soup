@@ -9,6 +9,7 @@ describe('TorrentCard', () => {
     name: 'The.Great.Movie.2024.1080p.WEB-DL',
     progress: 0.5,
     state: 'downloading',
+    stateName: 'Downloading',
     downloadSpeed: 1024,
     uploadSpeed: 512,
     contentPath: '/downloads/t1',
@@ -34,6 +35,11 @@ describe('TorrentCard', () => {
     expect(screen.getByText(/The Great Movie/i)).toBeInTheDocument();
   });
 
+  it('renders the nice state name', () => {
+    render(<TorrentCard torrent={mockTorrent} onClick={vi.fn()} />);
+    expect(screen.getByText(/Downloading/i)).toBeInTheDocument();
+  });
+
   it('renders the seeding stats', () => {
     render(<TorrentCard torrent={mockTorrent} onClick={vi.fn()} />);
     expect(screen.getByText(/Ratio:/i)).toBeInTheDocument();
@@ -49,6 +55,7 @@ describe('TorrentCard', () => {
       isComplete: false,
       isActive: true,
       isSeeding: false,
+      stateName: 'Downloading',
       getMediaInfo: () => ({ title: 'The.Great.Movie.2024.1080p.WEB-DL', year: null }),
       isNonMedia: false
     };

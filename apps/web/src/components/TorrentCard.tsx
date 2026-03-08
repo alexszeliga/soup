@@ -48,7 +48,7 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
         {/* Status Badge */}
         <div className="absolute top-2 right-2">
           <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${!isActive ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
-            {torrent.state}
+            {torrent.stateName}
           </span>
         </div>
       </div>

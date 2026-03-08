@@ -383,7 +383,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               <div className="flex-1 text-center sm:text-left overflow-hidden">
                 <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 mb-2">
                   <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                    {state}
+                    {torrent.stateName}
                   </span>
                   {isNonMedia && (
                     <span className="px-2 py-0.5 bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 rounded-lg text-[10px] font-black uppercase tracking-widest">

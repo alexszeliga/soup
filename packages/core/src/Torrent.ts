@@ -48,10 +48,34 @@ export class Torrent {
     'queuedUP', 'checkingUP', 'moving'
   ];
 
+  /** Mapping of raw qBittorrent states to user-friendly names. */
+  public static readonly STATE_MAP: Record<string, string> = {
+    'error': 'Error',
+    'missingFiles': 'Missing Files',
+    'uploading': 'Seeding',
+    'stalledUP': 'Seeding',
+    'pausedUP': 'Completed',
+    'queuedUP': 'Seeding',
+    'checkingUP': 'Checking',
+    'forcedUP': 'Seeding',
+    'allocating': 'Allocating',
+    'downloading': 'Downloading',
+    'metaDL': 'Metadata',
+    'stalledDL': 'Stalled',
+    'pausedDL': 'Paused',
+    'queuedDL': 'Queued',
+    'checkingDL': 'Checking',
+    'forcedDL': 'Downloading',
+    'checkingResumeData': 'Resuming',
+    'moving': 'Moving',
+    'unknown': 'Unknown'
+  };
+
   public readonly hash: string;
   public readonly name: string;
   public readonly progress: number;
   public readonly state: string;
+  public readonly stateName: string;
   public readonly downloadSpeed: number;
   public readonly uploadSpeed: number;
   public readonly contentPath: string;
@@ -73,6 +97,7 @@ export class Torrent {
     this.name = props.name;
     this.progress = props.progress;
     this.state = props.state;
+    this.stateName = Torrent.STATE_MAP[this.state] || this.state;
     this.downloadSpeed = props.downloadSpeed;
     this.uploadSpeed = props.uploadSpeed;
     this.contentPath = props.contentPath;
