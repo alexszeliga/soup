@@ -4,6 +4,9 @@
   "type": "module",
   "description": "CLI interface for Soup",
   "main": "index.js",
+  "bin": {
+    "soup": "dist/index.js"
+  },
   "scripts": {
     "start": "pnpm build && node --no-warnings dist/index.js",
     "pretest": "pnpm build",

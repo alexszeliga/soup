@@ -1,9 +1,12 @@
+#!/usr/bin/env node
 import { Command } from 'commander';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import path from 'path';
 import type { TorrentWithMetadata } from '@soup/core';
 
+// Support both local development (.env in root) and environment-level config
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 
 const program = new Command();
