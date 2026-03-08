@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import type { TorrentWithMetadata } from '@soup/core';
 
 // Support both local development (.env in root) and environment-level config
@@ -55,7 +56,48 @@ class SoupClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, value })
     });
-    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async deleteTorrent(hash: string, deleteFiles: boolean = false): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents?hashes=${hash}&deleteFiles=${deleteFiles}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async addTorrentUrl(url: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async addTorrentFile(filePath: string): Promise<void> {
+    const fileData = fs.readFileSync(filePath);
+    const formData = new FormData();
+    const blob = new Blob([fileData], { type: 'application/x-bittorrent' });
+    formData.append('torrent', blob, path.basename(filePath));
+
+    const response = await fetch(`${this.baseUrl}/api/torrents`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
   }
 }
 
@@ -123,6 +165,85 @@ program
       } else {
         console.log(chalk.yellow('\nNo media metadata found.'));
       }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('start <hash>')
+  .description('Start a torrent')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      await client.performAction(hash, 'resume');
+      console.log(chalk.green(`Torrent ${hash} started successfully.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('stop <hash>')
+  .description('Stop (pause) a torrent')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      await client.performAction(hash, 'pause');
+      console.log(chalk.green(`Torrent ${hash} stopped successfully.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('delete <hash>')
+  .description('Delete a torrent')
+  .option('--files', 'Also delete downloaded files from disk', false)
+  .action(async (hash, options) => {
+    const client = getClient();
+    try {
+      await client.deleteTorrent(hash, options.files);
+      console.log(chalk.green(`Torrent ${hash} deleted successfully.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('add <source>')
+  .description('Add a new torrent via magnet link, URL, or local .torrent file')
+  .action(async (source) => {
+    const client = getClient();
+    try {
+      if (source.startsWith('magnet:') || source.startsWith('http://') || source.startsWith('https://')) {
+        await client.addTorrentUrl(source);
+        console.log(chalk.green('Torrent URL added successfully.'));
+      } else {
+        if (!fs.existsSync(source)) {
+          throw new Error(`File not found: ${source}`);
+        }
+        await client.addTorrentFile(source);
+        console.log(chalk.green(`Torrent file '${path.basename(source)}' added successfully.`));
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('recheck <hash>')
+  .description('Recheck torrent data')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      await client.performAction(hash, 'recheck');
+      console.log(chalk.green(`Torrent ${hash} recheck initiated.`));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error(chalk.red(`Error: ${message}`));
