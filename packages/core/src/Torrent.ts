@@ -20,6 +20,16 @@ export interface TorrentProps {
   contentPath: string;
   /** Unix timestamp when the torrent was added. */
   addedOn?: number;
+  /** Total time the torrent has been seeding in seconds. */
+  seedingTime?: number;
+  /** Current share ratio. */
+  ratio?: number;
+  /** True if sequential download is enabled. */
+  isSequential?: boolean;
+  /** True if first/last piece priority is enabled. */
+  isFirstLastPrio?: boolean;
+  /** True if force start is enabled. */
+  isForceStart?: boolean;
   /** Optional list of individual files within the torrent. */
   files?: TorrentFile[];
 }
@@ -46,6 +56,11 @@ export class Torrent {
   public readonly uploadSpeed: number;
   public readonly contentPath: string;
   public readonly addedOn?: number;
+  public readonly seedingTime?: number;
+  public readonly ratio?: number;
+  public readonly isSequential?: boolean;
+  public readonly isFirstLastPrio?: boolean;
+  public readonly isForceStart?: boolean;
   public readonly files?: TorrentFile[];
 
   /**
@@ -62,6 +77,11 @@ export class Torrent {
     this.uploadSpeed = props.uploadSpeed;
     this.contentPath = props.contentPath;
     this.addedOn = props.addedOn;
+    this.seedingTime = props.seedingTime;
+    this.ratio = props.ratio;
+    this.isSequential = props.isSequential;
+    this.isFirstLastPrio = props.isFirstLastPrio;
+    this.isForceStart = props.isForceStart;
     this.files = props.files;
   }
 
@@ -81,6 +101,15 @@ export class Torrent {
    */
   public get isActive(): boolean {
     return Torrent.ACTIVE_STATES.includes(this.state);
+  }
+
+  /**
+   * Returns true if the torrent is currently seeding.
+   * 
+   * @returns Seeding status.
+   */
+  public get isSeeding(): boolean {
+    return this.state === 'uploading' || this.state === 'stalledUP' || this.state === 'forcedUP' || this.state === 'queuedUP' || this.state === 'checkingUP';
   }
 
   /**

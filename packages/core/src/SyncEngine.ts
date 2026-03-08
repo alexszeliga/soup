@@ -61,18 +61,10 @@ export class SyncEngine {
    */
   public async tick(): Promise<SyncDelta> {
     // 1. Fetch main data and files (if focused) in parallel
-    if (this.focusHash) {
-      console.log(`[SyncEngine] Ticking with focus on: ${this.focusHash}`);
-    }
-
     const [data, focusedFiles] = await Promise.all([
       this.qb.getMainData(this.rid),
       this.focusHash ? this.qb.getTorrentFiles(this.focusHash) : Promise.resolve(null)
     ]);
-
-    if (this.focusHash && focusedFiles) {
-      console.log(`[SyncEngine] Fetched ${focusedFiles.length} files for ${this.focusHash}`);
-    }
 
     this.rid = data.rid;
 
@@ -164,6 +156,11 @@ export class SyncEngine {
       uploadSpeed: (t.upspeed as number) || 0,
       contentPath: (t.content_path as string) || '',
       addedOn: t.added_on as number,
+      seedingTime: t.seeding_time as number,
+      ratio: t.ratio as number,
+      isSequential: !!t.seq_dl,
+      isFirstLastPrio: !!t.f_l_prio,
+      isForceStart: !!t.force_start,
       files: t.files as TorrentFile[] | undefined,
     });
   }

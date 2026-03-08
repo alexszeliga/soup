@@ -17,6 +17,18 @@ program
   .description('A qBittorrent interface with rich media metadata')
   .version('0.1.0');
 
+function formatDuration(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0m';
+  const days = Math.floor(seconds / (24 * 3600));
+  const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || (days === 0 && hours === 0)) parts.push(`${minutes}m`);
+  return parts.slice(0, 2).join(' ');
+}
+
 async function getServices() {
   const qbUrl = process.env.QB_URL || 'https://qb.osage.lol/api/v2';
   const tmdbApiKey = process.env.TMDB_API_KEY;
@@ -47,8 +59,8 @@ program
       console.log(chalk.blue('Fetching torrents from qBittorrent...'));
       const torrents = await qb.getTorrents();
       
-      console.log(chalk.white(`${'Name'.padEnd(40)} | ${'Progress'.padEnd(10)} | ${'Media Title'.padEnd(30)}`));
-      console.log('-'.repeat(85));
+      console.log(chalk.white(`${'Name'.padEnd(40)} | ${'Progress'.padEnd(10)} | ${'Ratio'.padEnd(8)} | ${'Media Title'.padEnd(30)}`));
+      console.log('-'.repeat(95));
 
       for (const torrent of torrents) {
         // Try to get from cache first
@@ -64,9 +76,10 @@ program
 
         const name = torrent.name.length > 37 ? torrent.name.slice(0, 37) + '...' : torrent.name;
         const progress = (torrent.progress * 100).toFixed(1) + '%';
+        const ratio = (torrent.ratio || 0).toFixed(2);
         const mediaTitle = metadata ? metadata.title : chalk.gray('Unknown');
 
-        console.log(`${name.padEnd(40)} | ${progress.padEnd(10)} | ${mediaTitle}`);
+        console.log(`${name.padEnd(40)} | ${progress.padEnd(10)} | ${ratio.padEnd(8)} | ${mediaTitle}`);
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -100,6 +113,7 @@ program
       console.log(chalk.bold.blue(`\nTorrent: ${torrent.name}`));
       console.log(chalk.gray(`Hash: ${torrent.hash}`));
       console.log(`Status: ${torrent.state} | Progress: ${(torrent.progress * 100).toFixed(1)}%`);
+      console.log(`Ratio: ${torrent.ratio?.toFixed(2) || '0.00'} | Seeded: ${formatDuration(torrent.seedingTime || 0)}`);
 
       if (metadata) {
         console.log(chalk.bold.green(`\nMedia: ${metadata.title} (${metadata.year})`));

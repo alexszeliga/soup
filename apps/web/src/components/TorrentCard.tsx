@@ -1,5 +1,6 @@
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
+import { formatDuration } from '../utils/format';
 
 interface TorrentCardProps {
   torrent: TorrentWithMetadata;
@@ -76,6 +77,18 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
               className={`h-full transition-all duration-1000 ease-in-out ${progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`}
               style={{ width: `${progressPercent}%` }}
             />
+          </div>
+          {/* Seeding Stats */}
+          <div className="flex justify-between items-center text-[10px] font-medium text-zinc-500 dark:text-zinc-400 pt-0.5">
+            <div className="flex items-center space-x-2">
+              <span>Ratio: <span className="font-bold text-zinc-700 dark:text-zinc-300">{torrent.ratio?.toFixed(2) || '0.00'}</span></span>
+              {torrent.seedingTime && torrent.seedingTime > 0 && (
+                <span className="opacity-50">|</span>
+              )}
+              {torrent.seedingTime && torrent.seedingTime > 0 && (
+                <span>Seeded: <span className="font-bold text-zinc-700 dark:text-zinc-300">{formatDuration(torrent.seedingTime)}</span></span>
+              )}
+            </div>
           </div>
         </div>
       </div>

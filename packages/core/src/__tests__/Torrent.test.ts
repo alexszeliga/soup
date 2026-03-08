@@ -11,7 +11,9 @@ describe('Torrent Model', () => {
       downloadSpeed: 1024,
       uploadSpeed: 512,
       contentPath: '/downloads/The.Great.Movie.2024.1080p.WEB-DL',
-      addedOn: 1700000000
+      addedOn: 1700000000,
+      seedingTime: 3600,
+      ratio: 1.5
     };
 
     const torrent = new Torrent(torrentData);
@@ -21,6 +23,32 @@ describe('Torrent Model', () => {
     expect(torrent.progress).toBe(torrentData.progress);
     expect(torrent.state).toBe(torrentData.state);
     expect(torrent.addedOn).toBe(torrentData.addedOn);
+    expect(torrent.seedingTime).toBe(torrentData.seedingTime);
+    expect(torrent.ratio).toBe(torrentData.ratio);
+  });
+
+  it('should return isSeeding correctly', () => {
+    const seedingTorrent = new Torrent({
+      hash: 'h1',
+      name: 'n1',
+      progress: 1,
+      state: 'uploading',
+      downloadSpeed: 0,
+      uploadSpeed: 100,
+      contentPath: 'p1'
+    });
+    const downloadingTorrent = new Torrent({
+      hash: 'h2',
+      name: 'n2',
+      progress: 0.5,
+      state: 'downloading',
+      downloadSpeed: 100,
+      uploadSpeed: 0,
+      contentPath: 'p2'
+    });
+
+    expect(seedingTorrent.isSeeding).toBe(true);
+    expect(downloadingTorrent.isSeeding).toBe(false);
   });
 
   it('should return isComplete correctly', () => {

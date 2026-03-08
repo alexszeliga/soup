@@ -64,6 +64,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 ### Phase 2: Management & Health
 - [x] **Global Stats:** Real-time aggregate upload/download speeds and remaining disk space in the web header.
 - [x] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
+- [x] **Seeding Stats:** Display seeding time and share ratio in Torrent Cards and Detail View.
 - [ ] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
 - [x] **UI/UX Hardening:** Replace all browser-native `alert()` and `confirm()` dialogs with integrated Material 3 components.
@@ -81,6 +82,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **File Selection:** View torrent file lists and set download priorities.
 - [x] **File Management:** Move/copy files to media server ingestion directories.
 - [x] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
+- [ ] **Granular Control:** Implement a dropdown in Detail View for all torrent actions (Force Start, Recheck, Sequential, etc.).
 
 ### Phase 4: Architecture & Infrastructure
 - [x] **Deployment:** Plan and implement a container hosting strategy.

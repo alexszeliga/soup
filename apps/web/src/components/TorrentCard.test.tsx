@@ -14,6 +14,9 @@ describe('TorrentCard', () => {
     contentPath: '/downloads/t1',
     isComplete: false,
     isActive: true,
+    isSeeding: false,
+    ratio: 1.5,
+    seedingTime: 3600,
     getMediaInfo: () => ({ title: 'The Great Movie', year: 2024 }),
     mediaMetadata: {
       id: 'm1',
@@ -31,12 +34,21 @@ describe('TorrentCard', () => {
     expect(screen.getByText(/The Great Movie/i)).toBeInTheDocument();
   });
 
+  it('renders the seeding stats', () => {
+    render(<TorrentCard torrent={mockTorrent} onClick={vi.fn()} />);
+    expect(screen.getByText(/Ratio:/i)).toBeInTheDocument();
+    expect(screen.getByText(/1.50/)).toBeInTheDocument();
+    expect(screen.getByText(/Seeded:/i)).toBeInTheDocument();
+    expect(screen.getByText(/1h/)).toBeInTheDocument();
+  });
+
   it('renders the raw name if no metadata', () => {
     const noMetaTorrent: TorrentWithMetadata = { 
       ...mockTorrent, 
       mediaMetadata: null,
       isComplete: false,
       isActive: true,
+      isSeeding: false,
       getMediaInfo: () => ({ title: 'The.Great.Movie.2024.1080p.WEB-DL', year: null }),
       isNonMedia: false
     };

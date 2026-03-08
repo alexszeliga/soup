@@ -43,6 +43,11 @@ export interface RawTorrentData {
   upspeed: number;
   content_path: string;
   added_on: number;
+  seeding_time: number;
+  ratio: number;
+  seq_dl?: boolean;
+  f_l_prio?: boolean;
+  force_start?: boolean;
   [key: string]: unknown;
 }
 
@@ -213,6 +218,11 @@ export class QBClient {
       uploadSpeed: t.upspeed,
       contentPath: t.content_path,
       addedOn: t.added_on,
+      seedingTime: t.seeding_time,
+      ratio: t.ratio,
+      isSequential: t.seq_dl,
+      isFirstLastPrio: t.f_l_prio,
+      isForceStart: t.force_start,
     }));
   }
 
@@ -269,7 +279,6 @@ export class QBClient {
     }
 
     const data = await response.json() as RawTorrentFileData[];
-    console.log(`[QBClient] Raw files for ${hash}:`, Array.isArray(data) ? data.length : 'NOT AN ARRAY');
     
     return data.map((f, index) => ({
       name: f.name,
@@ -346,8 +355,67 @@ export class QBClient {
    * 
    * @param hashes - List of torrent hashes to resume.
    */
-  public async forceStartTorrents(hashes: string[]): Promise<void> {
+  public async resumeTorrents(hashes: string[]): Promise<void> {
     await this.post('/torrents/start', { hashes: hashes.join('|') });
+  }
+
+  /**
+   * Resumes the specified torrents (using v5.0+ /start endpoint).
+   * 
+   * @param hashes - List of torrent hashes to resume.
+   * @deprecated Use resumeTorrents instead.
+   */
+  public async forceStartTorrents(hashes: string[]): Promise<void> {
+    await this.resumeTorrents(hashes);
+  }
+
+  /**
+   * Sets the force start state for the specified torrents.
+   * 
+   * @param hashes - List of torrent hashes.
+   * @param value - True to force start, false to disable.
+   */
+  public async setForceStart(hashes: string[], value: boolean): Promise<void> {
+    await this.post('/torrents/setForceStart', { 
+      hashes: hashes.join('|'),
+      value: value.toString()
+    });
+  }
+
+  /**
+   * Triggers a recheck of the specified torrents.
+   * 
+   * @param hashes - List of torrent hashes.
+   */
+  public async recheckTorrents(hashes: string[]): Promise<void> {
+    await this.post('/torrents/recheck', { hashes: hashes.join('|') });
+  }
+
+  /**
+   * Triggers a reannounce of the specified torrents.
+   * 
+   * @param hashes - List of torrent hashes.
+   */
+  public async reannounceTorrents(hashes: string[]): Promise<void> {
+    await this.post('/torrents/reannounce', { hashes: hashes.join('|') });
+  }
+
+  /**
+   * Toggles sequential download for the specified torrents.
+   * 
+   * @param hashes - List of torrent hashes.
+   */
+  public async toggleSequentialDownload(hashes: string[]): Promise<void> {
+    await this.post('/torrents/toggleSequentialDownload', { hashes: hashes.join('|') });
+  }
+
+  /**
+   * Toggles first/last piece priority for the specified torrents.
+   * 
+   * @param hashes - List of torrent hashes.
+   */
+  public async toggleFirstLastPiecePrio(hashes: string[]): Promise<void> {
+    await this.post('/torrents/toggleFirstLastPiecePrio', { hashes: hashes.join('|') });
   }
 
   /**
