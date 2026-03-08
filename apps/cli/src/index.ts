@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import type { TorrentWithMetadata, MediaMetadata } from '@soup/core';
+import type { TorrentWithMetadata, MediaMetadata, TorrentFile } from '@soup/core';
 
 // Support both local development (.env in root) and environment-level config
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -33,6 +33,34 @@ function formatDuration(seconds: number): string {
 }
 
 /**
+ * Formats a number of bytes into a human-readable string.
+ */
+function formatBytes(bytes: number, decimals = 2) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+interface SuggestionPath {
+  index: number;
+  originalName: string;
+  sourcePath: string;
+  suggestedPath: string;
+}
+
+interface IngestionTask {
+  id: string;
+  torrentHash: string;
+  status: string;
+  progress: number;
+  currentFile: string | null;
+  fileMap: string;
+}
+
+/**
  * Simple client for the Soup Server API.
  */
 class SoupClient {
@@ -50,7 +78,7 @@ class SoupClient {
     return await response.json() as TorrentWithMetadata[];
   }
 
-  async performAction(hash: string, action: string, value?: any): Promise<void> {
+  async performAction(hash: string, action: string, value?: unknown): Promise<void> {
     const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -138,6 +166,84 @@ class SoupClient {
       const data = await response.json().catch(() => ({ error: response.statusText }));
       throw new Error(`Server Error: ${data.error || response.statusText}`);
     }
+  }
+
+  async getFiles(hash: string): Promise<TorrentFile[]> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/files`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as TorrentFile[];
+  }
+
+  async setFilePriority(hash: string, indices: number[], priority: number): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/files/priority`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ indices, priority })
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async getLibraries(): Promise<string[]> {
+    const response = await fetch(`${this.baseUrl}/api/libraries`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as string[];
+  }
+
+  async getSuggestPaths(hash: string, library?: string): Promise<SuggestionPath[]> {
+    const url = new URL(`${this.baseUrl}/api/torrents/${hash}/suggest-paths`);
+    if (library) url.searchParams.set('library', library);
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as SuggestionPath[];
+  }
+
+  async ingest(hash: string, fileMap: Record<string, string>): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileMap })
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async getTasks(): Promise<IngestionTask[]> {
+    const response = await fetch(`${this.baseUrl}/api/tasks`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as IngestionTask[];
+  }
+
+  async clearTasks(): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/tasks/clear`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+  }
+
+  async getPreferences(): Promise<Record<string, unknown>> {
+    const response = await fetch(`${this.baseUrl}/api/preferences`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as Record<string, unknown>;
+  }
+
+  async setPreferences(prefs: Record<string, unknown>): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/preferences`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(prefs)
+    });
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+  }
+
+  async getServerState(): Promise<Record<string, unknown>> {
+    const response = await fetch(`${this.baseUrl}/api/state`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as Record<string, unknown>;
   }
 }
 
@@ -364,6 +470,176 @@ program
     try {
       await client.setNonMedia(hash, false);
       console.log(chalk.green(`Torrent ${hash} unmarked as non-media.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('files <hash>')
+  .description('List files in a torrent')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      const files = await client.getFiles(hash);
+      if (files.length === 0) {
+        console.log(chalk.yellow('No files found.'));
+        return;
+      }
+      console.log(chalk.white(`${'Idx'.padEnd(4)} | ${'Size'.padEnd(10)} | ${'Prog'.padEnd(6)} | ${'Prio'.padEnd(6)} | ${'Name'}`));
+      console.log('-'.repeat(80));
+      for (const f of files) {
+        const prog = (f.progress * 100).toFixed(0) + '%';
+        const prio = f.priority === 0 ? 'Skip' : f.priority === 1 ? 'Norm' : f.priority === 6 ? 'High' : 'Max';
+        console.log(`${f.index.toString().padEnd(4)} | ${formatBytes(f.size).padEnd(10)} | ${prog.padEnd(6)} | ${prio.padEnd(6)} | ${f.name}`);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('priority <hash> <indices> <level>')
+  .description('Set download priority for files (level: skip, normal, high, max)')
+  .action(async (hash, indices, level) => {
+    const client = getClient();
+    try {
+      const idxList = indices.split(',').map((i: string) => parseInt(i.trim(), 10));
+      const priorityMap: Record<string, number> = {
+        'skip': 0,
+        'normal': 1,
+        'high': 6,
+        'max': 7
+      };
+      const prioValue = priorityMap[level.toLowerCase()];
+      if (prioValue === undefined) {
+        throw new Error('Invalid priority level. Use: skip, normal, high, max');
+      }
+      await client.setFilePriority(hash, idxList, prioValue);
+      console.log(chalk.green(`Priority updated for ${idxList.length} files.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('libraries')
+  .description('List available media ingestion libraries')
+  .action(async () => {
+    const client = getClient();
+    try {
+      const libraries = await client.getLibraries();
+      console.log(chalk.blue('Available libraries:'));
+      libraries.forEach(l => console.log(`- ${l}`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('ingest <hash>')
+  .description('Trigger file ingestion for a torrent')
+  .option('-l, --library <path>', 'Target library path')
+  .action(async (hash, options) => {
+    const client = getClient();
+    try {
+      console.log(chalk.blue('Fetching path suggestions...'));
+      const suggestions = await client.getSuggestPaths(hash, options.library);
+      if (suggestions.length === 0) {
+        console.log(chalk.yellow('No files found to ingest.'));
+        return;
+      }
+
+      const fileMap: Record<string, string> = {};
+      console.log(chalk.white('\nPlanned Ingestion:'));
+      console.log('-'.repeat(60));
+      suggestions.forEach(s => {
+        console.log(`${chalk.gray(s.originalName)} -> ${chalk.green(s.suggestedPath)}`);
+        fileMap[s.sourcePath] = s.suggestedPath;
+      });
+
+      await client.ingest(hash, fileMap);
+      console.log(chalk.bold.green('\nIngestion task queued successfully.'));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('tasks')
+  .description('Monitor ingestion tasks')
+  .option('--clear', 'Clear completed and failed tasks', false)
+  .action(async (options) => {
+    const client = getClient();
+    try {
+      if (options.clear) {
+        await client.clearTasks();
+        console.log(chalk.green('Tasks cleared.'));
+        return;
+      }
+
+      const tasks = await client.getTasks();
+      if (tasks.length === 0) {
+        console.log(chalk.yellow('No active or recent tasks.'));
+        return;
+      }
+
+      console.log(chalk.white(`${'ID'.padEnd(8)} | ${'Status'.padEnd(12)} | ${'Prog'.padEnd(6)} | ${'Current File'}`));
+      console.log('-'.repeat(80));
+      for (const t of tasks) {
+        const prog = (t.progress * 100).toFixed(0) + '%';
+        console.log(`${t.id.slice(0, 8).padEnd(8)} | ${t.status.padEnd(12)} | ${prog.padEnd(6)} | ${t.currentFile || chalk.gray('N/A')}`);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('settings')
+  .description('View or modify qBittorrent preferences')
+  .option('--set <json>', 'JSON string of settings to update')
+  .action(async (options) => {
+    const client = getClient();
+    try {
+      if (options.set) {
+        const prefs = JSON.parse(options.set) as Record<string, unknown>;
+        await client.setPreferences(prefs);
+        console.log(chalk.green('Preferences updated.'));
+        return;
+      }
+
+      const prefs = await client.getPreferences();
+      console.log(chalk.blue('Key Preferences:'));
+      console.log(`- Save Path: ${prefs.save_path}`);
+      console.log(`- DL Limit: ${prefs.dl_limit ? formatBytes(prefs.dl_limit as number) + '/s' : 'Infinity'}`);
+      console.log(`- UP Limit: ${prefs.up_limit ? formatBytes(prefs.up_limit as number) + '/s' : 'Infinity'}`);
+      console.log(`- DHT: ${prefs.dht ? 'Enabled' : 'Disabled'}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('stats')
+  .description('Show real-time global speed and health monitoring')
+  .action(async () => {
+    const client = getClient();
+    try {
+      const state = await client.getServerState();
+      console.log(chalk.bold.blue('\nGlobal Soup Stats:'));
+      console.log('-'.repeat(30));
+      console.log(`Download: ${chalk.blue(formatBytes(state.dl_info_speed as number) + '/s')}`);
+      console.log(`Upload:   ${chalk.green(formatBytes(state.up_info_speed as number) + '/s')}`);
+      console.log(`Free Space: ${chalk.yellow(formatBytes(state.free_space_on_disk as number))}`);
+      console.log(`Alt Speeds: ${state.use_alt_speed_limits ? chalk.yellow('ON') : chalk.gray('OFF')}`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error(chalk.red(`Error: ${message}`));
