@@ -110,12 +110,14 @@ export class TaskQueue {
     
     try {
       this.updateTaskStatus(nextTask, 'processing');
+      console.log(`[Transfer] Started task: ${nextTask.id} (${nextTask.torrentHash})`);
       
       await nextTask.run((progress, currentFile) => {
         this.updateTaskProgress(nextTask, progress, currentFile);
       });
 
       this.updateTaskStatus(nextTask, 'completed');
+      console.log(`[Transfer] Completed task: ${nextTask.id}`);
     } catch (err) {
       const retries = (nextTask.retries ?? 0) + 1;
       nextTask.retries = retries;

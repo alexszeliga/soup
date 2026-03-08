@@ -34,6 +34,7 @@ const configSchema = z.object({
   QB_DOWNLOAD_ROOT: z.string().default('/downloads'),
   LOCAL_DOWNLOAD_ROOT: z.string().default('./downloads'),
   WEB_DIST_PATH: z.string().default('../web/dist'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('warn'),
 });
 
 /**

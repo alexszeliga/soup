@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./apps/web/src/test/setup.ts'],
+    setupFiles: [path.resolve(__dirname, './apps/web/src/test/setup.ts')],
     include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     pool: 'forks',
