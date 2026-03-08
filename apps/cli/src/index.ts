@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import type { TorrentWithMetadata } from '@soup/core';
+import type { TorrentWithMetadata, MediaMetadata } from '@soup/core';
 
 // Support both local development (.env in root) and environment-level config
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -99,6 +99,46 @@ class SoupClient {
       throw new Error(`Server Error: ${data.error || response.statusText}`);
     }
   }
+
+  async searchMetadata(query: string): Promise<MediaMetadata[]> {
+    const response = await fetch(`${this.baseUrl}/api/metadata/search?query=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as MediaMetadata[];
+  }
+
+  async linkMetadata(hash: string, metadataId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/metadata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ metadataId })
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async unmatchTorrent(hash: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/unmatch`, {
+      method: 'POST'
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
+
+  async setNonMedia(hash: string, isNonMedia: boolean): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/non-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isNonMedia })
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Server Error: ${data.error || response.statusText}`);
+    }
+  }
 }
 
 function getClient() {
@@ -162,6 +202,8 @@ program
         if (meta.posterPath) {
           console.log(chalk.gray(`\nPoster: ${meta.posterPath}`));
         }
+      } else if (torrent.isNonMedia) {
+        console.log(chalk.yellow('\nMarked as Non-Media Item.'));
       } else {
         console.log(chalk.yellow('\nNo media metadata found.'));
       }
@@ -244,6 +286,84 @@ program
     try {
       await client.performAction(hash, 'recheck');
       console.log(chalk.green(`Torrent ${hash} recheck initiated.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('search <query>')
+  .description('Search for media metadata candidates')
+  .action(async (query) => {
+    const client = getClient();
+    try {
+      const candidates = await client.searchMetadata(query);
+      if (candidates.length === 0) {
+        console.log(chalk.yellow('No candidates found.'));
+        return;
+      }
+      console.log(chalk.white(`${'ID'.padEnd(20)} | ${'Year'.padEnd(6)} | ${'Title'}`));
+      console.log('-'.repeat(60));
+      for (const c of candidates) {
+        console.log(`${c.id.padEnd(20)} | ${c.year.toString().padEnd(6)} | ${c.title}`);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('match <hash> <metadataId>')
+  .description('Manually link a torrent to specific media metadata')
+  .action(async (hash, metadataId) => {
+    const client = getClient();
+    try {
+      await client.linkMetadata(hash, metadataId);
+      console.log(chalk.green(`Torrent ${hash} linked to metadata ${metadataId}.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('unmatch <hash>')
+  .description('Clear media metadata for a torrent')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      await client.unmatchTorrent(hash);
+      console.log(chalk.green(`Metadata cleared for torrent ${hash}.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('mark-non-media <hash>')
+  .description('Mark a torrent as non-media content')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      await client.setNonMedia(hash, true);
+      console.log(chalk.green(`Torrent ${hash} marked as non-media.`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(chalk.red(`Error: ${message}`));
+    }
+  });
+
+program
+  .command('mark-media <hash>')
+  .description('Unmark a torrent as non-media content (allow automatic matching)')
+  .action(async (hash) => {
+    const client = getClient();
+    try {
+      await client.setNonMedia(hash, false);
+      console.log(chalk.green(`Torrent ${hash} unmarked as non-media.`));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error(chalk.red(`Error: ${message}`));
