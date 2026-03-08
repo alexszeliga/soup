@@ -1,12 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
-import { QBClient } from '@soup/core/QBClient.js';
-import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
-import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
-import { MetadataCache } from '@soup/core/MetadataCache.js';
-import { createDatabase } from '@soup/database';
 import path from 'path';
+import type { TorrentWithMetadata } from '@soup/core';
 
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 
@@ -14,9 +10,12 @@ const program = new Command();
 
 program
   .name('soup')
-  .description('A qBittorrent interface with rich media metadata')
+  .description('A remote CLI for Soup media manager')
   .version('0.1.0');
 
+/**
+ * Utility to format seconds into a concise duration string.
+ */
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return '0m';
   const days = Math.floor(seconds / (24 * 3600));
@@ -29,57 +28,59 @@ function formatDuration(seconds: number): string {
   return parts.slice(0, 2).join(' ');
 }
 
-async function getServices() {
-  const qbUrl = process.env.QB_URL || 'https://qb.osage.lol/api/v2';
-  const tmdbApiKey = process.env.TMDB_API_KEY;
-  const dbPath = process.env.DB_PATH || './soup.db';
+/**
+ * Simple client for the Soup Server API.
+ */
+class SoupClient {
+  constructor(private readonly baseUrl: string) {}
 
-  if (!tmdbApiKey) {
-    throw new Error('TMDB_API_KEY is not defined in .env');
+  async getTorrents(): Promise<TorrentWithMetadata[]> {
+    const response = await fetch(`${this.baseUrl}/api/torrents`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as TorrentWithMetadata[];
   }
 
-  const db = createDatabase(dbPath);
-  const qb = new QBClient(qbUrl);
-  const tmdb = new TMDBMetadataProvider(tmdbApiKey);
-  const matcher = new MetadataMatcher(tmdb);
-  const cache = new MetadataCache(db);
+  async getFocusedTorrents(hash: string): Promise<TorrentWithMetadata[]> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/focus/${hash}`);
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+    return await response.json() as TorrentWithMetadata[];
+  }
 
-  await cache.ensureTables();
+  async performAction(hash: string, action: string, value?: any): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/torrents/${hash}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, value })
+    });
+    if (!response.ok) throw new Error(`Server Error: ${response.statusText}`);
+  }
+}
 
-  return { qb, tmdb, matcher, cache };
+function getClient() {
+  const soupUrl = process.env.SOUP_URL || 'http://localhost:8207';
+  return new SoupClient(soupUrl);
 }
 
 program
   .command('list')
-  .description('List all torrents with rich metadata')
+  .description('List all torrents from the remote Soup instance')
   .action(async () => {
-    const { qb, matcher, cache } = await getServices();
+    const client = getClient();
 
     try {
-      console.log(chalk.blue('Fetching torrents from qBittorrent...'));
-      const torrents = await qb.getTorrents();
+      console.log(chalk.blue('Connecting to Soup server...'));
+      const torrents = await client.getTorrents();
       
-      console.log(chalk.white(`${'Name'.padEnd(40)} | ${'Progress'.padEnd(10)} | ${'Ratio'.padEnd(8)} | ${'Media Title'.padEnd(30)}`));
-      console.log('-'.repeat(95));
+      console.log(chalk.white(`${'Name'.padEnd(40)} | ${'Progress'.padEnd(10)} | ${'Status'.padEnd(12)} | ${'Media Title'.padEnd(30)}`));
+      console.log('-'.repeat(100));
 
       for (const torrent of torrents) {
-        // Try to get from cache first
-        let metadata = await cache.getMetadataForTorrent(torrent.hash);
-        
-        // If not in cache, match it
-        if (!metadata) {
-          metadata = await matcher.match(torrent);
-          if (metadata) {
-            await cache.saveMetadataForTorrent(torrent, metadata);
-          }
-        }
-
         const name = torrent.name.length > 37 ? torrent.name.slice(0, 37) + '...' : torrent.name;
         const progress = (torrent.progress * 100).toFixed(1) + '%';
-        const ratio = (torrent.ratio || 0).toFixed(2);
-        const mediaTitle = metadata ? metadata.title : chalk.gray('Unknown');
+        const status = torrent.stateName || torrent.state;
+        const mediaTitle = torrent.mediaMetadata ? torrent.mediaMetadata.title : chalk.gray('Unknown');
 
-        console.log(`${name.padEnd(40)} | ${progress.padEnd(10)} | ${ratio.padEnd(8)} | ${mediaTitle}`);
+        console.log(`${name.padEnd(40)} | ${progress.padEnd(10)} | ${status.padEnd(12)} | ${mediaTitle}`);
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -91,10 +92,11 @@ program
   .command('show <hash>')
   .description('Show details for a specific torrent')
   .action(async (hash) => {
-    const { qb, matcher, cache } = await getServices();
+    const client = getClient();
 
     try {
-      const torrents = await qb.getTorrents();
+      // Use focus endpoint to ensure we have latest details
+      const torrents = await client.getFocusedTorrents(hash);
       const torrent = torrents.find(t => t.hash === hash);
 
       if (!torrent) {
@@ -102,25 +104,18 @@ program
         return;
       }
 
-      let metadata = await cache.getMetadataForTorrent(torrent.hash);
-      if (!metadata) {
-        metadata = await matcher.match(torrent);
-        if (metadata) {
-          await cache.saveMetadataForTorrent(torrent, metadata);
-        }
-      }
-
       console.log(chalk.bold.blue(`\nTorrent: ${torrent.name}`));
       console.log(chalk.gray(`Hash: ${torrent.hash}`));
-      console.log(`Status: ${torrent.state} | Progress: ${(torrent.progress * 100).toFixed(1)}%`);
+      console.log(`Status: ${torrent.stateName || torrent.state} | Progress: ${(torrent.progress * 100).toFixed(1)}%`);
       console.log(`Ratio: ${torrent.ratio?.toFixed(2) || '0.00'} | Seeded: ${formatDuration(torrent.seedingTime || 0)}`);
 
-      if (metadata) {
-        console.log(chalk.bold.green(`\nMedia: ${metadata.title} (${metadata.year})`));
-        console.log(chalk.white(`\nPlot: ${metadata.plot}`));
-        console.log(chalk.white(`\nCast: ${metadata.cast.join(', ')}`));
-        if (metadata.posterPath) {
-          console.log(chalk.gray(`\nPoster: ${metadata.posterPath}`));
+      if (torrent.mediaMetadata) {
+        const meta = torrent.mediaMetadata;
+        console.log(chalk.bold.green(`\nMedia: ${meta.title} (${meta.year})`));
+        console.log(chalk.white(`\nPlot: ${meta.plot}`));
+        console.log(chalk.white(`\nCast: ${meta.cast.join(', ')}`));
+        if (meta.posterPath) {
+          console.log(chalk.gray(`\nPoster: ${meta.posterPath}`));
         }
       } else {
         console.log(chalk.yellow('\nNo media metadata found.'));
