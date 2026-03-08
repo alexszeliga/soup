@@ -123,34 +123,6 @@ function App() {
     }
   };
 
-  /**
-   * Helper to perform a torrent action (pause/resume) and manage its pending UI state.
-   * 
-   * @param hash - The torrent hash.
-   * @param endpoint - The API endpoint to call (e.g., 'pause', 'resume').
-   * @param targetState - The expected state after transition ('active' | 'inactive').
-   */
-  const performAction = async (hash: string, endpoint: string, targetState: 'active' | 'inactive') => {
-    setPendingTransitions(prev => new Map(prev).set(hash, targetState));
-    try {
-      await fetch(`${API_URL}/torrents/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hashes: [hash] })
-      });
-    } catch (err: unknown) {
-      console.error(err);
-      setPendingTransitions(prev => {
-        const next = new Map(prev);
-        next.delete(hash);
-        return next;
-      });
-    }
-  };
-
-  const handlePause = (hash: string) => performAction(hash, 'pause', 'inactive');
-  const handleResume = (hash: string) => performAction(hash, 'resume', 'active');
-
   const handleDelete = async (hash: string) => {
     setPendingTransitions(prev => new Map(prev).set(hash, 'inactive'));
     try {
@@ -226,8 +198,6 @@ function App() {
         torrent={selectedTorrent}
         isOpen={!!selectedTorrentHash}
         onClose={() => setSelectedTorrentHash(null)}
-        onPause={handlePause}
-        onResume={handleResume}
         onDelete={handleDelete}
       />
 

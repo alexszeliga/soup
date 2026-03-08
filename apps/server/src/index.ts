@@ -19,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const config = ConfigLoader.load();
-const fastify = Fastify({ logger: true });
+const fastify = Fastify({ logger: { level: config.LOG_LEVEL } });
 
 await fastify.register(cors, {
   origin: '*', // For development
@@ -35,7 +35,7 @@ if (config.NODE_ENV === 'development') {
     prefix: '/coverage/',
     decorateReply: false
   });
-  fastify.log.info(`[Dev] Serving coverage reports from: ${coveragePath}`);
+  fastify.log.debug(`[Dev] Serving coverage reports from: ${coveragePath}`);
 }
 
 // 2. Serve Web Assets
@@ -67,9 +67,9 @@ let currentFocus: string | null = null;
 
 // Login to qBittorrent before starting
 try {
-  fastify.log.info('Logging in to qBittorrent...');
+  fastify.log.debug('Logging in to qBittorrent...');
   await qb.login(config.QB_USERNAME, config.QB_PASSWORD);
-  fastify.log.info('Login successful');
+  fastify.log.debug('Login successful');
 } catch (error) {
   fastify.log.error(error, 'Login failed');
 }
@@ -90,14 +90,14 @@ const startSync = async () => {
 startSync();
 
 fastify.get('/api/torrents', async (request) => {
-  fastify.log.info({ url: request.url, query: request.query }, 'Received torrents request');
+  fastify.log.debug({ url: request.url, query: request.query }, 'Received torrents request');
   currentFocus = null; // Clear focus if we hit the standard list
   return liveSync.getTorrentsWithMetadata();
 });
 
 fastify.get('/api/torrents/focus/:hash', async (request) => {
   const { hash } = request.params as { hash: string };
-  fastify.log.info(`[API] Focus requested via PATH for: ${hash}`);
+  fastify.log.debug(`[API] Focus requested via PATH for: ${hash}`);
   
   currentFocus = hash;
   
@@ -106,7 +106,7 @@ fastify.get('/api/torrents/focus/:hash', async (request) => {
   
   const torrents = liveSync.getTorrentsWithMetadata();
   const focused = torrents.find(t => t.hash === hash);
-  fastify.log.info(`[API] Returning focused list. Files found: ${focused?.files?.length ?? 0}`);
+  fastify.log.debug(`[API] Returning focused list. Files found: ${focused?.files?.length ?? 0}`);
   return torrents;
 });
 
@@ -271,7 +271,25 @@ fastify.post('/api/torrents/pause', async (request, reply) => {
 
 fastify.post('/api/torrents/resume', async (request, reply) => {
   const { hashes } = request.body as { hashes: string[] };
-  return handleAPIAction(reply, () => qb.forceStartTorrents(hashes));
+  return handleAPIAction(reply, () => qb.resumeTorrents(hashes));
+});
+
+fastify.post<{ Params: { hash: string }; Body: { action: string, value?: any } }>('/api/torrents/:hash/action', async (request, reply) => {
+  const { hash } = request.params;
+  const { action, value } = request.body;
+
+  await handleAPIAction(reply, async () => {
+    switch (action) {
+      case 'resume': await qb.resumeTorrents([hash]); break;
+      case 'pause': await qb.pauseTorrents([hash]); break;
+      case 'forceStart': await qb.setForceStart([hash], value ?? true); break;
+      case 'recheck': await qb.recheckTorrents([hash]); break;
+      case 'reannounce': await qb.reannounceTorrents([hash]); break;
+      case 'toggleSequential': await qb.toggleSequentialDownload([hash]); break;
+      case 'toggleFirstLastPrio': await qb.toggleFirstLastPiecePrio([hash]); break;
+      default: throw new Error(`Unknown action: ${action}`);
+    }
+  });
 });
 
 fastify.delete('/api/torrents', async (request, reply) => {
@@ -303,7 +321,7 @@ fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) 
     config.LOCAL_DOWNLOAD_ROOT
   );
 
-  fastify.log.info(`[Download] Serving file: ${absolutePath}`);
+  fastify.log.debug(`[Download] Serving file: ${absolutePath}`);
   
   const fs = await import('fs');
   if (!fs.existsSync(absolutePath)) {

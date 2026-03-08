@@ -16,7 +16,10 @@ describe('TorrentDetailModal', () => {
     downloadSpeed: 1000,
     uploadSpeed: 500,
     contentPath: '/downloads/Movie.2024.1080p',
-    files: []
+    files: [],
+    isSeeding: false,
+    ratio: 0,
+    seedingTime: 0
   };
 
   const createMockTorrent = (overrides: Partial<TorrentWithMetadata> = {}): TorrentWithMetadata => {
@@ -31,8 +34,6 @@ describe('TorrentDetailModal', () => {
   const defaultProps = {
     isOpen: true,
     onClose: vi.fn(),
-    onPause: vi.fn(),
-    onResume: vi.fn(),
     onDelete: vi.fn(),
   };
 

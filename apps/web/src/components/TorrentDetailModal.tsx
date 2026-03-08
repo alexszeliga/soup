@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Search, Trash2, Package, Download, Lock, FileText, BarChart3 } from 'lucide-react';
+import { Pause, Play, Search, Trash2, Package, Download, Lock, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
 import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
 import ConfirmDialog from './ConfirmDialog';
 import IngestTab from './IngestTab';
-import { formatBytes } from '../utils/format';
+import ActionMenu, { type ActionMenuItem } from './ActionMenu';
+import { formatBytes, formatDuration } from '../utils/format';
 
 interface TorrentDetailModalProps {
   torrent: TorrentWithMetadata | null;
   isOpen: boolean;
   onClose: () => void;
-  onPause: (hash: string) => void;
-  onResume: (hash: string) => void;
   onDelete: (hash: string) => void;
 }
 
@@ -138,7 +137,7 @@ const FileCard: React.FC<{
 );
 
 const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({ 
-  torrent, isOpen, onClose, onPause, onResume, onDelete 
+  torrent, isOpen, onClose, onDelete 
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'ingest'>('details');
   const [isActionPending, setIsActionPending] = useState(false);
@@ -209,6 +208,22 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       });
     } catch (err) {
       console.error('Toggle non-media failed', err);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleAction = async (action: string, value?: unknown) => {
+    if (!torrent) return;
+    setIsActionPending(true);
+    try {
+      await fetch(`/api/torrents/${torrent.hash}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, value })
+      });
+    } catch (err) {
+      console.error(`Action ${action} failed`, err);
     } finally {
       setIsActionPending(false);
     }
@@ -286,6 +301,52 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, files, isNonMedia } = torrent;
   const progressPercent = Math.round(progress * 100);
+  const isActive = Torrent.ACTIVE_STATES.includes(state);
+
+  const actionItems: ActionMenuItem[] = [
+    { 
+      label: 'Resume', 
+      icon: <Play size={14} strokeWidth={3} />, 
+      onClick: () => handleAction('resume'),
+      variant: 'success',
+      active: state === 'downloading' || state === 'uploading'
+    },
+    { 
+      label: 'Pause', 
+      icon: <Pause size={14} strokeWidth={3} />, 
+      onClick: () => handleAction('pause'),
+      variant: 'warning',
+      active: state === 'paused' || state === 'stopped'
+    },
+    { 
+      label: 'Force Resume', 
+      icon: <Zap size={14} strokeWidth={3} />, 
+      onClick: async () => { await handleAction('forceStart', true); await handleAction('resume'); },
+      active: torrent.isForceStart
+    },
+    { 
+      label: 'Recheck', 
+      icon: <RefreshCw size={14} strokeWidth={3} />, 
+      onClick: () => handleAction('recheck') 
+    },
+    { 
+      label: 'Reannounce', 
+      icon: <Radio size={14} strokeWidth={3} />, 
+      onClick: () => handleAction('reannounce') 
+    },
+    { 
+      label: 'Sequential Download', 
+      icon: <ArrowDownCircle size={14} strokeWidth={3} />, 
+      onClick: () => handleAction('toggleSequential'),
+      active: torrent.isSequential
+    },
+    { 
+      label: 'First/Last Piece Priority', 
+      icon: <ArrowUpCircle size={14} strokeWidth={3} />, 
+      onClick: () => handleAction('toggleFirstLastPrio'),
+      active: torrent.isFirstLastPrio
+    },
+  ];
 
   return (
     <>
@@ -347,16 +408,12 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
           {/* Action Bar */}
           <div className="px-6 sm:px-10 py-4 bg-zinc-100 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <button 
-                onClick={() => Torrent.ACTIVE_STATES.includes(state) ? onPause(torrent.hash) : onResume(torrent.hash)}
-                className="h-10 sm:h-12 px-4 sm:px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2"
-              >
-                {Torrent.ACTIVE_STATES.includes(state) ? (
-                  <><Pause size={14} strokeWidth={3} /> Pause</>
-                ) : (
-                  <><Play size={14} strokeWidth={3} /> Resume</>
-                )}
-              </button>
+              <ActionMenu 
+                primaryLabel={isActive ? 'Pause' : 'Resume'}
+                primaryIcon={isActive ? <Pause size={14} strokeWidth={3} /> : <Play size={14} strokeWidth={3} />}
+                onPrimaryClick={() => isActive ? handleAction('pause') : handleAction('resume')}
+                items={actionItems}
+              />
               
               {mediaMetadata ? (
                 <button 
@@ -505,9 +562,30 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                           <div className="h-full bg-blue-600 transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
                         </div>
                       </div>
-                      <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                        <p className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Save Path</p>
-                        <p className="text-[10px] sm:text-xs font-bold break-all text-zinc-700 dark:text-zinc-300 leading-tight opacity-80">{torrent.contentPath}</p>
+
+                      <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Share2 size={14} className="text-zinc-400" />
+                            <p className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Share Ratio</p>
+                          </div>
+                          <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">{torrent.ratio?.toFixed(2) || '0.00'}</p>
+                        </div>
+                        
+                        {torrent.seedingTime && torrent.seedingTime > 0 && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock size={14} className="text-zinc-400" />
+                              <p className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Seeding Time</p>
+                            </div>
+                            <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">{formatDuration(torrent.seedingTime)}</p>
+                          </div>
+                        )}
+
+                        <div className="pt-2">
+                          <p className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Save Path</p>
+                          <p className="text-[10px] sm:text-xs font-bold break-all text-zinc-700 dark:text-zinc-300 leading-tight opacity-80">{torrent.contentPath}</p>
+                        </div>
                       </div>
                     </div>
                   </section>
