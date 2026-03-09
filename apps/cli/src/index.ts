@@ -289,10 +289,16 @@ program
     try {
       // Use focus endpoint to ensure we have latest details
       const torrents = await client.getFocusedTorrents(hash);
-      const torrent = torrents.find(t => t.hash === hash);
+      
+      // Server-side resolution already happened, but we might get a list.
+      // We search for a case-insensitive prefix match locally to be safe.
+      const torrent = torrents.find(t => 
+        t.hash.toLowerCase() === hash.toLowerCase() || 
+        t.hash.toLowerCase().startsWith(hash.toLowerCase())
+      );
 
       if (!torrent) {
-        console.error(chalk.red(`Error: Torrent with hash ${hash} not found.`));
+        console.error(chalk.red(`Error: Torrent matching ${hash} not found.`));
         return;
       }
 
