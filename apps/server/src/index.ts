@@ -400,7 +400,7 @@ fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) 
 // 2. Global State & Preferences
 
 fastify.get('/api/state', async () => {
-  return engine.getServerState() || {};
+  return liveSync.getServerState() || {};
 });
 
 fastify.post('/api/toggle-alt-speeds', async (request, reply) => {
@@ -409,6 +409,10 @@ fastify.post('/api/toggle-alt-speeds', async (request, reply) => {
 
 fastify.get('/api/preferences', async () => {
   return qb.getPreferences();
+});
+
+fastify.get('/api/config', async () => {
+  return ConfigLoader.getClientConfig(config);
 });
 
 // 3. Task Management
