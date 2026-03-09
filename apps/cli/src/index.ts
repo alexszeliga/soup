@@ -646,4 +646,13 @@ program
     }
   });
 
+program.addHelpText('after', `
+Examples:
+  $ soup list                          # List all torrents
+  $ soup add magnet:?xt=urn:btih:...   # Add a magnet link
+  $ soup ingest <hash>                 # Preview and queue ingestion
+  $ soup show <hash>                   # See full metadata and files
+  $ soup priority <hash> 0,1 skip      # Skip first two files
+`);
+
 program.parse(process.argv);

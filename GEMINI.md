@@ -75,6 +75,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [ ] **UI Error Boundaries:** Implement React Error Boundaries around `TorrentList` to isolate metadata rendering failures.
 - [x] **Local File Download:** Allow users to download individual torrent files directly to their browser for local use.
 - [x] **Emoji Wipeout:** Remove all emojis from the codebase and UI, replacing them with icons or text.
+- [x] **Nice Status Names:** Map raw qBittorrent states to human-readable names in the UI.
 
 ### Phase 3: Advanced Workflow
 - [x] **Detailed View:** Implement a Material 3 Modal for deep-dive torrent management ([docs/torrent-detail-view.md](docs/torrent-detail-view.md)).
@@ -82,19 +83,21 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **File Selection:** View torrent file lists and set download priorities.
 - [x] **File Management:** Move/copy files to media server ingestion directories.
 - [x] **Advanced Matcher:** Manual search/override for incorrect metadata matches.
-- [ ] **Granular Control:** Implement a dropdown in Detail View for all torrent actions (Force Start, Recheck, Sequential, etc.).
+- [x] **Granular Control:** Implement a dropdown in Detail View for all torrent actions (Force Start, Recheck, Sequential, etc.).
 
 ### Phase 4: Architecture & Infrastructure
 - [x] **Deployment:** Plan and implement a container hosting strategy.
 
 ### Phase 5: CLI Parity
-- [ ] **CLI Control:** Implement `start`, `stop`, and `delete` commands for torrent management.
-- [ ] **CLI Add:** Implement `add` command supporting both local `.torrent` files and magnet links.
-- [ ] **CLI Metadata Management:** Implement `unmatch`, `mark-non-media`, and manual `match` (search/override) commands.
-- [ ] **CLI File Management:** Implement `files` (listing) and `priority` (set download priority) commands.
-- [ ] **CLI Ingestion:** Implement `ingest` command to trigger file movement and a `tasks` command to monitor progress.
-- [ ] **CLI Settings:** Implement a `settings` command to view and modify qBittorrent preferences.
-- [ ] **CLI Stats:** Add a `stats` or `dashboard` command for real-time global speed and health monitoring.
+- [x] **Remote CLI Architecture:** CLI now works as a thin client over the network via `SOUP_URL`.
+- [x] **Standalone Command:** CLI installable via `pnpm link --global` as `soup`.
+- [x] **CLI Control:** Implement `start`, `stop`, and `delete` commands for torrent management.
+- [x] **CLI Add:** Implement `add` command supporting both local `.torrent` files and magnet links.
+- [x] **CLI Metadata Management:** Implement `unmatch`, `mark-non-media`, and manual `match` (search/override) commands.
+- [x] **CLI File Management:** Implement `files` (listing) and `priority` (set download priority) commands.
+- [x] **CLI Ingestion:** Implement `ingest` command to trigger file movement and a `tasks` command to monitor progress.
+- [x] **CLI Settings:** Implement a `settings` command to view and modify qBittorrent preferences.
+- [x] **CLI Stats:** Add a `stats` or `dashboard` command for real-time global speed and health monitoring.
 
 ## Handoff Notes (Session 1)
 - **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
