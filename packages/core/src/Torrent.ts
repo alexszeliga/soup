@@ -151,12 +151,12 @@ export class Torrent {
     const clean = this.name.replace(/[._]/g, ' ').trim();
 
     // 2. Identify TV Shows first (highest specificity)
-    // Patterns: S01E01, S1E1, 1x01, Season 1
+    // Patterns: S01E01, S01, 1x01, Season 1
     const tvPatterns = [
-      /^(.*?)\s+(\d{4})\s+S(\d{1,2})E(\d{1,2})/i,  // Title 2019 S01E01 (Highest priority)
-      /^(.*?)\s+S(\d{1,2})E(\d{1,2})/i,           // Title S01E01
-      /^(.*?)\s+Season\s+(\d{1,2})/i,             // Title Season 1
-      /^(.*?)\s+(\d{1,2})x(\d{1,2})/i,            // Title 1x01
+      /^(.*?)\s+(\d{4})\s+S(\d{1,2})(?:E(\d{1,2}))?\b/i,  // Title 2019 S01 (Highest priority)
+      /^(.*?)\s+S(\d{1,2})(?:E(\d{1,2}))?\b/i,           // Title S01
+      /^(.*?)\s+Season\s+(\d{1,2})\b/i,                  // Title Season 1
+      /^(.*?)\s+(\d{1,2})x(\d{1,2})\b/i,                 // Title 1x01
     ];
 
     for (const pattern of tvPatterns) {

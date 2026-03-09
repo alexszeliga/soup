@@ -129,7 +129,8 @@ describe('Torrent Model', () => {
       { name: 'The.Boys.2019.S01E01.1080p', title: 'The Boys', year: 2019 },
       { name: 'Stranger.Things.S04E01.720p', title: 'Stranger Things', year: null },
       { name: 'The.Mandalorian.Season.2.1080p', title: 'The Mandalorian', year: null },
-      { name: 'Breaking.Bad.1x01.BluRay', title: 'Breaking Bad', year: null }
+      { name: 'Breaking.Bad.1x01.BluRay', title: 'Breaking Bad', year: null },
+      { name: 'The.Simpsons.S01.Complete.1080p', title: 'The Simpsons', year: null }
     ];
 
     for (const ex of examples) {
