@@ -262,16 +262,17 @@ program
       console.log(chalk.blue('Connecting to Soup server...'));
       const torrents = await client.getTorrents();
       
-      console.log(chalk.white(`${'Name'.padEnd(40)} | ${'Progress'.padEnd(10)} | ${'Status'.padEnd(12)} | ${'Media Title'.padEnd(30)}`));
-      console.log('-'.repeat(100));
+      console.log(chalk.white(`${'Name'.padEnd(30)} | ${'Hash'.padEnd(10)} | ${'Progress'.padEnd(10)} | ${'Status'.padEnd(12)} | ${'Media Title'.padEnd(30)}`));
+      console.log('-'.repeat(110));
 
       for (const torrent of torrents) {
-        const name = torrent.name.length > 37 ? torrent.name.slice(0, 37) + '...' : torrent.name;
+        const name = torrent.name.length > 27 ? torrent.name.slice(0, 27) + '...' : torrent.name;
+        const hash = torrent.hash.slice(0, 10);
         const progress = (torrent.progress * 100).toFixed(1) + '%';
         const status = torrent.stateName || torrent.state;
         const mediaTitle = torrent.mediaMetadata ? torrent.mediaMetadata.title : chalk.gray('Unknown');
 
-        console.log(`${name.padEnd(40)} | ${progress.padEnd(10)} | ${status.padEnd(12)} | ${mediaTitle}`);
+        console.log(`${name.padEnd(30)} | ${hash.padEnd(10)} | ${progress.padEnd(10)} | ${status.padEnd(12)} | ${mediaTitle}`);
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
