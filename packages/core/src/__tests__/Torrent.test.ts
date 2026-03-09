@@ -22,6 +22,7 @@ describe('Torrent Model', () => {
     expect(torrent.name).toBe(torrentData.name);
     expect(torrent.progress).toBe(torrentData.progress);
     expect(torrent.state).toBe(torrentData.state);
+    expect(torrent.stateName).toBe('Downloading');
     expect(torrent.addedOn).toBe(torrentData.addedOn);
     expect(torrent.seedingTime).toBe(torrentData.seedingTime);
     expect(torrent.ratio).toBe(torrentData.ratio);
@@ -123,19 +124,41 @@ describe('Torrent Model', () => {
     expect(info.year).toBe(2021);
   });
 
-  it('should handle TV show with year in name', () => {
+  it('should handle TV show patterns', () => {
+    const examples = [
+      { name: 'The.Boys.2019.S01E01.1080p', title: 'The Boys', year: 2019 },
+      { name: 'Stranger.Things.S04E01.720p', title: 'Stranger Things', year: null },
+      { name: 'The.Mandalorian.Season.2.1080p', title: 'The Mandalorian', year: null },
+      { name: 'Breaking.Bad.1x01.BluRay', title: 'Breaking Bad', year: null }
+    ];
+
+    for (const ex of examples) {
+      const torrent = new Torrent({
+        hash: 'h',
+        name: ex.name,
+        progress: 1,
+        state: 'seeding',
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        contentPath: 'p'
+      });
+      const info = torrent.getMediaInfo();
+      expect(info.title).toBe(ex.title);
+      expect(info.year).toBe(ex.year);
+    }
+  });
+
+  it('should strip technical noise tags', () => {
     const torrent = new Torrent({
-      hash: 'h1',
-      name: 'The.Boys.2019.S01E01.1080p',
+      hash: 'h',
+      name: 'Movie.Title.Multi.1080p.WEB-DL.H264-GROUP',
       progress: 1,
       state: 'seeding',
       downloadSpeed: 0,
       uploadSpeed: 0,
-      contentPath: 'p1'
+      contentPath: 'p'
     });
-
     const info = torrent.getMediaInfo();
-    expect(info.title).toBe('The Boys');
-    expect(info.year).toBe(2019);
+    expect(info.title).toBe('Movie Title');
   });
 });

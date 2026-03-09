@@ -4,22 +4,29 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { QBClient, QBPreferences } from '@soup/core/QBClient.js';
-import { TMDBMetadataProvider } from '@soup/core/TMDBMetadataProvider.js';
-import { MetadataMatcher } from '@soup/core/MetadataMatcher.js';
-import { MetadataCache } from '@soup/core/MetadataCache.js';
-import { SyncEngine } from '@soup/core/SyncEngine.js';
-import { LiveSyncService } from '@soup/core/LiveSyncService.js';
-import { IngestionService } from '@soup/core/IngestionService.js';
-import { TaskQueue } from '@soup/core/TaskQueue.js';
-import { ConfigLoader } from '@soup/core/Config.js';
+import { 
+  ConfigLoader, 
+  IngestionService, 
+  LiveSyncService, 
+  MetadataCache, 
+  MetadataMatcher, 
+  QBClient, 
+  SyncEngine, 
+  TaskQueue, 
+  TMDBMetadataProvider,
+  type QBPreferences
+} from '@soup/core';
 import { createDatabase } from '@soup/database';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const config = ConfigLoader.load();
-const fastify = Fastify({ logger: { level: config.LOG_LEVEL } });
+const fastify = Fastify({
+  logger: {
+    level: config.LOG_LEVEL,
+  },
+});
 
 await fastify.register(cors, {
   origin: '*', // For development
@@ -27,23 +34,10 @@ await fastify.register(cors, {
 
 await fastify.register(multipart);
 
-// 1. Serve Coverage Reports (Dev Only)
-if (config.NODE_ENV === 'development') {
-  const coveragePath = path.resolve(__dirname, '../../../coverage');
-  fastify.register(fastifyStatic, {
-    root: coveragePath,
-    prefix: '/coverage/',
-    decorateReply: false
-  });
-  fastify.log.debug(`[Dev] Serving coverage reports from: ${coveragePath}`);
-}
-
-// 2. Serve Web Assets
-const webDistPath = path.resolve(__dirname, config.WEB_DIST_PATH);
+// Serve the React app from apps/web/dist
 fastify.register(fastifyStatic, {
-  root: webDistPath,
+  root: path.resolve(__dirname, '../../web/dist'),
   prefix: '/',
-  wildcard: false // Don't match everything here, we use setNotFoundHandler for SPA
 });
 
 const db = createDatabase(config.DB_PATH);
@@ -89,92 +83,109 @@ const startSync = async () => {
 
 startSync();
 
+/**
+ * Resolves a partial or full hash to a single unique full hash from the live cache.
+ * 
+ * @param partialHash - The partial hash provided by the client.
+ * @returns The full hash if found and unique.
+ * @throws Error if no match or multiple matches found.
+ */
+function resolveHash(partialHash: string): string {
+  const torrents = liveSync.getTorrentsWithMetadata();
+  
+  // 1. Try exact match first
+  if (partialHash.length === 40) {
+    const exact = torrents.find(t => t.hash.toLowerCase() === partialHash.toLowerCase());
+    if (exact) return exact.hash;
+  }
+
+  // 2. Prefix match
+  const matches = torrents.filter(t => t.hash.toLowerCase().startsWith(partialHash.toLowerCase()));
+
+  if (matches.length === 0) {
+    throw new Error(`No torrent found starting with: ${partialHash}`);
+  }
+  if (matches.length > 1) {
+    const list = matches.map(m => `${m.hash.slice(0, 10)} (${m.name})`).join(', ');
+    throw new Error(`Multiple torrents match prefix ${partialHash}: ${list}`);
+  }
+
+  return matches[0].hash;
+}
+
+// 1. Core Endpoints
+
 fastify.get('/api/torrents', async (request) => {
   fastify.log.debug({ url: request.url, query: request.query }, 'Received torrents request');
   currentFocus = null; // Clear focus if we hit the standard list
   return liveSync.getTorrentsWithMetadata();
 });
 
-fastify.get('/api/torrents/focus/:hash', async (request) => {
-  const { hash } = request.params as { hash: string };
-  fastify.log.debug(`[API] Focus requested via PATH for: ${hash}`);
-  
-  currentFocus = hash;
-  
-  // Force an immediate sync to get file data right now
-  await liveSync.sync(currentFocus);
-  
-  const torrents = liveSync.getTorrentsWithMetadata();
-  const focused = torrents.find(t => t.hash === hash);
-  fastify.log.debug(`[API] Returning focused list. Files found: ${focused?.files?.length ?? 0}`);
-  return torrents;
-});
-
-fastify.get('/api/torrents/:hash/files', async (request) => {
-  const { hash } = request.params as { hash: string };
-  return qb.getTorrentFiles(hash);
-});
-
-fastify.get('/api/state', async () => {
-  return liveSync.getServerState();
-});
-
-fastify.post('/api/toggle-alt-speeds', async (request, reply) => {
-  return handleAPIAction(reply, () => qb.toggleAltSpeedLimits());
-});
-
-fastify.get('/api/preferences', async () => {
-  return qb.getPreferences();
-});
-
-fastify.get('/api/config', async () => {
-  return ConfigLoader.getClientConfig(config);
-});
-
-fastify.get('/api/tasks', async () => {
-  return queue.getTasks();
-});
-
-fastify.post('/api/tasks/clear', async () => {
-  return queue.clearFinished();
-});
-
-fastify.get('/api/libraries', async () => {
-  return ingestion.getLibraryOptions();
-});
-
-fastify.get('/api/torrents/:hash/suggest-paths', async (request) => {
-  const { hash } = request.params as { hash: string };
-  const { library } = request.query as { library?: string };
-  const torrents = liveSync.getTorrentsWithMetadata();
-  const torrent = torrents.find(t => t.hash === hash);
-  
-  if (!torrent) return [];
-
-  const title = torrent.mediaMetadata?.title || torrent.getMediaInfo().title;
-  const year = torrent.mediaMetadata?.year || torrent.getMediaInfo().year;
-
-  // We need to fetch files if they aren't in memory
-  const files = torrent.files || await qb.getTorrentFiles(hash);
-  
-  return files.map(f => {
-    const suggestion = ingestion.suggestPath(title, f.name, year ?? undefined);
+fastify.get('/api/torrents/focus/:hash', async (request, reply) => {
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    fastify.log.debug(`[API] Focus requested for: ${fullHash}`);
+    currentFocus = fullHash;
     
-    // Resolve absolute source path (handling path mapping and potential duplication)
-    const absolutePath = ingestion.resolveSourcePath(
-      torrent,
-      f,
-      config.QB_DOWNLOAD_ROOT,
-      config.LOCAL_DOWNLOAD_ROOT
-    );
+    // Force an immediate sync to get file data right now
+    await liveSync.sync(currentFocus);
+    
+    return liveSync.getTorrentsWithMetadata();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
+});
 
-    return {
-      index: f.index,
-      originalName: f.name,
-      sourcePath: absolutePath,
-      suggestedPath: library ? path.join(library, suggestion) : suggestion
-    };
-  });
+fastify.get('/api/torrents/:hash/files', async (request, reply) => {
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    return qb.getTorrentFiles(fullHash);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
+});
+
+fastify.get('/api/torrents/:hash/suggest-paths', async (request, reply) => {
+  try {
+    const { hash } = request.params as { hash: string };
+    const { library } = request.query as { library?: string };
+    
+    const fullHash = resolveHash(hash);
+    const torrents = liveSync.getTorrentsWithMetadata();
+    const torrent = torrents.find(t => t.hash === fullHash);
+    
+    if (!torrent) throw new Error('Torrent disappeared during resolution');
+
+    const title = torrent.mediaMetadata?.title || torrent.getMediaInfo().title;
+    const year = torrent.mediaMetadata?.year || torrent.getMediaInfo().year;
+
+    // We need to fetch files if they aren't in memory
+    const files = torrent.files || await qb.getTorrentFiles(fullHash);
+    
+    return files.map(f => {
+      const suggestion = ingestion.suggestPath(title, f.name, year ?? undefined);
+      
+      // Resolve absolute source path (handling path mapping and potential duplication)
+      const absolutePath = ingestion.resolveSourcePath(
+        torrent,
+        f,
+        config.QB_DOWNLOAD_ROOT,
+        config.LOCAL_DOWNLOAD_ROOT
+      );
+
+      return {
+        index: f.index,
+        originalName: f.name,
+        sourcePath: absolutePath,
+        suggestedPath: library ? path.join(library, suggestion) : suggestion
+      };
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post('/api/torrents', async (request, reply) => {
@@ -185,8 +196,7 @@ fastify.post('/api/torrents', async (request, reply) => {
     const file = new File([new Uint8Array(buffer)], data.filename, { type: data.mimetype });
     await qb.addTorrents([], [file]);
     return { success: true };
-  }
- else {
+  } else {
     const body = request.body as { url?: string };
     if (body?.url) {
       await qb.addTorrents([body.url]);
@@ -232,108 +242,192 @@ fastify.get('/api/metadata/search', async (request) => {
 });
 
 fastify.post('/api/torrents/:hash/metadata', async (request, reply) => {
-  const { hash } = request.params as { hash: string };
-  const { metadataId } = request.body as { metadataId: string };
-  return handleAPIAction(reply, () => liveSync.linkMetadata(hash, metadataId));
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    const { metadataId } = request.body as { metadataId: string };
+    return handleAPIAction(reply, () => liveSync.linkMetadata(fullHash, metadataId));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post('/api/torrents/:hash/unmatch', async (request, reply) => {
-  const { hash } = request.params as { hash: string };
-  return handleAPIAction(reply, () => liveSync.unmatchTorrent(hash));
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    return handleAPIAction(reply, () => liveSync.unmatchTorrent(fullHash));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post('/api/torrents/:hash/non-media', async (request, reply) => {
-  const { hash } = request.params as { hash: string };
-  const { isNonMedia } = request.body as { isNonMedia: boolean };
-  return handleAPIAction(reply, () => liveSync.markAsNonMedia(hash, isNonMedia));
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    const { isNonMedia } = request.body as { isNonMedia: boolean };
+    return handleAPIAction(reply, () => liveSync.markAsNonMedia(fullHash, isNonMedia));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
-fastify.post('/api/torrents/:hash/ingest', async (request) => {
-  const { hash } = request.params as { hash: string };
-  const { fileMap } = request.body as { fileMap: Record<string, string> };
-  
-  const task = ingestion.createCopyTask(hash, fileMap);
-  queue.enqueue(task);
-  
-  return { success: true, taskId: task.id };
+fastify.post('/api/torrents/:hash/ingest', async (request, reply) => {
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    const { fileMap } = request.body as { fileMap: Record<string, string> };
+    
+    const task = ingestion.createCopyTask(fullHash, fileMap);
+    queue.enqueue(task);
+    
+    return { success: true, taskId: task.id };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post('/api/torrents/:hash/files/priority', async (request, reply) => {
-  const { hash } = request.params as { hash: string };
-  const { indices, priority } = request.body as { indices: number[], priority: number };
-  return handleAPIAction(reply, () => qb.setFilePriority(hash, indices, priority));
+  try {
+    const fullHash = resolveHash((request.params as { hash: string }).hash);
+    const { indices, priority } = request.body as { indices: number[], priority: number };
+    return handleAPIAction(reply, () => qb.setFilePriority(fullHash, indices, priority));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post('/api/torrents/pause', async (request, reply) => {
-  const { hashes } = request.body as { hashes: string[] };
-  return handleAPIAction(reply, () => qb.pauseTorrents(hashes));
+  try {
+    const { hashes } = request.body as { hashes: string[] };
+    const resolvedHashes = hashes.map(h => resolveHash(h));
+    return handleAPIAction(reply, () => qb.pauseTorrents(resolvedHashes));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post('/api/torrents/resume', async (request, reply) => {
-  const { hashes } = request.body as { hashes: string[] };
-  return handleAPIAction(reply, () => qb.resumeTorrents(hashes));
+  try {
+    const { hashes } = request.body as { hashes: string[] };
+    const resolvedHashes = hashes.map(h => resolveHash(h));
+    return handleAPIAction(reply, () => qb.resumeTorrents(resolvedHashes));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.post<{ Params: { hash: string }; Body: { action: string, value?: any } }>('/api/torrents/:hash/action', async (request, reply) => {
-  const { hash } = request.params;
-  const { action, value } = request.body;
+  try {
+    const fullHash = resolveHash(request.params.hash);
+    const { action, value } = request.body;
 
-  await handleAPIAction(reply, async () => {
-    switch (action) {
-      case 'resume': await qb.resumeTorrents([hash]); break;
-      case 'pause': await qb.pauseTorrents([hash]); break;
-      case 'forceStart': await qb.setForceStart([hash], value ?? true); break;
-      case 'recheck': await qb.recheckTorrents([hash]); break;
-      case 'reannounce': await qb.reannounceTorrents([hash]); break;
-      case 'toggleSequential': await qb.toggleSequentialDownload([hash]); break;
-      case 'toggleFirstLastPrio': await qb.toggleFirstLastPiecePrio([hash]); break;
-      default: throw new Error(`Unknown action: ${action}`);
-    }
-  });
+    await handleAPIAction(reply, async () => {
+      switch (action) {
+        case 'resume': await qb.resumeTorrents([fullHash]); break;
+        case 'pause': await qb.pauseTorrents([fullHash]); break;
+        case 'forceStart': await qb.setForceStart([fullHash], value ?? true); break;
+        case 'recheck': await qb.recheckTorrents([fullHash]); break;
+        case 'reannounce': await qb.reannounceTorrents([fullHash]); break;
+        case 'toggleSequential': await qb.toggleSequentialDownload([fullHash]); break;
+        case 'toggleFirstLastPrio': await qb.toggleFirstLastPiecePrio([fullHash]); break;
+        default: throw new Error(`Unknown action: ${action}`);
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.delete('/api/torrents', async (request, reply) => {
-  const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
-  return handleAPIAction(reply, () => qb.deleteTorrents(hashes.split('|'), deleteFiles === 'true'));
+  try {
+    const { hashes, deleteFiles } = request.query as { hashes: string, deleteFiles?: string };
+    const resolvedHashes = hashes.split('|').map(h => resolveHash(h));
+    return handleAPIAction(reply, () => qb.deleteTorrents(resolvedHashes, deleteFiles === 'true'));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
+  }
 });
 
 fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) => {
-  const { hash, index: indexStr } = request.params as { hash: string, index: string };
-  const index = parseInt(indexStr, 10);
-  
-  const torrents = liveSync.getTorrentsWithMetadata();
-  const torrent = torrents.find(t => t.hash === hash);
-  if (!torrent) {
-    return reply.status(404).send({ error: 'Torrent not found' });
+  try {
+    const { hash, index: indexStr } = request.params as { hash: string, index: string };
+    const index = parseInt(indexStr, 10);
+    
+    const fullHash = resolveHash(hash);
+    const torrents = liveSync.getTorrentsWithMetadata();
+    const torrent = torrents.find(t => t.hash === fullHash);
+    if (!torrent) {
+      return reply.status(404).send({ error: 'Torrent not found' });
+    }
+
+    const files = torrent.files || await qb.getTorrentFiles(fullHash);
+    const file = files.find(f => f.index === index);
+    if (!file) {
+      return reply.status(404).send({ error: 'File not found' });
+    }
+
+    // Resolve absolute source path (handling path mapping and potential duplication)
+    const absolutePath = ingestion.resolveSourcePath(
+      torrent,
+      file,
+      config.QB_DOWNLOAD_ROOT,
+      config.LOCAL_DOWNLOAD_ROOT
+    );
+
+    fastify.log.debug(`[Download] Serving file: ${absolutePath}`);
+    
+    const fs = await import('fs');
+    if (!fs.existsSync(absolutePath)) {
+      return reply.status(404).send({ error: 'File not found on disk' });
+    }
+
+    const stream = fs.createReadStream(absolutePath);
+    reply.header('Content-Disposition', `attachment; filename="${path.basename(file.name)}"`);
+    return reply.send(stream);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    reply.status(400).send({ error: message });
   }
-
-  const files = torrent.files || await qb.getTorrentFiles(hash);
-  const file = files.find(f => f.index === index);
-  if (!file) {
-    return reply.status(404).send({ error: 'File not found' });
-  }
-
-  // Resolve absolute source path (handling path mapping and potential duplication)
-  const absolutePath = ingestion.resolveSourcePath(
-    torrent,
-    file,
-    config.QB_DOWNLOAD_ROOT,
-    config.LOCAL_DOWNLOAD_ROOT
-  );
-
-  fastify.log.debug(`[Download] Serving file: ${absolutePath}`);
-  
-  const fs = await import('fs');
-  if (!fs.existsSync(absolutePath)) {
-    return reply.status(404).send({ error: 'File not found on disk' });
-  }
-
-  const stream = fs.createReadStream(absolutePath);
-  reply.header('Content-Disposition', `attachment; filename="${path.basename(file.name)}"`);
-  return reply.send(stream);
 });
 
-// 3. SPA Fallback: Catch-all for React routing
+// 2. Global State & Preferences
+
+fastify.get('/api/state', async () => {
+  return engine.getServerState() || {};
+});
+
+fastify.post('/api/toggle-alt-speeds', async (request, reply) => {
+  return handleAPIAction(reply, () => qb.toggleAltSpeedLimits());
+});
+
+fastify.get('/api/preferences', async () => {
+  return qb.getPreferences();
+});
+
+// 3. Task Management
+
+fastify.get('/api/tasks', async () => {
+  return queue.getTasks();
+});
+
+fastify.post('/api/tasks/clear', async (request, reply) => {
+  return handleAPIAction(reply, () => {
+    return queue.clearFinished();
+  });
+});
+
+fastify.get('/api/libraries', async () => {
+  return ingestion.getLibraryOptions();
+});
+
+// 4. SPA Fallback: Catch-all for React routing
 fastify.setNotFoundHandler((request, reply) => {
   // If it's an API request that 404'd, return JSON
   if (request.url.startsWith('/api')) {
