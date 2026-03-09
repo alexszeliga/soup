@@ -376,7 +376,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                 {mediaMetadata?.posterPath ? (
                   <img src={mediaMetadata.posterPath} className="w-full h-full object-cover" alt="Poster" />
                 ) : (
-                  <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600 font-serif italic text-2xl">Soup</div>
+                  <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600 font-serif italic text-2xl">MML</div>
                 )}
               </div>
               
@@ -510,7 +510,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   {searchCandidates.map(candidate => (
                     <button key={candidate.id} onClick={() => handleLinkMetadata(candidate.id)} className="group text-left space-y-3 p-2 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all active:scale-95">
                       <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md border border-black/5 bg-zinc-200 dark:bg-zinc-800 relative">
-                        {candidate.posterPath ? <img src={candidate.posterPath} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={candidate.title} /> : <div className="w-full h-full flex items-center justify-center text-zinc-400 font-serif italic">Soup</div>}
+                        {candidate.posterPath ? <img src={candidate.posterPath} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={candidate.title} /> : <div className="w-full h-full flex items-center justify-center text-zinc-400 font-serif italic">MML</div>}
                         <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-colors" />
                       </div>
                       <div>

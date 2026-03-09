@@ -10,7 +10,7 @@ import type { QBServerState } from '@soup/core/QBClient.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
-import { Soup, Plus, Settings, AlertTriangle, FileText, Activity } from 'lucide-react';
+import { Plus, Settings, AlertTriangle, FileText, Activity, PawPrint } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -223,9 +223,12 @@ function App() {
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen overflow-hidden">
         <div className="p-5 lg:p-6 flex items-center lg:space-x-3 justify-center lg:justify-start">
           <div className="w-10 h-10 flex-shrink-0 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
-            <Soup size={24} strokeWidth={2.5} />
+            <PawPrint size={24} strokeWidth={2.5} />
           </div>
-          <span className="hidden lg:block font-black text-xl tracking-tight">SOUP</span>
+          <div className="hidden lg:flex flex-col">
+            <span className="font-black text-xl tracking-tight uppercase leading-none">MML</span>
+            <span className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mt-0.5">Mamal Soup</span>
+          </div>
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
@@ -276,7 +279,7 @@ function App() {
         {/* Modern Header */}
         <header className="h-20 flex items-center justify-between px-6 lg:px-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50 sticky top-0 z-20">
           <div className="min-w-0">
-            <h2 className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] truncate">Dashboard</h2>
+            <h2 className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] truncate">The Multimedia Layer</h2>
             <h1 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mt-1 truncate">Active Transfers</h1>
           </div>
 
@@ -312,7 +315,7 @@ function App() {
                   <AlertTriangle size={24} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="font-black text-red-600 dark:text-red-400">Basement Connection Error</p>
+                  <p className="font-black text-red-600 dark:text-red-400">MML Connection Error</p>
                   <p className="text-sm font-bold text-red-500/60 truncate">{error}</p>
                 </div>
               </div>

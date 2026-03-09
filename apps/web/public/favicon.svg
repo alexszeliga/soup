@@ -1,3 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <text y=".9em" font-size="90">🥣</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="11" cy="5" r="2" fill="#2563eb"/>
+  <circle cx="15" cy="5" r="2" fill="#2563eb"/>
+  <circle cx="7" cy="10" r="2" fill="#2563eb"/>
+  <circle cx="19" cy="10" r="2" fill="#2563eb"/>
+  <path d="M7 15c-1.1 0-2 1.2-2 2.5 0 3 3.7 4.5 7 4.5s7-1.5 7-4.5c0-1.3-.9-2.5-2-2.5h-1c-.6 0-1.1.4-1.4.9-.6.8-1.5 1.1-2.6 1.1s-2-.3-2.6-1.1c-.3-.5-.8-.9-1.4-.9H7Z" fill="#2563eb"/>
 </svg>

@@ -37,7 +37,7 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-4 sm:p-6 text-zinc-400 dark:text-zinc-600">
-            <span className="text-2xl sm:text-4xl mb-1 sm:mb-2 opacity-20 font-serif italic">Soup</span>
+            <span className="text-2xl sm:text-4xl mb-1 sm:mb-2 opacity-20 font-serif italic">MML</span>
             <span className="text-[8px] sm:text-[10px] uppercase font-black tracking-widest text-center">Metadata Pending</span>
           </div>
         )}
