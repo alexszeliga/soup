@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Search, Trash2, Package, Download, Lock, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { Pause, Play, Search, Trash2, Package, Download, Lock, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, ArrowUpCircle, HardDrive } from 'lucide-react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
 import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
@@ -564,6 +564,14 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                       </div>
 
                       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <HardDrive size={14} className="text-zinc-400" />
+                            <p className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total Size</p>
+                          </div>
+                          <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">{formatBytes(torrent.size)}</p>
+                        </div>
+
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Share2 size={14} className="text-zinc-400" />

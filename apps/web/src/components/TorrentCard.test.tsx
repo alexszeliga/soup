@@ -12,6 +12,7 @@ describe('TorrentCard', () => {
     stateName: 'Downloading',
     downloadSpeed: 1024,
     uploadSpeed: 512,
+    size: 2147483648, // 2GB
     contentPath: '/downloads/t1',
     isComplete: false,
     isActive: true,
@@ -42,6 +43,7 @@ describe('TorrentCard', () => {
 
   it('renders the seeding stats', () => {
     render(<TorrentCard torrent={mockTorrent} onClick={vi.fn()} />);
+    expect(screen.getByText(/2 GiB/)).toBeInTheDocument();
     expect(screen.getByText(/Ratio:/i)).toBeInTheDocument();
     expect(screen.getByText(/1.50/)).toBeInTheDocument();
     expect(screen.getByText(/Seeded:/i)).toBeInTheDocument();

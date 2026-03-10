@@ -150,6 +150,7 @@ export class SyncEngine {
     return new Torrent({
       hash: t.hash as string,
       name: t.name as string,
+      size: t.size as number,
       progress: t.progress as number,
       state: t.state as string,
       downloadSpeed: (t.dlspeed as number) || 0,

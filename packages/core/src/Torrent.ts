@@ -8,6 +8,8 @@ export interface TorrentProps {
   hash: string;
   /** Display name of the torrent (usually the filename or folder). */
   name: string;
+  /** Total size of the torrent in bytes. */
+  size?: number;
   /** Completion progress as a decimal between 0 and 1. */
   progress: number;
   /** Current operational state (e.g., 'downloading', 'seeding', 'stalled'). */
@@ -89,6 +91,7 @@ export class Torrent {
 
   public readonly hash: string;
   public readonly name: string;
+  public readonly size: number;
   public readonly progress: number;
   public readonly state: string;
   public readonly stateName: string;
@@ -111,6 +114,7 @@ export class Torrent {
   constructor(props: TorrentProps) {
     this.hash = props.hash;
     this.name = props.name;
+    this.size = props.size || 0;
     this.progress = props.progress;
     this.state = props.state;
     this.stateName = Torrent.STATE_MAP[this.state] || this.state;
