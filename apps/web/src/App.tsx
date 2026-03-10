@@ -5,6 +5,7 @@ import GlobalStats from './components/GlobalStats';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import type { QBServerState } from '@soup/core/QBClient.js';
+import type { DiskStats } from '@soup/core/StorageService.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
@@ -32,6 +33,7 @@ interface ClientConfig {
 function App() {
   const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
   const [serverState, setServerState] = useState<QBServerState | null>(null);
+  const [storageStats, setStorageStats] = useState<DiskStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingAltSpeedTarget, setPendingAltSpeedTarget] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,20 +59,23 @@ function App() {
         ? `${API_URL}/torrents/focus/${selectedTorrentHash}`
         : `${API_URL}/torrents`;
         
-      const [torrentsRes, stateRes] = await Promise.all([
+      const [torrentsRes, stateRes, storageRes] = await Promise.all([
         fetch(torrentsUrl),
-        fetch(`${API_URL}/state`)
+        fetch(`${API_URL}/state`),
+        fetch(`${API_URL}/system/storage`)
       ]);
 
-      if (!torrentsRes.ok || !stateRes.ok) throw new Error('Failed to fetch data');
+      if (!torrentsRes.ok || !stateRes.ok || !storageRes.ok) throw new Error('Failed to fetch data');
       
-      const [torrentsData, stateData] = await Promise.all([
+      const [torrentsData, stateData, storageData] = await Promise.all([
         torrentsRes.json() as Promise<TorrentWithMetadata[]>,
-        stateRes.json() as Promise<QBServerState>
+        stateRes.json() as Promise<QBServerState>,
+        storageRes.json() as Promise<DiskStats[]>
       ]);
       
       setTorrents(torrentsData);
       setServerState(stateData);
+      setStorageStats(storageData);
       setError(null);
 
       // Resolve pending alt speed transition
@@ -220,6 +225,7 @@ function App() {
             </div>
             <GlobalStats 
               serverState={serverState}
+              storageStats={storageStats}
               pendingAltSpeedTarget={pendingAltSpeedTarget}
               onToggleAltSpeeds={handleToggleAltSpeeds}
               isMobile={true}
@@ -285,6 +291,7 @@ function App() {
         <div className="hidden lg:block p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
           <GlobalStats 
             serverState={serverState}
+            storageStats={storageStats}
             pendingAltSpeedTarget={pendingAltSpeedTarget}
             onToggleAltSpeeds={handleToggleAltSpeeds}
           />

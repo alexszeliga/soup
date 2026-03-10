@@ -15,6 +15,7 @@ import {
   TaskQueue, 
   TMDBMetadataProvider,
   FuseLocalMatcher,
+  StorageService,
   type QBPreferences
 } from '@soup/core';
 import { createDatabase } from '@soup/database';
@@ -60,6 +61,7 @@ const matcher = new MetadataMatcher(tmdb, localMatcher);
 const engine = new SyncEngine(qb);
 const liveSync = new LiveSyncService(engine, matcher, cache, tmdb);
 const ingestion = new IngestionService(config.MEDIA_ROOT);
+const storage = new StorageService();
 const queue = new TaskQueue(db);
 
 // Track the hash currently being "viewed" by a user to prioritize file syncing.
@@ -404,6 +406,13 @@ fastify.get('/api/torrents/:hash/files/:index/download', async (request, reply) 
 });
 
 // 2. Global State & Preferences
+
+fastify.get('/api/system/storage', async () => {
+  return storage.getStorageOverview({
+    'Library': config.MEDIA_ROOT,
+    'Downloads': config.LOCAL_DOWNLOAD_ROOT
+  });
+});
 
 fastify.get('/api/state', async () => {
   return liveSync.getServerState() || {};

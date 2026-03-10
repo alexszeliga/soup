@@ -9,5 +9,6 @@ export * from './MetadataCache.js';
 export * from './MetadataProvider.js';
 export * from './TMDBMetadataProvider.js';
 export * from './IngestionService.js';
+export * from './StorageService.js';
 export * from './TaskQueue.js';
 export * from './Config.js';

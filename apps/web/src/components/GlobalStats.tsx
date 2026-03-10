@@ -1,10 +1,12 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, HardDrive, Zap, ZapOff } from 'lucide-react';
 import type { QBServerState } from '@soup/core/QBClient.js';
+import type { DiskStats } from '@soup/core/StorageService.js';
 import { formatBytes } from '../utils/format';
 
 interface GlobalStatsProps {
   serverState: QBServerState | null;
+  storageStats: DiskStats[];
   pendingAltSpeedTarget: boolean | null;
   onToggleAltSpeeds: () => void;
   isMobile?: boolean;
@@ -16,6 +18,7 @@ interface GlobalStatsProps {
  */
 const GlobalStats: React.FC<GlobalStatsProps> = ({ 
   serverState, 
+  storageStats,
   pendingAltSpeedTarget, 
   onToggleAltSpeeds,
   isMobile = false
@@ -33,24 +36,46 @@ const GlobalStats: React.FC<GlobalStatsProps> = ({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
-          <div className="flex items-center space-x-1">
-            <HardDrive size={10} />
-            <span>Free Space</span>
+      <div className="space-y-3">
+        {storageStats.length > 0 ? (
+          storageStats.map((disk) => (
+            <div key={disk.path} className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
+                <div className="flex items-center space-x-1">
+                  <HardDrive size={10} />
+                  <span className="truncate max-w-[80px]">{disk.label}</span>
+                </div>
+                <span className="text-zinc-600 dark:text-zinc-300">{formatBytes(disk.free, 1)} free</span>
+              </div>
+              <div className="h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-1000 ${disk.usagePercent > 90 ? 'bg-red-500' : 'bg-blue-500/50'}`} 
+                  style={{ width: `${disk.usagePercent}%` }} 
+                />
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
+              <div className="flex items-center space-x-1">
+                <HardDrive size={10} />
+                <span>Storage</span>
+              </div>
+              <span className="text-zinc-600 dark:text-zinc-300">...</span>
+            </div>
+            <div className="h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500/20 w-0" />
+            </div>
           </div>
-          <span className="text-zinc-600 dark:text-zinc-300">{serverState ? formatBytes(serverState.free_space_on_disk, 1) : '0 GB'}</span>
-        </div>
-        <div className="h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500/50 w-[70%]" /> {/* Mock fill until we have total capacity */}
-        </div>
+        )}
       </div>
 
       {/* Alt Speed Limits Toggle */}
       <button 
         onClick={onToggleAltSpeeds}
         disabled={pendingAltSpeedTarget !== null}
-        className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${pendingAltSpeedTarget !== null ? 'opacity-50 cursor-default' : 'cursor-pointer'} ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:bg-zinc-800/50 text-zinc-400'}`}
+        className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${pendingAltSpeedTarget !== null ? 'opacity-50 cursor-default' : 'cursor-pointer'} ${serverState?.use_alt_speed_limits ? 'bg-orange-500/10 text-orange-500' : 'bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:bg-zinc-200 dark:bg-zinc-800/50 text-zinc-400 group'}`}
       >
         <div className="flex items-center space-x-2">
           {serverState?.use_alt_speed_limits ? <Zap size={14} /> : <ZapOff size={14} />}
