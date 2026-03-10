@@ -1,8 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import TorrentList from './components/TorrentList';
-import AddTorrentModal from './components/AddTorrentModal';
-import SettingsModal from './components/SettingsModal';
-import TorrentDetailModal from './components/TorrentDetailModal';
 import TaskMonitor from './components/TaskMonitor';
 import GlobalStats from './components/GlobalStats';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -12,6 +9,11 @@ import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
 import { Plus, Settings, AlertTriangle, FileText, Activity, PawPrint } from 'lucide-react';
+
+// Lazy load heavy modals to improve initial load performance
+const AddTorrentModal = lazy(() => import('./components/AddTorrentModal'));
+const SettingsModal = lazy(() => import('./components/SettingsModal'));
+const TorrentDetailModal = lazy(() => import('./components/TorrentDetailModal'));
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -181,26 +183,32 @@ function App() {
   return (
     <div className="flex min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 transition-colors duration-500 font-sans selection:bg-blue-500/30 relative">
       {/* Add Torrent Modal */}
-      <AddTorrentModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onAdd={handleAddTorrent} 
-      />
+      <Suspense fallback={null}>
+        <AddTorrentModal 
+          isOpen={isAddModalOpen} 
+          onClose={() => setIsAddModalOpen(false)} 
+          onAdd={handleAddTorrent} 
+        />
+      </Suspense>
 
       {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        apiUrl={API_URL}
-      />
+      <Suspense fallback={null}>
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          apiUrl={API_URL}
+        />
+      </Suspense>
 
       {/* Detail Modal */}
-      <TorrentDetailModal
-        torrent={selectedTorrent}
-        isOpen={!!selectedTorrentHash}
-        onClose={() => setSelectedTorrentHash(null)}
-        onDelete={handleDelete}
-      />
+      <Suspense fallback={null}>
+        <TorrentDetailModal
+          torrent={selectedTorrent}
+          isOpen={!!selectedTorrentHash}
+          onClose={() => setSelectedTorrentHash(null)}
+          onDelete={handleDelete}
+        />
+      </Suspense>
 
       {/* Mobile Stats Modal */}
       {isStatsModalOpen && (
