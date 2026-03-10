@@ -99,6 +99,26 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **CLI Ingestion:** Implement `ingest` command to trigger file movement and a `tasks` command to monitor progress.
 - [x] **CLI Settings:** Implement a `settings` command to view and modify qBittorrent preferences.
 - [x] **CLI Stats:** Add a `stats` or `dashboard` command for real-time global speed and health monitoring.
+- [x] **CLI Structural Overhaul:** Implement a structured command router (e.g. using `commander` or a pattern-matcher) to improve subcommand maintainability.
+
+### Phase 6: System Hardening & Resilience
+- [ ] **Ingestion Safety:** Implement pre-flight writability checks in `IngestionService` and enhance `TaskQueue` with filesystem-specific error recovery.
+- [ ] **Sync Loop Isolation:** Prevent overlapping sync cycles using an execution lock and isolate individual metadata fetch failures within the loop to prevent global stalls.
+- [ ] **Persistence Integrity:** Refactor `MetadataCache` to use atomic transactions for multi-table updates and implement a retry strategy for SQLite "Database Busy" errors.
+- [ ] **Standardized Error Mapping:** Define domain-specific error classes (e.g., `SoupError`, `ProviderError`) and map them to appropriate HTTP status codes in the server layer.
+- [ ] **UI State Awareness:** Add a "Live" connection status indicator to the web header and implement a "Connection Lost" overlay for persistent polling failures.
+
+### Phase 7: DX & Readability Overhaul
+- [ ] **Web (High Priority):**
+    - [ ] Refactor `App.tsx` state management into a `useTorrents` custom hook to encapsulate polling and delta logic.
+    - [ ] Decouple Modal state and complex business logic from the main `App` component into domain-specific containers.
+- [ ] **Server (Medium Priority):**
+    - [ ] Modularize the monolithic `index.ts` by extracting API routes into domain-specific files (e.g., `torrents.routes.ts`, `system.routes.ts`).
+    - [ ] Encapsulate the background synchronization loop into a dedicated `SyncWorker` class.
+    - [ ] Eliminate `any` types in route handlers and implement strict, schema-validated request/reply types.
+- [ ] **Core (Lower Priority):**
+    - [ ] Extract `NoiseMiner` logic from `LiveSyncService` into a standalone domain service to adhere to the Single Responsibility Principle.
+    - [ ] Centralize `QBClient` API endpoints into a structured constant or enum to improve discoverability and ease of updates.
 
 ## Handoff Notes (Session 1)
 - **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
