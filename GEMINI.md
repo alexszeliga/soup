@@ -87,6 +87,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 
 ### Phase 4: Architecture & Infrastructure
 - [x] **Deployment:** Plan and implement a container hosting strategy.
+- [ ] **Bundle Optimization:** Use `React.lazy` for Modals to reduce initial bundle size and improve TTI.
 
 ### Phase 5: CLI Parity
 - [x] **Remote CLI Architecture:** CLI now works as a thin client over the network via `SOUP_URL`.
