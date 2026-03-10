@@ -4,6 +4,7 @@ export * from './QBClient.js';
 export * from './LiveSyncService.js';
 export * from './SyncEngine.js';
 export * from './MetadataMatcher.js';
+export * from './LocalMatcher.js';
 export * from './MetadataCache.js';
 export * from './MetadataProvider.js';
 export * from './TMDBMetadataProvider.js';

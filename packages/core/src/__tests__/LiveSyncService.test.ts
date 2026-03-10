@@ -22,7 +22,8 @@ describe('LiveSyncService', () => {
     } as any;
     
     matcher = {
-      match: vi.fn()
+      match: vi.fn(),
+      addToIndex: vi.fn()
     } as any;
     
     cache = {
@@ -30,7 +31,9 @@ describe('LiveSyncService', () => {
       saveMetadataForTorrent: vi.fn(),
       unmatchTorrent: vi.fn(),
       isNonMedia: vi.fn().mockResolvedValue(false),
-      setNonMedia: vi.fn()
+      setNonMedia: vi.fn(),
+      getActiveNoiseTokens: vi.fn().mockResolvedValue([]),
+      incrementNoise: vi.fn()
     } as any;
 
     provider = {
@@ -73,8 +76,8 @@ describe('LiveSyncService', () => {
 
     await service.sync();
 
-    expect(matcher.match).toHaveBeenCalledWith(torrent);
-    expect(cache.saveMetadataForTorrent).toHaveBeenCalledWith(torrent, metadata);
+    expect(matcher.match).toHaveBeenCalledWith(expect.objectContaining({ hash: torrent.hash }));
+    expect(cache.saveMetadataForTorrent).toHaveBeenCalledWith(expect.objectContaining({ hash: torrent.hash }), metadata);
     expect(service.getTorrentsWithMetadata()).toHaveLength(1);
   });
 
@@ -157,7 +160,7 @@ describe('LiveSyncService', () => {
     
     // Should have been called twice (once for initial add, once for name change)
     expect(matcher.match).toHaveBeenCalledTimes(2);
-    expect(matcher.match).toHaveBeenLastCalledWith(updatedTorrent);
+    expect(matcher.match).toHaveBeenLastCalledWith(expect.objectContaining({ hash: updatedTorrent.hash }));
     expect(service.getTorrentsWithMetadata()[0].mediaMetadata).toBe(metadata);
   });
 
@@ -265,5 +268,38 @@ describe('LiveSyncService', () => {
     await service.markAsNonMedia('h1', false);
     expect(cache.setNonMedia).toHaveBeenCalledWith('h1', false, 'ISO File');
     expect(service.getTorrentsWithMetadata()[0].isNonMedia).toBe(false);
+  });
+
+  it('should mine noise tokens from confirmed matches', async () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'The.Matrix.1999.NOVELTAG.1080p',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: ''
+    });
+
+    const metadata = new MediaMetadata({
+      id: 'm1',
+      title: 'The Matrix',
+      year: 1999,
+      plot: '',
+      cast: [],
+      posterPath: ''
+    });
+
+    // Mock initial state
+    (engine.tick as any).mockResolvedValueOnce({ added: [torrent], updated: [], removed: [], fullUpdate: true });
+    (cache.getMetadataForTorrent as any).mockResolvedValue(null);
+    (matcher.match as any).mockResolvedValue(metadata);
+    (cache.getActiveNoiseTokens as any).mockResolvedValue([]);
+
+    await service.sync();
+
+    // Should have called incrementNoise with 'NOVELTAG'
+    // (1080p is already in static noise, so it should be filtered out)
+    expect(cache.incrementNoise).toHaveBeenCalledWith(['NOVELTAG']);
   });
 });

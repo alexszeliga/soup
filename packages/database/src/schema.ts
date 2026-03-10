@@ -30,6 +30,12 @@ export const torrentsRelations = relations(torrents, ({ one }) => ({
   }),
 }));
 
+export const noiseTokens = sqliteTable('noise_tokens', {
+  token: text('token').primaryKey(),
+  hitCount: integer('hit_count').notNull().default(1),
+  updatedAt: integer('updated_at').notNull(),
+});
+
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   torrentHash: text('torrent_hash').notNull(),

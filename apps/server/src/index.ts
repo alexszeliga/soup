@@ -14,6 +14,7 @@ import {
   SyncEngine, 
   TaskQueue, 
   TMDBMetadataProvider,
+  FuseLocalMatcher,
   type QBPreferences
 } from '@soup/core';
 import { createDatabase } from '@soup/database';
@@ -47,14 +48,19 @@ const tmdb = new TMDBMetadataProvider(
   config.TMDB_BASE_URL, 
   config.TMDB_IMAGE_BASE_URL
 );
-const matcher = new MetadataMatcher(tmdb);
+
 const cache = new MetadataCache(db);
+await cache.ensureTables();
+
+// Initialize Local Fuzzy Matcher from cache
+const uniqueMeta = await cache.getAllUniqueMetadata();
+const localMatcher = new FuseLocalMatcher(uniqueMeta);
+const matcher = new MetadataMatcher(tmdb, localMatcher);
+
 const engine = new SyncEngine(qb);
 const liveSync = new LiveSyncService(engine, matcher, cache, tmdb);
 const ingestion = new IngestionService(config.MEDIA_ROOT);
 const queue = new TaskQueue(db);
-
-await cache.ensureTables();
 
 // Track the hash currently being "viewed" by a user to prioritize file syncing.
 let currentFocus: string | null = null;

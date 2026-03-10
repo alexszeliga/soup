@@ -1,6 +1,10 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql, gt, and } from 'drizzle-orm';
 import { DatabaseInstance } from '@soup/database';
-import { metadata as metadataSchema, torrents as torrentsSchema } from '@soup/database/schema.js';
+import { 
+  metadata as metadataSchema, 
+  torrents as torrentsSchema,
+  noiseTokens as noiseTokensSchema
+} from '@soup/database/schema.js';
 import { MediaMetadata } from './MediaMetadata.js';
 import { Torrent } from './Torrent.js';
 
@@ -21,7 +25,7 @@ export class MetadataCache {
   /**
    * Initializes the database schema if it does not exist.
    * 
-   * Creates the `metadata` and `torrents` tables.
+   * Creates the `metadata`, `torrents`, `tasks`, and `noise_tokens` tables.
    * 
    * @returns A promise that resolves when tables are ensured.
    */
@@ -53,6 +57,11 @@ export class MetadataCache {
       file_map TEXT NOT NULL,
       error_message TEXT,
       created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS noise_tokens (
+      token TEXT PRIMARY KEY,
+      hit_count INTEGER NOT NULL DEFAULT 1,
       updated_at INTEGER NOT NULL
     )`);
 
@@ -184,6 +193,66 @@ export class MetadataCache {
         updatedAt: now,
       }
     }).run();
+  }
+
+  /**
+   * Increments the hit count for one or more noise tokens.
+   * 
+   * @param tokens - List of tokens to increment.
+   */
+  public async incrementNoise(tokens: string[]): Promise<void> {
+    const now = Date.now();
+    for (const token of tokens) {
+      this.db.insert(noiseTokensSchema).values({
+        token,
+        hitCount: 1,
+        updatedAt: now,
+      }).onConflictDoUpdate({
+        target: noiseTokensSchema.token,
+        set: {
+          hitCount: sql`${noiseTokensSchema.hitCount} + 1`,
+          updatedAt: now,
+        }
+      }).run();
+    }
+  }
+
+  /**
+   * Retrieves all noise tokens that meet the promotion criteria.
+   * 
+   * Promotion Criteria: hit_count >= 5 AND length > 2.
+   * 
+   * @returns List of active noise tokens.
+   */
+  public async getActiveNoiseTokens(): Promise<string[]> {
+    const results = await this.db.select({ token: noiseTokensSchema.token })
+      .from(noiseTokensSchema)
+      .where(and(
+        gt(noiseTokensSchema.hitCount, 4),
+        sql`LENGTH(${noiseTokensSchema.token}) > 2`
+      ));
+    
+    return results.map(r => r.token);
+  }
+
+  /**
+   * Retrieves all unique MediaMetadata records stored in the cache.
+   * 
+   * Useful for initializing local fuzzy matching indexes.
+   * 
+   * @returns Array of unique MediaMetadata objects.
+   */
+  public async getAllUniqueMetadata(): Promise<MediaMetadata[]> {
+    const results = await this.db.query.metadata.findMany();
+
+    return results.map((meta) => new MediaMetadata({
+      id: meta.id,
+      title: meta.title,
+      year: meta.year,
+      plot: meta.plot,
+      cast: JSON.parse(meta.cast || '[]'),
+      posterPath: meta.posterPath,
+    }));
   }
 
   /**
