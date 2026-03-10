@@ -11,7 +11,7 @@ import type { QBServerState } from '@soup/core/QBClient.js';
 import { sortTorrents } from './utils/sorting';
 import type { SortOption } from './utils/sorting';
 import { useNotification } from './context/NotificationContext';
-import { Plus, Settings, AlertTriangle, FileText, Activity, PawPrint } from 'lucide-react';
+import { Plus, Settings, AlertTriangle, FileText, PawPrint } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -35,7 +35,6 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTorrentHash, setSelectedTorrentHash] = useState<string | null>(null);
   const [config, setConfig] = useState<ClientConfig | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('dateAdded');
@@ -202,24 +201,6 @@ function App() {
         onDelete={handleDelete}
       />
 
-      {/* Mobile Stats Modal */}
-      {isStatsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] shadow-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 p-6 space-y-6 animate-in slide-in-from-bottom-8 duration-500">
-            <div className="flex justify-between items-center">
-              <h2 className="font-black text-xl tracking-tight">Server Data</h2>
-              <button onClick={() => setIsStatsModalOpen(false)} className="text-zinc-400 text-2xl">&times;</button>
-            </div>
-            <GlobalStats 
-              serverState={serverState}
-              pendingAltSpeedTarget={pendingAltSpeedTarget}
-              onToggleAltSpeeds={handleToggleAltSpeeds}
-              isMobile={true}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Material 3 Sidebar */}
       <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen overflow-hidden">
         <div className="p-5 lg:p-6 flex items-center lg:space-x-3 justify-center lg:justify-start">
@@ -264,6 +245,18 @@ function App() {
               <span className="hidden lg:block font-bold text-sm">Coverage Report</span>
             </a>
           )}
+
+          {/* Mobile Server Data Section */}
+          <div className="lg:hidden pt-4 mt-4 border-t border-zinc-200/50 dark:border-zinc-800/50">
+            <div className="px-3 pb-4">
+              <GlobalStats 
+                serverState={serverState}
+                pendingAltSpeedTarget={pendingAltSpeedTarget}
+                onToggleAltSpeeds={handleToggleAltSpeeds}
+                isMobile={true}
+              />
+            </div>
+          </div>
         </nav>
 
         <div className="hidden lg:block p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
@@ -333,14 +326,6 @@ function App() {
           </div>
         </div>
       </main>
-
-      {/* Mobile Stats FAB */}
-      <button 
-        onClick={() => setIsStatsModalOpen(true)}
-        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/40 active:scale-90 transition-all z-40"
-      >
-        <Activity size={24} strokeWidth={2.5} />
-      </button>
     </div>
   );
 }
