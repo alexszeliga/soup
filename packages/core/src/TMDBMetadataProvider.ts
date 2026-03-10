@@ -9,6 +9,8 @@ interface TMDBResult {
   first_air_date?: string;
   overview: string;
   poster_path: string | null;
+  popularity: number;
+  vote_count: number;
 }
 
 interface TMDBSearchResponse {
@@ -120,7 +122,15 @@ export class TMDBMetadataProvider implements MetadataProvider {
     const data = await this.fetchSearchData(type, title, year);
     if (!data?.results || data.results.length === 0) return null;
 
-    const item = data.results[0];
+    // Sort by popularity descending to pick the most relevant match
+    const sorted = [...data.results].sort((a, b) => {
+      if (b.popularity !== a.popularity) {
+        return b.popularity - a.popularity;
+      }
+      return b.vote_count - a.vote_count;
+    });
+
+    const item = sorted[0];
     const cast = await this.fetchCredits(type, item.id.toString());
 
     return this.mapToMetadata(type, item, cast);
