@@ -107,6 +107,7 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [ ] **Persistence Integrity:** Refactor `MetadataCache` to use atomic transactions for multi-table updates and implement a retry strategy for SQLite "Database Busy" errors.
 - [ ] **Standardized Error Mapping:** Define domain-specific error classes (e.g., `SoupError`, `ProviderError`) and map them to appropriate HTTP status codes in the server layer.
 - [ ] **UI State Awareness:** Add a "Live" connection status indicator to the web header and implement a "Connection Lost" overlay for persistent polling failures.
+- [ ] **Test Runner Maintenance:** Resolve the `test.poolOptions` deprecation warning in Vitest configuration across the monorepo.
 
 ### Phase 7: DX & Readability Overhaul
 - [ ] **Web (High Priority):**
