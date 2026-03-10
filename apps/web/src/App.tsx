@@ -5,6 +5,7 @@ import SettingsModal from './components/SettingsModal';
 import TorrentDetailModal from './components/TorrentDetailModal';
 import TaskMonitor from './components/TaskMonitor';
 import GlobalStats from './components/GlobalStats';
+import ErrorBoundary from './components/ErrorBoundary';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import type { QBServerState } from '@soup/core/QBClient.js';
 import { sortTorrents } from './utils/sorting';
@@ -321,12 +322,14 @@ function App() {
               </div>
             )}
 
-            <TorrentList 
-              torrents={sortedTorrents} 
-              isLoading={isLoading} 
-              pendingHashes={new Set(pendingTransitions.keys())}
-              onSelect={setSelectedTorrentHash}
-            />
+            <ErrorBoundary>
+              <TorrentList 
+                torrents={sortedTorrents} 
+                isLoading={isLoading} 
+                pendingHashes={new Set(pendingTransitions.keys())}
+                onSelect={setSelectedTorrentHash}
+              />
+            </ErrorBoundary>
           </div>
         </div>
       </main>
