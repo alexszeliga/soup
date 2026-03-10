@@ -228,7 +228,7 @@ function App() {
           </div>
           <div className="hidden lg:flex flex-col">
             <span className="font-black text-xl tracking-tight uppercase leading-none">MML</span>
-            <span className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mt-0.5">Mamal Soup</span>
+            <span className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mt-0.5">Mammal Soup</span>
           </div>
         </div>
 
