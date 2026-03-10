@@ -54,37 +54,19 @@ export class StorageService {
   }
 
   /**
-   * Aggregates stats for multiple configured paths, merging duplicates 
-   * if they reside on the same filesystem.
+   * Aggregates stats for multiple configured paths.
    * 
    * @param locations - Map of Label -> Path
-   * @returns List of unique disk stats.
+   * @returns List of disk stats.
    */
   public async getStorageOverview(locations: Record<string, string>): Promise<DiskStats[]> {
     const results: DiskStats[] = [];
-    const seenFilesystems = new Set<string>();
 
     for (const [label, dirPath] of Object.entries(locations)) {
       try {
         const absolutePath = path.resolve(dirPath);
-        await fs.statfs(absolutePath);
-        
         const disk = await this.getDiskStats(label, absolutePath);
-        
-        // Fingerprint to avoid double-counting the same physical disk
-        const fingerprint = `${disk.total}-${disk.free}`;
-        
-        if (!seenFilesystems.has(fingerprint)) {
-          results.push(disk);
-          seenFilesystems.add(fingerprint);
-        } else {
-          // If we've seen this disk but with a different label (e.g. "Library" and "Downloads" on same disk),
-          // we can combine the label.
-          const existing = results.find(r => `${r.total}-${r.free}` === fingerprint);
-          if (existing && !existing.label.includes(label)) {
-            existing.label = `${existing.label} & ${label}`;
-          }
-        }
+        results.push(disk);
       } catch {
         // Skip inaccessible paths
       }
