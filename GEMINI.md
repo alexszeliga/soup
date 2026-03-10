@@ -65,14 +65,14 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Global Stats:** Real-time aggregate upload/download speeds and remaining disk space in the web header.
 - [x] **Speed Limits:** Toggle global speed limits and "Alternative Speed Limits".
 - [x] **Seeding Stats:** Display seeding time and share ratio in Torrent Cards and Detail View.
-- [ ] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
+- [x] **App Preferences:** View and modify key qBittorrent settings (e.g. save paths).
 - [x] **Configuration Management:** Establish a plan to extract magic numbers and configs to a unified configuration layer.
 - [x] **UI/UX Hardening:** Replace all browser-native `alert()` and `confirm()` dialogs with integrated Material 3 components.
     - [x] Implement a reusable `ConfirmDialog` component for destructive actions.
     - [x] Implement a `Snackbar` system for non-intrusive error/success feedback.
     - [x] Update `App.tsx`, `SettingsModal.tsx`, and `TorrentDetailModal.tsx` to use the new systems.
-- [ ] **Resilient Media Parsing:** Enhance regex in `Torrent.ts` to handle complex scene names (e.g., dual-language, non-standard tags).
-- [ ] **UI Error Boundaries:** Implement React Error Boundaries around `TorrentList` to isolate metadata rendering failures.
+- [x] **Resilient Media Parsing:** Enhance regex in `Torrent.ts` to handle complex scene names (e.g., dual-language, non-standard tags).
+- [x] **UI Error Boundaries:** Implement React Error Boundaries around `TorrentList` to isolate metadata rendering failures.
 - [x] **Local File Download:** Allow users to download individual torrent files directly to their browser for local use.
 - [x] **Emoji Wipeout:** Remove all emojis from the codebase and UI, replacing them with icons or text.
 - [x] **Nice Status Names:** Map raw qBittorrent states to human-readable names in the UI.
