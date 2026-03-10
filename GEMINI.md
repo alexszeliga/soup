@@ -108,6 +108,9 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [ ] **Standardized Error Mapping:** Define domain-specific error classes (e.g., `SoupError`, `ProviderError`) and map them to appropriate HTTP status codes in the server layer.
 - [ ] **UI State Awareness:** Add a "Live" connection status indicator to the web header and implement a "Connection Lost" overlay for persistent polling failures.
 - [ ] **Test Runner Maintenance:** Resolve the `test.poolOptions` deprecation warning in Vitest configuration across the monorepo.
+- [ ] **Core De-duplication:** Centralize formatting utilities (`formatBytes`, `formatDuration`) in `@soup/core` to eliminate duplication between CLI and Web.
+- [ ] **CLI De-duplication:** Refactor `SoupClient` to use a unified request helper, removing redundant error-handling boilerplate.
+- [ ] **Web De-duplication:** Streamline `TorrentDetailModal.tsx` by extracting shared sub-components for tabs and file priority logic.
 
 ### Phase 7: DX & Readability Overhaul
 - [ ] **Web (High Priority):**
