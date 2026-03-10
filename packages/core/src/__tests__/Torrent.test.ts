@@ -108,6 +108,22 @@ describe('Torrent Model', () => {
     expect(info.year).toBe(2009);
   });
 
+  it('should handle unrated and technical tags before the year', () => {
+    const torrent = new Torrent({
+      hash: 'h1',
+      name: 'The.Great.Movie.UNRATED.2024.1080p.WEB-DL',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p1'
+    });
+
+    const info = torrent.getMediaInfo();
+    expect(info.title).toBe('The Great Movie');
+    expect(info.year).toBe(2024);
+  });
+
   it('should handle dual language and complex tags', () => {
     const torrent = new Torrent({
       hash: 'h1',
@@ -124,13 +140,13 @@ describe('Torrent Model', () => {
     expect(info.year).toBe(2021);
   });
 
-  it('should handle TV show patterns', () => {
+  it('should handle TV show patterns with complex noise', () => {
     const examples = [
       { name: 'The.Boys.2019.S01E01.1080p', title: 'The Boys', year: 2019 },
-      { name: 'Stranger.Things.S04E01.720p', title: 'Stranger Things', year: null },
-      { name: 'The.Mandalorian.Season.2.1080p', title: 'The Mandalorian', year: null },
-      { name: 'Breaking.Bad.1x01.BluRay', title: 'Breaking Bad', year: null },
-      { name: 'The.Simpsons.S01.Complete.1080p', title: 'The Simpsons', year: null }
+      { name: 'Stranger.Things.S04E01.GERMAN.DL.720p', title: 'Stranger Things', year: null },
+      { name: 'The.Mandalorian.Season.2.1080p.WEB-DL', title: 'The Mandalorian', year: null },
+      { name: 'Breaking.Bad.1x01.BluRay.x264-GROUP', title: 'Breaking Bad', year: null },
+      { name: 'The.Simpsons.S01.Complete.1080p.BluRay', title: 'The Simpsons', year: null }
     ];
 
     for (const ex of examples) {
@@ -147,6 +163,34 @@ describe('Torrent Model', () => {
       expect(info.title).toBe(ex.title);
       expect(info.year).toBe(ex.year);
     }
+  });
+
+  it('should strip group tags with hyphens', () => {
+    const torrent = new Torrent({
+      hash: 'h',
+      name: 'Movie.Title.2024.1080p.WEB-DL-GROUP',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p'
+    });
+    const info = torrent.getMediaInfo();
+    expect(info.title).toBe('Movie Title');
+  });
+
+  it('should apply dynamic noise tokens', () => {
+    const torrent = new Torrent({
+      hash: 'h',
+      name: 'Movie.Title.2024.1080p.NOVELTAG',
+      progress: 1,
+      state: 'seeding',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p'
+    });
+    const info = torrent.getMediaInfo(['NOVELTAG']);
+    expect(info.title).toBe('Movie Title');
   });
 
   it('should strip technical noise tags', () => {
