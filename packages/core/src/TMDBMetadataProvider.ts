@@ -11,6 +11,7 @@ interface TMDBResult {
   poster_path: string | null;
   popularity: number;
   vote_count: number;
+  media_type?: 'movie' | 'tv' | 'person';
 }
 
 interface TMDBSearchResponse {
@@ -42,24 +43,74 @@ export class TMDBMetadataProvider implements MetadataProvider {
   ) {}
 
   /**
-   * Orchestrates a search across TMDB categories.
+   * Orchestrates a search across TMDB categories using the Multi Search API.
    * 
    * Strategy:
-   * 1. Search Movies first.
-   * 2. If no movie match, search TV Shows.
+   * 1. Perform a Multi Search to get combined movie and TV results.
+   * 2. Apply a scoring algorithm:
+   *    - Exact title match (case-insensitive) = Huge boost.
+   *    - Media type match (matching our regex hint) = Significant boost.
+   *    - Popularity = Tie-breaker.
    * 
    * @param title - The clean title from the torrent.
    * @param year - Optional release year filter.
-   * @returns MediaMetadata or null if no results were found.
+   * @param typeHint - Optional hint if we detected it's likely a movie or TV show.
+   * @returns MediaMetadata or null if no confident results were found.
    */
-  public async search(title: string, year?: number): Promise<MediaMetadata | null> {
-    // 1. Try Movie Search
-    const movieResult = await this.performSearch('movie', title, year);
-    if (movieResult) return movieResult;
+  public async search(title: string, year?: number, typeHint: 'movie' | 'tv' | 'unknown' = 'unknown'): Promise<MediaMetadata | null> {
+    const data = await this.fetchMultiSearch(title);
+    if (!data?.results || data.results.length === 0) return null;
 
-    // 2. Try TV Search (if movie fails)
-    const tvResult = await this.performSearch('tv', title, year);
-    return tvResult;
+    // Filter by year if provided (since multi search doesn't support year param)
+    let candidates = data.results.filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+    
+    if (year) {
+      candidates = candidates.filter(r => {
+        const date = r.release_date || r.first_air_date;
+        if (!date) return false;
+        return new Date(date).getFullYear() === year;
+      });
+    }
+
+    if (candidates.length === 0) return null;
+
+    // Scoring and Ranking
+    const ranked = candidates.map(item => {
+      let score = 0;
+      const itemTitle = (item.title || item.name || '').toLowerCase();
+      const queryTitle = title.toLowerCase();
+
+      // 1. Exact match boost
+      if (itemTitle === queryTitle) {
+        score += 1000;
+      } else if (itemTitle.includes(queryTitle) || queryTitle.includes(itemTitle)) {
+        score += 100;
+      }
+
+      // 2. Type match boost
+      if (typeHint !== 'unknown' && item.media_type === typeHint) {
+        score += 500;
+      }
+
+      // 3. Popularity (weighted)
+      score += Math.min(item.popularity, 100);
+
+      return { item, score };
+    }).sort((a, b) => b.score - a.score);
+
+    const best = ranked[0].item;
+    const cast = await this.fetchCredits(best.media_type as 'movie' | 'tv', best.id.toString());
+    return this.mapToMetadata(best.media_type as 'movie' | 'tv', best, cast);
+  }
+
+  private async fetchMultiSearch(query: string): Promise<TMDBSearchResponse | null> {
+    const url = new URL(`${this.baseUrl}/search/multi`);
+    url.searchParams.set('api_key', this.apiKey);
+    url.searchParams.set('query', query);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+    return await response.json() as TMDBSearchResponse;
   }
 
   /**

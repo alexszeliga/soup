@@ -179,13 +179,14 @@ export class Torrent {
    * 2. Movies: `Title.2024...`
    * 
    * @param dynamicNoise - Optional list of additional noise tokens to strip (e.g. from the Noise Miner).
-   * @returns An object containing the parsed title and optional year.
+   * @returns An object containing the parsed title, optional year, and type hint.
    */
-  public getMediaInfo(dynamicNoise: string[] = []): { title: string; year: number | null } {
+  public getMediaInfo(dynamicNoise: string[] = []): { title: string; year: number | null; type: 'movie' | 'tv' | 'unknown' } {
     // 1. Initial cleanup: Replace separators with spaces
     const clean = this.name.replace(/[._]/g, ' ').trim();
     let extractedYear: number | null = null;
     let extractedTitle = clean;
+    let type: 'movie' | 'tv' | 'unknown' = 'unknown';
 
     // 2. Identify TV Shows first (highest specificity)
     // Patterns: S01E01, S01, 1x01, Season 1
@@ -206,6 +207,7 @@ export class Torrent {
           extractedYear = parseInt(match[2], 10);
         }
         tvMatched = true;
+        type = 'tv';
         break;
       }
     }
@@ -216,6 +218,7 @@ export class Torrent {
       if (movieMatch) {
         extractedTitle = movieMatch[1].trim();
         extractedYear = parseInt(movieMatch[2], 10);
+        type = 'movie';
       }
     }
 
@@ -238,7 +241,8 @@ export class Torrent {
     // If resultTitle is empty (e.g. name was all noise), fallback to extractedTitle or clean
     return {
       title: resultTitle || extractedTitle || clean,
-      year: extractedYear
+      year: extractedYear,
+      type
     };
   }
 }

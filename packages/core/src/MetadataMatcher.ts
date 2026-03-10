@@ -31,7 +31,7 @@ export class MetadataMatcher {
    * @returns MediaMetadata if a match was found, otherwise null.
    */
   public async match(torrent: Torrent): Promise<MediaMetadata | null> {
-    const { title, year } = torrent.getMediaInfo();
+    const { title, year, type } = torrent.getMediaInfo();
     
     // 1. Check Local Fuzzy Barrier
     if (this.localMatcher) {
@@ -43,7 +43,7 @@ export class MetadataMatcher {
     }
 
     // 2. Fallback to External Provider
-    const result = await this.provider.search(title, year ?? undefined);
+    const result = await this.provider.search(title, year ?? undefined, type);
     
     return result;
   }

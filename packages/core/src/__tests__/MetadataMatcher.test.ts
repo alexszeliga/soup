@@ -88,7 +88,7 @@ describe('MetadataMatcher', () => {
     const result = await matcher.match(torrent);
 
     expect(result).toEqual(movieMeta);
-    expect(mockProvider.search).toHaveBeenCalledWith('The Matrix', 1999);
+    expect(mockProvider.search).toHaveBeenCalledWith('The Matrix', 1999, 'movie');
   });
 
   it('should NOT match if the distance is too large', async () => {

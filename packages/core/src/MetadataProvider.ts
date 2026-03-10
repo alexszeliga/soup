@@ -12,9 +12,10 @@ export interface MetadataProvider {
    * 
    * @param title - The clean title to search for.
    * @param year - Optional release year to improve accuracy.
+   * @param type - Optional hint for the media type ('movie' or 'tv').
    * @returns MediaMetadata if a high-confidence match is found, otherwise null.
    */
-  search(title: string, year?: number): Promise<MediaMetadata | null>;
+  search(title: string, year?: number, type?: 'movie' | 'tv' | 'unknown'): Promise<MediaMetadata | null>;
 
   /**
    * Returns a list of potential matches for a given query.

@@ -206,4 +206,20 @@ describe('Torrent Model', () => {
     const info = torrent.getMediaInfo();
     expect(info.title).toBe('Movie Title');
   });
+
+  it('should handle "The Office US" edge case with leaked noise', () => {
+    const torrent = new Torrent({
+      hash: 'office-hash',
+      name: 'The Office US S09 Extended Cut 1080p AMZN WEB-DL DDP5 1 H 264-Kitsune',
+      progress: 0.5,
+      state: 'downloading',
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      contentPath: 'p'
+    });
+    const info = torrent.getMediaInfo();
+    // We want the title to be clean enough for a successful TMDB search
+    expect(info.title).toBe('The Office US');
+    expect(info.year).toBeNull();
+  });
 });
