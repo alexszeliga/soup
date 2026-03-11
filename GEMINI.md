@@ -113,15 +113,6 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **Web De-duplication:** Streamline `TorrentDetailModal.tsx` by extracting shared sub-components for tabs and file priority logic.
 
 ### Phase 7: DX & Readability Overhaul
-
-## Handoff Notes (Session 2)
-- **Centralized Utilities:** `formatBytes` and `formatDuration` are now located in `@soup/core/utils/format.ts`. All apps should import from here to avoid duplication.
-- **Error Handling:** Use the custom error classes in `@soup/core/utils/Errors.ts` (e.g., `NotFoundError`, `ProviderError`) when throwing from services. The Fastify server automatically maps these to appropriate HTTP status codes.
-- **Sync Safety:** `LiveSyncService` now has an internal `isSyncing` lock. Overlapping calls to `sync()` (manual or background) will safely return immediately if a cycle is already active.
-- **Persistence Integrity:** `MetadataCache` now uses transactions for saving metadata and setting non-media status. Database operations also include an exponential backoff retry for `SQLITE_BUSY` errors.
-- **Task Queue Reliability:** `TaskQueue` now supports exponential backoff for retrying failed ingestion tasks. Terminal errors (like permission denied) are failed immediately to prevent infinite loops.
-- **UI Connectivity:** The web app now monitors server health. A pulsing green/red indicator in the sidebar shows sync status, and a full-screen "Connection Lost" overlay appears after 3 consecutive failures.
-### Phase 7: DX & Readability Overhaul
 - [x] **Web (High Priority):**
     - [x] Refactor `App.tsx` state management into a `useTorrents` custom hook to encapsulate polling and delta logic.
     - [x] Decouple Modal state and complex business logic from the main `App` component into domain-specific containers.
@@ -155,6 +146,13 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - [ ] **Persistence:** Save to `.env` with automatic backup of any pre-existing configuration.
 - [ ] **Dependency Check:** Add a pre-flight check to `soup start` (server) to warn if critical environment variables are missing or invalid.
 
+### Phase 10: Developer Infrastructure & Tooling
+- [ ] **Concise Handoff Script:** Implement a wrapper (e.g., `scripts/handoff.sh`) that intercepts `pnpm handoff` output.
+    - [ ] Success: Report only "PASSED" for each stage (Lint, Build, Test).
+    - [ ] Failure: Dump the full error log for the failing stage only.
+    - [ ] Goal: Minimize token overhead for AI agents during validation loops.
+- [ ] **Auto-fix Shortcuts:** Add `pnpm fix` to combine `eslint --fix` and other automated repair tools.
+
 ## Handoff Notes (Session 3)
 - **Web Refactoring:** The `App.tsx` is now a slim entry point. All state, polling, and action handlers are encapsulated in the `useTorrents` hook (`apps/web/src/hooks/useTorrents.ts`). UI layout is split into `Sidebar`, `Header`, and `ConnectionOverlay` components.
 - **Server Modularization:** The Fastify server is now modular. Routes are registered via `registerTorrentRoutes` and `registerSystemRoutes` in `apps/server/src/routes/`.
@@ -165,7 +163,15 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - **Test Fixes:** `TaskQueue.test.ts` now uses Vitest fake timers to correctly handle the exponential backoff logic introduced in Phase 6.
 
 ## Handoff Notes (Session 2)
+- **Centralized Utilities:** `formatBytes` and `formatDuration` are now located in `@soup/core/utils/format.ts`. All apps should import from here to avoid duplication.
+- **Error Handling:** Use the custom error classes in `@soup/core/utils/Errors.ts` (e.g., `NotFoundError`, `ProviderError`) when throwing from services. The Fastify server automatically maps these to appropriate HTTP status codes.
+- **Sync Safety:** `LiveSyncService` now has an internal `isSyncing` lock. Overlapping calls to `sync()` (manual or background) will safely return immediately if a cycle is already active.
+- **Persistence Integrity:** `MetadataCache` now uses transactions for saving metadata and setting non-media status. Database operations also include an exponential backoff retry for `SQLITE_BUSY` errors.
+- **Task Queue Reliability:** `TaskQueue` now supports exponential backoff for retrying failed ingestion tasks. Terminal errors (like permission denied) are failed immediately to prevent infinite loops.
+- **UI Connectivity:** The web app now monitors server health. A pulsing green/red indicator in the sidebar shows sync status, and a full-screen "Connection Lost" overlay appears after 3 consecutive failures.
+- **Vitest Config:** The `vitest.config.ts` was updated to comply with Vitest 4.0 (moving `forks` to the top level).
 
+## Handoff Notes (Session 1)
 - **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
 - **Ingestion System:** Files are copied via a persistent `TaskQueue`. You can monitor progress in the web header's "Activity" (Package icon) popover. Ingestion uses the `MEDIA_ROOT` environment variable and suggests Jellyfin-standard paths.
 - **Database Location:** The active database is located at `apps/server/soup.db`. If you add columns to the schema, you must manually handle migrations in `MetadataCache.ts` or nuke this file to trigger recreation.
