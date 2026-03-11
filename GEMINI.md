@@ -133,6 +133,28 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
     - [x] Extract `NoiseMiner` logic from `LiveSyncService` into a standalone domain service to adhere to the Single Responsibility Principle.
     - [x] Centralize `QBClient` API endpoints into a structured constant or enum to improve discoverability and ease of updates.
 
+### Phase 8: Design System & Theming Foundation
+- [ ] **Atomic UI Primitives:** Create reusable, stateless components in `apps/web/src/components/ui/` to centralize styling.
+    - [ ] `Button.tsx`: Support variants (Primary, Secondary, Danger, Ghost).
+    - [ ] `Badge.tsx`: Support semantic states (Active, Inactive, Warning, Error).
+    - [ ] `ProgressBar.tsx`: Standardize linear progress indicators with consistent animations.
+    - [ ] `Section.tsx`: Standardize layout headers and content block spacing.
+    - [ ] `BaseModal.tsx`: Encapsulate backdrop, blur, and standard Material 3 entry transitions.
+- [ ] **Style Tokenization:** Replace hardcoded Tailwind colors with semantic utility classes (e.g., `bg-primary`, `text-secondary`) mapping to CSS variables in `tailwind.config.js`.
+- [ ] **Component Refactoring:** Systematically update all views to use the new Design System primitives.
+    - [ ] Update `TorrentCard` to use `Badge` and `ProgressBar`.
+    - [ ] Update `TorrentDetailModal` to use `BaseModal` and semantic `Section` blocks.
+    - [ ] Update `AddTorrentModal` and `SettingsModal` to use `BaseModal`.
+- [ ] **Theming Engine:** Implement a simple `ThemeContext` and provider to demonstrate dynamic switching of CSS variable values.
+
+### Phase 9: First-Run Experience (CLI Init)
+- [ ] **Interactive Init Command:** Implement `soup init` to guide users through initial setup.
+    - [ ] **Proactive Configuration:** Prompt for all keys in `.env.example` with smart defaults.
+    - [ ] **Connectivity Validation:** Verify qBittorrent and TMDB connectivity during setup to ensure immediate functionality.
+    - [ ] **Secure Handling:** Use masked inputs for passwords and API keys.
+    - [ ] **Persistence:** Save to `.env` with automatic backup of any pre-existing configuration.
+- [ ] **Dependency Check:** Add a pre-flight check to `soup start` (server) to warn if critical environment variables are missing or invalid.
+
 ## Handoff Notes (Session 3)
 - **Web Refactoring:** The `App.tsx` is now a slim entry point. All state, polling, and action handlers are encapsulated in the `useTorrents` hook (`apps/web/src/hooks/useTorrents.ts`). UI layout is split into `Sidebar`, `Header`, and `ConnectionOverlay` components.
 - **Server Modularization:** The Fastify server is now modular. Routes are registered via `registerTorrentRoutes` and `registerSystemRoutes` in `apps/server/src/routes/`.
