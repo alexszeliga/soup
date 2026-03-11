@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Search, Trash2, Package, Download, Lock, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, ArrowUpCircle, HardDrive } from 'lucide-react';
+import { Pause, Play, Search, Trash2, Package, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, ArrowUpCircle, HardDrive } from 'lucide-react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { Torrent } from '@soup/core/Torrent.js';
 import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
@@ -7,6 +7,9 @@ import ConfirmDialog from './ConfirmDialog';
 import IngestTab from './IngestTab';
 import ActionMenu, { type ActionMenuItem } from './ActionMenu';
 import { formatBytes, formatDuration } from '../utils/format';
+import { FileRow } from './detail/FileRow';
+import { FileCard } from './detail/FileCard';
+import { MetadataSearch } from './detail/MetadataSearch';
 
 interface TorrentDetailModalProps {
   torrent: TorrentWithMetadata | null;
@@ -14,127 +17,6 @@ interface TorrentDetailModalProps {
   onClose: () => void;
   onDelete: (hash: string) => void;
 }
-
-interface TorrentFile {
-  index: number;
-  name: string;
-  size: number;
-  progress: number;
-  priority: number;
-  is_seed?: boolean;
-  piece_range?: [number, number];
-  availability?: number;
-}
-
-/**
- * Renders a single file row for the desktop table view.
- */
-const FileRow: React.FC<{ 
-  file: TorrentFile; 
-  torrentHash: string; 
-  isPending: boolean; 
-  onSetPriority: (indices: number[], priority: number) => void 
-}> = ({ file, torrentHash, isPending, onSetPriority }) => (
-  <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
-    <td className="px-4 py-3 font-bold truncate max-w-xs">{file.name}</td>
-    <td className="px-4 py-3 text-right font-medium text-zinc-500">{formatBytes(file.size)}</td>
-    <td className="px-4 py-3 text-center">
-      <select 
-        disabled={isPending}
-        value={file.priority}
-        onChange={(e) => onSetPriority([file.index], parseInt(e.target.value, 10))}
-        className={`bg-zinc-100 dark:bg-zinc-800 border-none rounded-lg text-[10px] font-black uppercase px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/50 transition-opacity ${isPending ? 'opacity-50 animate-pulse' : ''}`}
-      >
-        <option value={0}>Skip</option>
-        <option value={1}>Normal</option>
-        <option value={6}>High</option>
-        <option value={7}>Maximal</option>
-      </select>
-    </td>
-    <td className="px-4 py-3 text-right">
-      <span className={`font-black ${file.progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
-        {Math.round(file.progress * 100)}%
-      </span>
-    </td>
-    <td className="px-4 py-3 text-center">
-      {file.progress === 1 ? (
-        <button 
-          onClick={() => window.location.assign(`/api/torrents/${torrentHash}/files/${file.index}/download`)}
-          className="px-3 py-1 bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1 mx-auto"
-        >
-          <Download size={12} strokeWidth={3} /> Download
-        </button>
-      ) : (
-        <div className="text-[10px] font-black uppercase text-zinc-300 dark:text-zinc-700 cursor-not-allowed flex items-center gap-1 justify-center">
-          <Lock size={12} strokeWidth={3} /> Locked
-        </div>
-      )}
-    </td>
-  </tr>
-);
-
-/**
- * Renders a file card for the mobile list view.
- */
-const FileCard: React.FC<{ 
-  file: TorrentFile; 
-  torrentHash: string; 
-  isPending: boolean; 
-  onSetPriority: (indices: number[], priority: number) => void 
-}> = ({ file, torrentHash, isPending, onSetPriority }) => (
-  <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
-    <div className="flex justify-between items-start gap-4">
-      <div className="flex-1 min-w-0">
-        <p className="font-black text-sm truncate leading-tight mb-1">{file.name}</p>
-        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{formatBytes(file.size)}</p>
-      </div>
-      {file.progress === 1 ? (
-        <button 
-          onClick={() => window.location.assign(`/api/torrents/${torrentHash}/files/${file.index}/download`)}
-          className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 active:scale-90 transition-transform"
-        >
-          <Download size={18} strokeWidth={2.5} />
-        </button>
-      ) : (
-        <div className="w-10 h-10 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 rounded-xl flex items-center justify-center">
-          <Lock size={18} strokeWidth={2.5} />
-        </div>
-      )}
-    </div>
-
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex-1">
-        <div className="flex justify-between items-center mb-1.5">
-          <span className="text-[10px] font-black uppercase text-zinc-400 tracking-tighter">Progress</span>
-          <span className={`text-xs font-black ${file.progress === 1 ? 'text-green-500' : 'text-blue-500'}`}>
-            {Math.round(file.progress * 100)}%
-          </span>
-        </div>
-        <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-          <div 
-            className={`h-full transition-all duration-500 ${file.progress === 1 ? 'bg-green-500' : 'bg-blue-500'}`} 
-            style={{ width: `${file.progress * 100}%` }} 
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col items-end">
-        <span className="text-[10px] font-black uppercase text-zinc-400 tracking-tighter mb-1">Priority</span>
-        <select 
-          disabled={isPending}
-          value={file.priority}
-          onChange={(e) => onSetPriority([file.index], parseInt(e.target.value, 10))}
-          className={`bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[10px] font-black uppercase px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/50 ${isPending ? 'opacity-50 animate-pulse' : ''}`}
-        >
-          <option value={0}>Skip</option>
-          <option value={1}>Normal</option>
-          <option value={6}>High</option>
-          <option value={7}>Maximal</option>
-        </select>
-      </div>
-    </div>
-  </div>
-);
 
 const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({ 
   torrent, isOpen, onClose, onDelete 
@@ -488,39 +370,15 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar bg-white dark:bg-zinc-950">
             {isSearchView ? (
-              <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                <header className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Find Media Match</h3>
-                    <p className="text-xs sm:text-sm font-bold text-zinc-500">Search TMDB for the correct title.</p>
-                  </div>
-                  <button onClick={() => setIsSearchView(false)} className="px-4 py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-800 transition-colors">Cancel</button>
-                </header>
-
-                <form onSubmit={handleSearchMetadata} className="flex gap-2">
-                  <div className="flex-1 h-12 sm:h-14 px-4 sm:px-6 bg-zinc-100 dark:bg-zinc-900 rounded-xl sm:rounded-2xl flex items-center border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
-                    <input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-transparent border-none outline-none text-sm font-bold w-full" placeholder="Enter title..." />
-                  </div>
-                  <button type="submit" disabled={isSearching} className="h-12 sm:h-14 px-6 sm:px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50">
-                    {isSearching ? '...' : 'Search'}
-                  </button>
-                </form>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {searchCandidates.map(candidate => (
-                    <button key={candidate.id} onClick={() => handleLinkMetadata(candidate.id)} className="group text-left space-y-3 p-2 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all active:scale-95">
-                      <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md border border-black/5 bg-zinc-200 dark:bg-zinc-800 relative">
-                        {candidate.posterPath ? <img src={candidate.posterPath} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={candidate.title} /> : <div className="w-full h-full flex items-center justify-center text-zinc-400 font-serif italic">MML</div>}
-                        <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-colors" />
-                      </div>
-                      <div>
-                        <p className="font-black text-[10px] sm:text-xs line-clamp-1 group-hover:text-blue-600 transition-colors">{candidate.title}</p>
-                        <p className="text-[9px] sm:text-[10px] font-black uppercase text-zinc-500">{candidate.year || 'Unknown'}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <MetadataSearch 
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                searchCandidates={searchCandidates}
+                isSearching={isSearching}
+                onSearch={handleSearchMetadata}
+                onLink={handleLinkMetadata}
+                onCancel={() => setIsSearchView(false)}
+              />
             ) : activeTab === 'details' ? (
               <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8 sm:gap-10">
                 <div className="lg:col-span-2 space-y-8">

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TaskQueue, Task, TaskStatus, TaskJSON } from '../TaskQueue.js';
 import { DatabaseInstance } from '@soup/database';
 
@@ -22,7 +22,8 @@ class MockTask implements Task {
     }
     
     for (let i = 1; i <= 10; i++) {
-      await new Promise(resolve => setTimeout(resolve, this.duration / 10));
+      // Use a small timeout to simulate async work
+      await new Promise(resolve => setTimeout(resolve, 1));
       this.progress = i * 10;
       onProgress(this.progress, 'test-file.mkv');
     }
@@ -46,6 +47,7 @@ describe('TaskQueue', () => {
   let mockDb: any;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     // Setup deep mocks for Drizzle fluent API
     const runMock = vi.fn();
     const whereMock = vi.fn().mockReturnValue({ run: runMock });
@@ -58,6 +60,10 @@ describe('TaskQueue', () => {
       query: { tasks: { findMany: vi.fn().mockResolvedValue([]) } }
     };
     queue = new TaskQueue(mockDb as any as DatabaseInstance);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('should persist task to DB when enqueued', () => {
@@ -76,15 +82,8 @@ describe('TaskQueue', () => {
     const task = new MockTask(10);
     queue.enqueue(task);
 
-    // Wait for task to finish
-    await new Promise(resolve => {
-      const check = setInterval(() => {
-        if (task.status === 'completed') {
-          clearInterval(check);
-          resolve(true);
-        }
-      }, 5);
-    });
+    // Run until task finishes
+    await vi.runAllTimersAsync();
     
     // Status update to 'processing' and then 'completed'
     expect(mockDb.update).toHaveBeenCalled();
@@ -93,21 +92,19 @@ describe('TaskQueue', () => {
     expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
   });
 
-  it('should retry a failed task up to 3 times', async () => {
+  it('should retry a failed task up to 5 times with backoff', async () => {
     const task = new MockTask(10, true); // Fail every time
     queue.enqueue(task);
 
-    // Wait for failure
-    await new Promise(resolve => {
-      const check = setInterval(() => {
-        if (task.status === 'failed') {
-          clearInterval(check);
-          resolve(true);
-        }
-      }, 50);
-    });
+    // Process initial run + all retries
+    // Using a loop to advance timers and run pending tasks until it hits the max retries
+    for (let i = 0; i < 10; i++) {
+      await vi.runOnlyPendingTimersAsync();
+      await vi.advanceTimersByTimeAsync(100000); // Advance plenty of time for backoff
+    }
 
-    // We expect it to have run 3 times (initial + 2 retries) before finally failing
-    expect(task.runCount).toBe(3);
+    // Should fail permanently after 5 attempts
+    expect(task.status).toBe('failed');
+    expect(task.runCount).toBe(5);
   });
 });

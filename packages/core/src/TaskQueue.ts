@@ -27,6 +27,7 @@ export interface Task {
   progress: number;
   currentFile: string | null;
   retries?: number; // Internal tracking for retry logic
+  nextRetryAt?: number; // timestamp when the task can be retried
   run(onProgress: (p: number, currentFile?: string | null) => void): Promise<void>;
   /** Must return a DB-serializable representation of the task. */
   toJSON(): TaskJSON;
@@ -38,7 +39,8 @@ export interface Task {
 export class TaskQueue {
   private tasks: Task[] = [];
   private isProcessing = false;
-  private readonly MAX_RETRIES = 3;
+  private readonly MAX_RETRIES = 5;
+  private readonly INITIAL_RETRY_DELAY_MS = 5000;
 
   /**
    * Creates an instance of TaskQueue.
@@ -100,8 +102,18 @@ export class TaskQueue {
   private async processNext(): Promise<void> {
     if (this.isProcessing) return;
 
-    const nextTask = this.tasks.find(t => t.status === 'queued');
+    const now = Date.now();
+    const nextTask = this.tasks.find(t => 
+      t.status === 'queued' && (!t.nextRetryAt || t.nextRetryAt <= now)
+    );
+
     if (!nextTask) {
+      // If there are tasks waiting for retry, check again soon
+      const pendingRetry = this.tasks.find(t => t.status === 'queued' && t.nextRetryAt && t.nextRetryAt > now);
+      if (pendingRetry) {
+        const delay = Math.max(1000, pendingRetry.nextRetryAt! - now);
+        setTimeout(() => this.processNext(), delay);
+      }
       this.isProcessing = false;
       return;
     }
@@ -118,20 +130,40 @@ export class TaskQueue {
 
       this.updateTaskStatus(nextTask, 'completed');
       console.log(`[Transfer] Completed task: ${nextTask.id}`);
-    } catch (err) {
+    } catch (err: unknown) {
       const retries = (nextTask.retries ?? 0) + 1;
       nextTask.retries = retries;
 
-      if (retries < this.MAX_RETRIES) {
-        console.warn(`Task ${nextTask.id} failed (attempt ${retries}), retrying...`, err);
-        this.updateTaskStatus(nextTask, 'queued'); // Put back in queue
+      // Determine if error is terminal (e.g. Permission Denied)
+      let isTerminal = false;
+      let errorCode = 'UNKNOWN';
+      let errorMessage = 'Unknown error';
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        const e = err as unknown as { code?: string };
+        if (e.code === 'EPERM' || e.code === 'EACCES') {
+          isTerminal = true;
+          errorCode = e.code;
+        }
+      }
+
+      if (!isTerminal && retries < this.MAX_RETRIES) {
+        // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+        const delay = this.INITIAL_RETRY_DELAY_MS * Math.pow(2, retries - 1);
+        nextTask.nextRetryAt = Date.now() + delay;
+        
+        console.warn(`[Transfer] Task ${nextTask.id} failed (attempt ${retries}), retrying in ${delay/1000}s...`, errorMessage);
+        this.updateTaskStatus(nextTask, 'queued');
       } else {
-        console.error(`Task ${nextTask.id} failed after ${retries} attempts:`, err);
-        this.updateTaskStatus(nextTask, 'failed', (err as Error).message);
+        const reason = isTerminal ? `Terminal Error (${errorCode})` : `Failed after ${retries} attempts`;
+        console.error(`[Transfer] Task ${nextTask.id} failed permanently: ${reason}`, err);
+        this.updateTaskStatus(nextTask, 'failed', `${reason}: ${errorMessage}`);
       }
     } finally {
       this.isProcessing = false;
-      this.processNext();
+      // Use setImmediate to allow other events to process before next task
+      setImmediate(() => this.processNext());
     }
   }
 
@@ -149,8 +181,6 @@ export class TaskQueue {
       task.currentFile = currentFile;
     }
     
-    // Note: We're not persisting currentFile to DB yet as schema doesn't have it,
-    // but it's available in memory for the API /getTasks.
     this.db.update(tasksSchema)
       .set({ progress, updatedAt: Date.now() })
       .where(eq(tasksSchema.id, task.id))

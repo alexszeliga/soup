@@ -1,6 +1,30 @@
 import { Torrent } from './Torrent.js';
 
 /**
+ * Enumeration of qBittorrent Web API v2 endpoints.
+ */
+export enum QBEndpoints {
+  Login = '/auth/login',
+  Logout = '/auth/logout',
+  SyncMainData = '/sync/maindata',
+  TorrentsInfo = '/torrents/info',
+  TorrentsFiles = '/torrents/files',
+  TorrentsAdd = '/torrents/add',
+  TorrentsDelete = '/torrents/delete',
+  TorrentsStart = '/torrents/start',
+  TorrentsStop = '/torrents/stop',
+  TorrentsFilePrio = '/torrents/filePrio',
+  TorrentsSetForceStart = '/torrents/setForceStart',
+  TorrentsRecheck = '/torrents/recheck',
+  TorrentsReannounce = '/torrents/reannounce',
+  TorrentsToggleSequential = '/torrents/toggleSequentialDownload',
+  TorrentsToggleFirstLastPrio = '/torrents/toggleFirstLastPiecePrio',
+  AppPreferences = '/app/preferences',
+  AppSetPreferences = '/app/setPreferences',
+  TransferToggleSpeedLimits = '/transfer/toggleSpeedLimitsMode',
+}
+
+/**
  * Interface representing a file within a torrent.
  */
 export interface TorrentFile {
@@ -132,7 +156,7 @@ export class QBClient {
    * @throws Error if authentication fails.
    */
   public async login(username?: string, password?: string): Promise<void> {
-    const loginUrl = new URL(`${this.baseUrl}/auth/login`);
+    const loginUrl = new URL(`${this.baseUrl}${QBEndpoints.Login}`);
     const params = new URLSearchParams();
     if (username) params.append('username', username);
     if (password) params.append('password', password);
@@ -160,7 +184,7 @@ export class QBClient {
    * Logs out from the qBittorrent server.
    */
   public async logout(): Promise<void> {
-    await this.post('/auth/logout');
+    await this.post(QBEndpoints.Logout);
     this.cookies = [];
   }
 
@@ -171,7 +195,7 @@ export class QBClient {
    * @returns The sync data containing changes since rid.
    */
   public async getMainData(rid: number = 0): Promise<SyncResponse> {
-    const syncUrl = new URL(`${this.baseUrl}/sync/maindata`);
+    const syncUrl = new URL(`${this.baseUrl}${QBEndpoints.SyncMainData}`);
     syncUrl.searchParams.set('rid', rid.toString());
 
     const response = await fetch(syncUrl.toString(), {
@@ -194,7 +218,7 @@ export class QBClient {
    * @returns Array of Torrent objects.
    */
   public async getTorrents(): Promise<Torrent[]> {
-    const torrentsUrl = new URL(`${this.baseUrl}/torrents/info`);
+    const torrentsUrl = new URL(`${this.baseUrl}${QBEndpoints.TorrentsInfo}`);
     
     const response = await fetch(torrentsUrl.toString(), {
       headers: {
@@ -232,7 +256,7 @@ export class QBClient {
    * @returns Object containing all settings.
    */
   public async getPreferences(): Promise<QBPreferences> {
-    const prefsUrl = new URL(`${this.baseUrl}/app/preferences`);
+    const prefsUrl = new URL(`${this.baseUrl}${QBEndpoints.AppPreferences}`);
     const response = await fetch(prefsUrl.toString(), {
       headers: {
         'Cookie': this.cookies.join('; '),
@@ -254,7 +278,7 @@ export class QBClient {
    * @returns A promise that resolves when update is complete.
    */
   public async setPreferences(prefs: Partial<QBPreferences>): Promise<void> {
-    await this.post('/app/setPreferences', { json: JSON.stringify(prefs) });
+    await this.post(QBEndpoints.AppSetPreferences, { json: JSON.stringify(prefs) });
   }
 
   /**
@@ -264,7 +288,7 @@ export class QBClient {
    * @returns Array of file objects.
    */
   public async getTorrentFiles(hash: string): Promise<TorrentFile[]> {
-    const filesUrl = new URL(`${this.baseUrl}/torrents/files`);
+    const filesUrl = new URL(`${this.baseUrl}${QBEndpoints.TorrentsFiles}`);
     filesUrl.searchParams.set('hash', hash);
 
     const response = await fetch(filesUrl.toString(), {
@@ -298,7 +322,7 @@ export class QBClient {
    * @returns A promise that resolves when priority is set.
    */
   public async setFilePriority(hash: string, indices: number[], priority: number): Promise<void> {
-    await this.post('/torrents/filePrio', {
+    await this.post(QBEndpoints.TorrentsFilePrio, {
       hash,
       id: indices.join('|'),
       priority: priority.toString()
@@ -313,7 +337,7 @@ export class QBClient {
    * @returns A promise that resolves when addition is complete.
    */
   public async addTorrents(urls: string[], files?: File[]): Promise<void> {
-    const addUrl = new URL(`${this.baseUrl}/torrents/add`);
+    const addUrl = new URL(`${this.baseUrl}${QBEndpoints.TorrentsAdd}`);
     const formData = new FormData();
 
     if (urls.length > 0) {
@@ -347,7 +371,7 @@ export class QBClient {
    * @param hashes - List of torrent hashes to pause.
    */
   public async pauseTorrents(hashes: string[]): Promise<void> {
-    await this.post('/torrents/stop', { hashes: hashes.join('|') });
+    await this.post(QBEndpoints.TorrentsStop, { hashes: hashes.join('|') });
   }
 
   /**
@@ -356,7 +380,7 @@ export class QBClient {
    * @param hashes - List of torrent hashes to resume.
    */
   public async resumeTorrents(hashes: string[]): Promise<void> {
-    await this.post('/torrents/start', { hashes: hashes.join('|') });
+    await this.post(QBEndpoints.TorrentsStart, { hashes: hashes.join('|') });
   }
 
   /**
@@ -376,7 +400,7 @@ export class QBClient {
    * @param value - True to force start, false to disable.
    */
   public async setForceStart(hashes: string[], value: boolean): Promise<void> {
-    await this.post('/torrents/setForceStart', { 
+    await this.post(QBEndpoints.TorrentsSetForceStart, { 
       hashes: hashes.join('|'),
       value: value.toString()
     });
@@ -388,7 +412,7 @@ export class QBClient {
    * @param hashes - List of torrent hashes.
    */
   public async recheckTorrents(hashes: string[]): Promise<void> {
-    await this.post('/torrents/recheck', { hashes: hashes.join('|') });
+    await this.post(QBEndpoints.TorrentsRecheck, { hashes: hashes.join('|') });
   }
 
   /**
@@ -397,7 +421,7 @@ export class QBClient {
    * @param hashes - List of torrent hashes.
    */
   public async reannounceTorrents(hashes: string[]): Promise<void> {
-    await this.post('/torrents/reannounce', { hashes: hashes.join('|') });
+    await this.post(QBEndpoints.TorrentsReannounce, { hashes: hashes.join('|') });
   }
 
   /**
@@ -406,7 +430,7 @@ export class QBClient {
    * @param hashes - List of torrent hashes.
    */
   public async toggleSequentialDownload(hashes: string[]): Promise<void> {
-    await this.post('/torrents/toggleSequentialDownload', { hashes: hashes.join('|') });
+    await this.post(QBEndpoints.TorrentsToggleSequential, { hashes: hashes.join('|') });
   }
 
   /**
@@ -415,7 +439,7 @@ export class QBClient {
    * @param hashes - List of torrent hashes.
    */
   public async toggleFirstLastPiecePrio(hashes: string[]): Promise<void> {
-    await this.post('/torrents/toggleFirstLastPiecePrio', { hashes: hashes.join('|') });
+    await this.post(QBEndpoints.TorrentsToggleFirstLastPrio, { hashes: hashes.join('|') });
   }
 
   /**
@@ -425,7 +449,7 @@ export class QBClient {
    * @param deleteFiles - If true, downloaded data will be deleted from disk.
    */
   public async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
-    await this.post('/torrents/delete', {
+    await this.post(QBEndpoints.TorrentsDelete, {
       hashes: hashes.join('|'),
       deleteFiles: deleteFiles.toString(),
     });
@@ -435,7 +459,7 @@ export class QBClient {
    * Toggles the alternative speed limits mode.
    */
   public async toggleAltSpeedLimits(): Promise<void> {
-    await this.post('/transfer/toggleSpeedLimitsMode');
+    await this.post(QBEndpoints.TransferToggleSpeedLimits);
   }
 
   /**

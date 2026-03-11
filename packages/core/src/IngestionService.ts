@@ -33,6 +33,29 @@ export class IngestionService {
   }
 
   /**
+   * Checks if a directory (or its closest existing parent) is writable.
+   * 
+   * @param targetPath - The path to check.
+   * @returns True if writable.
+   */
+  public async checkWritability(targetPath: string): Promise<boolean> {
+    let current = targetPath;
+    while (current !== path.dirname(current)) {
+      try {
+        await fs.promises.access(current, fs.constants.W_OK);
+        return true;
+      } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT') {
+          current = path.dirname(current);
+          continue;
+        }
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Sanitizes a title by removing or replacing illegal filesystem characters.
    * 
    * @param title - The raw title to sanitize.

@@ -4,6 +4,7 @@ import { MetadataCache } from './MetadataCache.js';
 import { MediaMetadata } from './MediaMetadata.js';
 import { Torrent } from './Torrent.js';
 import { MetadataProvider } from './MetadataProvider.js';
+import { NoiseMiner } from './NoiseMiner.js';
 
 /**
  * Extended Torrent model that includes associated media metadata (posters, plot, etc.).
@@ -26,6 +27,8 @@ export class LiveSyncService {
   private torrentsWithMetadata: Map<string, TorrentWithMetadata> = new Map();
   /** Active noise tokens mined from previous matches. */
   private activeNoiseTokens: string[] = [];
+  /** Lock to prevent overlapping sync cycles. */
+  private isSyncing = false;
 
   /**
    * Creates an instance of LiveSyncService.
@@ -34,12 +37,14 @@ export class LiveSyncService {
    * @param matcher - The metadata matcher.
    * @param cache - The metadata cache.
    * @param provider - The metadata provider (used for manual linking).
+   * @param miner - The noise miner service.
    */
   constructor(
     private readonly engine: SyncEngine,
     private readonly matcher: MetadataMatcher,
     private readonly cache: MetadataCache,
-    private readonly provider: MetadataProvider
+    private readonly provider: MetadataProvider,
+    private readonly miner: NoiseMiner
   ) {}
 
   /**
@@ -54,57 +59,82 @@ export class LiveSyncService {
    * @returns A promise that resolves when sync is complete.
    */
   public async sync(focusHash: string | null = null): Promise<void> {
-    this.engine.setFocus(focusHash);
-    
-    // Refresh active noise tokens from DB once per sync
-    this.activeNoiseTokens = await this.cache.getActiveNoiseTokens();
-    
-    const delta = await this.engine.tick();
-
-    if (delta.fullUpdate) {
-      this.torrentsWithMetadata.clear();
+    if (this.isSyncing) {
+      // console.debug('[Sync] Cycle already in progress, skipping overlapping tick.');
+      return;
     }
+    this.isSyncing = true;
 
-    // 1. Remove torrents
-    for (const hash of delta.removed) {
-      this.torrentsWithMetadata.delete(hash);
-    }
+    try {
+      this.engine.setFocus(focusHash);
+      
+      // Refresh active noise tokens from DB once per sync
+      this.activeNoiseTokens = await this.cache.getActiveNoiseTokens();
+      
+      const delta = await this.engine.tick();
 
-    // 2. Update existing torrents
-    for (const torrent of delta.updated) {
-      const existing = this.torrentsWithMetadata.get(torrent.hash);
-      if (existing) {
-        let metadata = existing.mediaMetadata;
-        const isNonMedia = existing.isNonMedia;
-
-        // If we don't have metadata yet, and it's not marked as non-media, 
-        // and the name has changed, try matching again.
-        if (!metadata && !isNonMedia && torrent.name !== existing.name) {
-          metadata = await this.fetchMetadata(torrent);
-        }
-
-        const merged = Object.assign(torrent, {
-          mediaMetadata: metadata,
-          isNonMedia,
-          files: torrent.files || existing.files
-        }) as TorrentWithMetadata;
-
-        this.torrentsWithMetadata.set(torrent.hash, merged);
+      if (delta.fullUpdate) {
+        this.torrentsWithMetadata.clear();
       }
-    }
 
-    // 3. Add new torrents
-    for (const torrent of delta.added) {
-      const isNonMedia = await this.cache.isNonMedia(torrent.hash);
-      const metadata = await this.fetchMetadata(torrent);
+      // 1. Remove torrents
+      for (const hash of delta.removed) {
+        this.torrentsWithMetadata.delete(hash);
+      }
 
-      const merged = Object.assign(torrent, {
-        mediaMetadata: metadata,
-        isNonMedia,
-        files: torrent.files
-      }) as TorrentWithMetadata;
+      // 2. Update existing torrents
+      for (const torrent of delta.updated) {
+        const existing = this.torrentsWithMetadata.get(torrent.hash);
+        if (existing) {
+          let metadata = existing.mediaMetadata;
+          const isNonMedia = existing.isNonMedia;
 
-      this.torrentsWithMetadata.set(torrent.hash, merged);
+          // If we don't have metadata yet, and it's not marked as non-media, 
+          // and the name has changed, try matching again.
+          if (!metadata && !isNonMedia && torrent.name !== existing.name) {
+            try {
+              metadata = await this.fetchMetadata(torrent);
+            } catch (err) {
+              console.error(`[Sync] Failed to fetch metadata for ${torrent.name}:`, err);
+            }
+          }
+
+          const merged = Object.assign(torrent, {
+            mediaMetadata: metadata,
+            isNonMedia,
+            files: torrent.files || existing.files
+          }) as TorrentWithMetadata;
+
+          this.torrentsWithMetadata.set(torrent.hash, merged);
+        }
+      }
+
+      // 3. Add new torrents
+      for (const torrent of delta.added) {
+        try {
+          const isNonMedia = await this.cache.isNonMedia(torrent.hash);
+          const metadata = await this.fetchMetadata(torrent);
+
+          const merged = Object.assign(torrent, {
+            mediaMetadata: metadata,
+            isNonMedia,
+            files: torrent.files
+          }) as TorrentWithMetadata;
+
+          this.torrentsWithMetadata.set(torrent.hash, merged);
+        } catch (err) {
+          console.error(`[Sync] Failed to process new torrent ${torrent.name}:`, err);
+          // Still add the torrent even if metadata fails, so it shows up in UI
+          const merged = Object.assign(torrent, {
+            mediaMetadata: null,
+            isNonMedia: false,
+            files: torrent.files
+          }) as TorrentWithMetadata;
+          this.torrentsWithMetadata.set(torrent.hash, merged);
+        }
+      }
+    } finally {
+      this.isSyncing = false;
     }
   }
 
@@ -133,7 +163,7 @@ export class LiveSyncService {
     this.matcher.addToIndex(metadata);
 
     // Mine for noise since we have a confirmed match
-    await this.mineNoise(existing.name, metadata);
+    await this.miner.mine(existing.name, metadata);
 
     // Update in-memory state immediately
     this.torrentsWithMetadata.set(hash, Object.assign(existing, {
@@ -175,7 +205,11 @@ export class LiveSyncService {
         metadata = null;
       } else if (!metadata) {
         // If we are unmarking as non-media and have no metadata, try matching again
-        metadata = await this.fetchMetadata(existing as Torrent);
+        try {
+          metadata = await this.fetchMetadata(existing as Torrent);
+        } catch (err) {
+          console.error(`[Manual] Failed to fetch metadata for ${existing.name}:`, err);
+        }
       }
 
       this.torrentsWithMetadata.set(hash, Object.assign(existing, {
@@ -211,38 +245,11 @@ export class LiveSyncService {
         // Ensure local index is updated for future fuzzy matches
         this.matcher.addToIndex(metadata);
         // Mine for noise
-        await this.mineNoise(torrent.name, metadata);
+        await this.miner.mine(torrent.name, metadata);
       }
     }
 
     return metadata;
-  }
-
-  /**
-   * Extracts novel noise tokens from a torrent name given its confirmed metadata.
-   * 
-   * @param name - Raw torrent name.
-   * @param metadata - Confirmed metadata.
-   */
-  private async mineNoise(name: string, metadata: MediaMetadata): Promise<void> {
-    // 1. Normalize: Replace . and _ with spaces
-    let clean = name.replace(/[._]/g, ' ').trim();
-
-    // 2. Subtract Title and Year
-    const titleRegex = new RegExp(metadata.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    clean = clean.replace(titleRegex, '');
-    clean = clean.replace(new RegExp(metadata.year.toString(), 'g'), '');
-
-    // 3. Tokenize and Filter
-    const tokens = clean.split(/\s+/)
-      .map(t => t.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')) // Strip residual punctuation
-      .filter(t => t.length > 0)
-      // Filter out tokens already covered by static noise in Torrent.ts
-      .filter(t => !Torrent.isStaticNoise(t));
-
-    if (tokens.length > 0) {
-      await this.cache.incrementNoise(tokens);
-    }
   }
 
   /**

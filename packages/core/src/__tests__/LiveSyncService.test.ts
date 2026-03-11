@@ -6,12 +6,14 @@ import { MetadataCache } from '../MetadataCache.js';
 import { MediaMetadata } from '../MediaMetadata.js';
 import { Torrent } from '../Torrent.js';
 import { MetadataProvider } from '../MetadataProvider.js';
+import { NoiseMiner } from '../NoiseMiner.js';
 
 describe('LiveSyncService', () => {
   let engine: SyncEngine;
   let matcher: MetadataMatcher;
   let cache: MetadataCache;
   let provider: MetadataProvider;
+  let miner: NoiseMiner;
   let service: LiveSyncService;
 
   beforeEach(() => {
@@ -42,7 +44,11 @@ describe('LiveSyncService', () => {
       getById: vi.fn()
     } as any;
 
-    service = new LiveSyncService(engine, matcher, cache, provider);
+    miner = {
+      mine: vi.fn().mockResolvedValue(undefined)
+    } as any;
+
+    service = new LiveSyncService(engine, matcher, cache, provider, miner);
   });
 
   it('should match metadata for new torrents discovered by engine', async () => {
@@ -270,7 +276,7 @@ describe('LiveSyncService', () => {
     expect(service.getTorrentsWithMetadata()[0].isNonMedia).toBe(false);
   });
 
-  it('should mine noise tokens from confirmed matches', async () => {
+  it('should mine noise tokens from confirmed matches via NoiseMiner', async () => {
     const torrent = new Torrent({
       hash: 'h1',
       name: 'The.Matrix.1999.NOVELTAG.1080p',
@@ -298,8 +304,7 @@ describe('LiveSyncService', () => {
 
     await service.sync();
 
-    // Should have called incrementNoise with 'NOVELTAG'
-    // (1080p is already in static noise, so it should be filtered out)
-    expect(cache.incrementNoise).toHaveBeenCalledWith(['NOVELTAG']);
+    // Should have called miner.mine
+    expect(miner.mine).toHaveBeenCalledWith(torrent.name, metadata);
   });
 });

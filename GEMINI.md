@@ -102,29 +102,48 @@ This document serves as the primary guidance for Gemini CLI (and other AI agents
 - [x] **CLI Structural Overhaul:** Implement a structured command router (e.g. using `commander` or a pattern-matcher) to improve subcommand maintainability.
 
 ### Phase 6: System Hardening & Resilience
-- [ ] **Ingestion Safety:** Implement pre-flight writability checks in `IngestionService` and enhance `TaskQueue` with filesystem-specific error recovery.
-- [ ] **Sync Loop Isolation:** Prevent overlapping sync cycles using an execution lock and isolate individual metadata fetch failures within the loop to prevent global stalls.
-- [ ] **Persistence Integrity:** Refactor `MetadataCache` to use atomic transactions for multi-table updates and implement a retry strategy for SQLite "Database Busy" errors.
-- [ ] **Standardized Error Mapping:** Define domain-specific error classes (e.g., `SoupError`, `ProviderError`) and map them to appropriate HTTP status codes in the server layer.
-- [ ] **UI State Awareness:** Add a "Live" connection status indicator to the web header and implement a "Connection Lost" overlay for persistent polling failures.
-- [ ] **Test Runner Maintenance:** Resolve the `test.poolOptions` deprecation warning in Vitest configuration across the monorepo.
-- [ ] **Core De-duplication:** Centralize formatting utilities (`formatBytes`, `formatDuration`) in `@soup/core` to eliminate duplication between CLI and Web.
-- [ ] **CLI De-duplication:** Refactor `SoupClient` to use a unified request helper, removing redundant error-handling boilerplate.
-- [ ] **Web De-duplication:** Streamline `TorrentDetailModal.tsx` by extracting shared sub-components for tabs and file priority logic.
+- [x] **Ingestion Safety:** Implement pre-flight writability checks in `IngestionService` and enhance `TaskQueue` with filesystem-specific error recovery.
+- [x] **Sync Loop Isolation:** Prevent overlapping sync cycles using an execution lock and isolate individual metadata fetch failures within the loop to prevent global stalls.
+- [x] **Persistence Integrity:** Refactor `MetadataCache` to use atomic transactions for multi-table updates and implement a retry strategy for SQLite "Database Busy" errors.
+- [x] **Standardized Error Mapping:** Define domain-specific error classes (e.g., `SoupError`, `ProviderError`) and map them to appropriate HTTP status codes in the server layer.
+- [x] **UI State Awareness:** Add a "Live" connection status indicator to the web header and implement a "Connection Lost" overlay for persistent polling failures.
+- [x] **Test Runner Maintenance:** Resolve the `test.poolOptions` deprecation warning in Vitest configuration across the monorepo.
+- [x] **Core De-duplication:** Centralize formatting utilities (`formatBytes`, `formatDuration`) in `@soup/core` to eliminate duplication between CLI and Web.
+- [x] **CLI De-duplication:** Refactor `SoupClient` to use a unified request helper, removing redundant error-handling boilerplate.
+- [x] **Web De-duplication:** Streamline `TorrentDetailModal.tsx` by extracting shared sub-components for tabs and file priority logic.
 
 ### Phase 7: DX & Readability Overhaul
-- [ ] **Web (High Priority):**
-    - [ ] Refactor `App.tsx` state management into a `useTorrents` custom hook to encapsulate polling and delta logic.
-    - [ ] Decouple Modal state and complex business logic from the main `App` component into domain-specific containers.
-- [ ] **Server (Medium Priority):**
-    - [ ] Modularize the monolithic `index.ts` by extracting API routes into domain-specific files (e.g., `torrents.routes.ts`, `system.routes.ts`).
-    - [ ] Encapsulate the background synchronization loop into a dedicated `SyncWorker` class.
-    - [ ] Eliminate `any` types in route handlers and implement strict, schema-validated request/reply types.
-- [ ] **Core (Lower Priority):**
-    - [ ] Extract `NoiseMiner` logic from `LiveSyncService` into a standalone domain service to adhere to the Single Responsibility Principle.
-    - [ ] Centralize `QBClient` API endpoints into a structured constant or enum to improve discoverability and ease of updates.
 
-## Handoff Notes (Session 1)
+## Handoff Notes (Session 2)
+- **Centralized Utilities:** `formatBytes` and `formatDuration` are now located in `@soup/core/utils/format.ts`. All apps should import from here to avoid duplication.
+- **Error Handling:** Use the custom error classes in `@soup/core/utils/Errors.ts` (e.g., `NotFoundError`, `ProviderError`) when throwing from services. The Fastify server automatically maps these to appropriate HTTP status codes.
+- **Sync Safety:** `LiveSyncService` now has an internal `isSyncing` lock. Overlapping calls to `sync()` (manual or background) will safely return immediately if a cycle is already active.
+- **Persistence Integrity:** `MetadataCache` now uses transactions for saving metadata and setting non-media status. Database operations also include an exponential backoff retry for `SQLITE_BUSY` errors.
+- **Task Queue Reliability:** `TaskQueue` now supports exponential backoff for retrying failed ingestion tasks. Terminal errors (like permission denied) are failed immediately to prevent infinite loops.
+- **UI Connectivity:** The web app now monitors server health. A pulsing green/red indicator in the sidebar shows sync status, and a full-screen "Connection Lost" overlay appears after 3 consecutive failures.
+### Phase 7: DX & Readability Overhaul
+- [x] **Web (High Priority):**
+    - [x] Refactor `App.tsx` state management into a `useTorrents` custom hook to encapsulate polling and delta logic.
+    - [x] Decouple Modal state and complex business logic from the main `App` component into domain-specific containers.
+- [x] **Server (Medium Priority):**
+    - [x] Modularize the monolithic `index.ts` by extracting API routes into domain-specific files (e.g., `torrents.routes.ts`, `system.routes.ts`).
+    - [x] Encapsulate the background synchronization loop into a dedicated `SyncWorker` class.
+    - [x] Eliminate `any` types in route handlers and implement strict, schema-validated request/reply types.
+- [x] **Core (Lower Priority):**
+    - [x] Extract `NoiseMiner` logic from `LiveSyncService` into a standalone domain service to adhere to the Single Responsibility Principle.
+    - [x] Centralize `QBClient` API endpoints into a structured constant or enum to improve discoverability and ease of updates.
+
+## Handoff Notes (Session 3)
+- **Web Refactoring:** The `App.tsx` is now a slim entry point. All state, polling, and action handlers are encapsulated in the `useTorrents` hook (`apps/web/src/hooks/useTorrents.ts`). UI layout is split into `Sidebar`, `Header`, and `ConnectionOverlay` components.
+- **Server Modularization:** The Fastify server is now modular. Routes are registered via `registerTorrentRoutes` and `registerSystemRoutes` in `apps/server/src/routes/`.
+- **SyncWorker:** The background sync loop is now managed by the `SyncWorker` class (`apps/server/src/SyncWorker.ts`), improving encapsulation and testability.
+- **Core Improvements:**
+    - `NoiseMiner` service handles noise token extraction.
+    - `QBEndpoints` enum in `QBClient.ts` centralizes all qBittorrent API paths.
+- **Test Fixes:** `TaskQueue.test.ts` now uses Vitest fake timers to correctly handle the exponential backoff logic introduced in Phase 6.
+
+## Handoff Notes (Session 2)
+
 - **App Management:** Use `make up` to start all services, `make down` to stop, and `make status` to check health. Logs are available in `server.log` and `web.log`, or via `make tail`.
 - **Ingestion System:** Files are copied via a persistent `TaskQueue`. You can monitor progress in the web header's "Activity" (Package icon) popover. Ingestion uses the `MEDIA_ROOT` environment variable and suggests Jellyfin-standard paths.
 - **Database Location:** The active database is located at `apps/server/soup.db`. If you add columns to the schema, you must manually handle migrations in `MetadataCache.ts` or nuke this file to trigger recreation.
