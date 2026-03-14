@@ -12,6 +12,8 @@ describe('ConfigLoader', () => {
     
     // Clear relevant environment variables from process.env
     delete process.env.PORT;
+    delete process.env.DEV_API_PORT;
+    delete process.env.SOUP_PORT;
     delete process.env.NODE_ENV;
     delete process.env.TMDB_API_KEY;
     delete process.env.QB_URL;
@@ -26,6 +28,26 @@ describe('ConfigLoader', () => {
 
     expect(config.PORT).toBe(3001);
     expect(config.NODE_ENV).toBe('development');
+  });
+
+  it('should fallback to DEV_API_PORT or SOUP_PORT if PORT is missing', () => {
+    process.env.TMDB_API_KEY = 'fake-key';
+
+    // Reset singleton internal state for first check
+    (ConfigLoader as any).instance = undefined;
+    process.env.DEV_API_PORT = '3002';
+    let config = ConfigLoader.load(dummyEnvPath);
+    expect(config.PORT).toBe(3002);
+
+    // Reset singleton internal state for second check
+    (ConfigLoader as any).instance = undefined;
+    delete process.env.DEV_API_PORT;
+    process.env.SOUP_PORT = '3003';
+    config = ConfigLoader.load(dummyEnvPath);
+    expect(config.PORT).toBe(3003);
+
+    // Cleanup
+    delete process.env.SOUP_PORT;
   });
 
   it('should throw an error if TMDB_API_KEY is missing', () => {

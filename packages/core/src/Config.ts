@@ -63,10 +63,17 @@ export class ConfigLoader {
     const rootEnv = dotEnvPath || path.resolve(__dirname, '../../../.env');
     dotenv.config({ path: rootEnv });
 
-    const result = configSchema.safeParse(process.env);
+    // Pre-process PORT to support DEV_API_PORT or SOUP_PORT fallbacks
+    const portValue = process.env.PORT || process.env.DEV_API_PORT || process.env.SOUP_PORT;
+    const input = {
+      ...process.env,
+      PORT: portValue !== undefined ? portValue : undefined,
+    };
+
+    const result = configSchema.safeParse(input);
 
     if (!result.success) {
-      console.error('❌ Invalid configuration:');
+      console.error('Invalid configuration:');
       console.error(result.error.flatten().fieldErrors);
       throw new Error('Invalid environment variables');
     }
