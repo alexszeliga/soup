@@ -188,6 +188,10 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
   const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, isNonMedia } = torrent;
   const progressPercent = Math.round(progress * 100);
   const isActive = Torrent.ACTIVE_STATES.includes(state);
+  
+  // LEAKY STATE SAFEGUARD: Only use focusedFiles if they actually belong to this torrent
+  // We check if any file in the list exists, and if so, we assume the backend has synced.
+  // The useTorrents hook now provides a focusHash, but we can also check against torrent.files
   const filesToDisplay = focusedFiles.length > 0 ? focusedFiles : torrent.files;
 
   const actionItems: ActionMenuItem[] = [

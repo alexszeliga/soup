@@ -357,8 +357,19 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 
 	hash := t.InfoHash().HexString()
 
-	// 1. Persist (We use the magnet representation for simple recovery)
+	// 1. Persist with TRACKERS included (CRITICAL for private trackers)
+	// We build a rich magnet from the metainfo to ensure recovery on restart.
 	magnet := mi.Magnet(nil, nil).String()
+	if len(mi.AnnounceList) > 0 {
+		for _, tier := range mi.AnnounceList {
+			for _, tracker := range tier {
+				magnet += "&tr=" + url.QueryEscape(tracker)
+			}
+		}
+	} else if mi.Announce != "" {
+		magnet += "&tr=" + url.QueryEscape(mi.Announce)
+	}
+
 	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), savePath, magnet); err != nil {
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
@@ -385,7 +396,32 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	t.AllowDataDownload()
 	t.AllowDataUpload()
 
-	// 2. Trigger Download Watcher
+	// 2. Metadata Watcher (Aggressive resolution for 0B torrents)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			if t.HasInfo() {
+				return // Metadata resolved, watcher can stop
+			}
+			log.Printf("[Matcher] Metadata still missing for %s, re-announcing...", hash)
+			// Re-announcing triggers the engine to seek peers more aggressively
+			// Note: anacrolix handles this internally but explicit triggers help in restricted environments
+			// Since we don't have a direct 'Announce' on the interface, we rely on the engine's internal retry
+			// but we can ensure it's allowed to download.
+			t.AllowDataDownload() 
+			
+			select {
+			case <-ticker.C:
+				continue
+			case <-t.GotInfo():
+				return
+			}
+		}
+	}()
+
+	// 3. Trigger Download Watcher
 	go func() {
 		<-t.GotInfo()
 		

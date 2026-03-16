@@ -55,31 +55,52 @@ func TestAddTorrentRoute(t *testing.T) {
 	}
 }
 
-func TestTorrentControlRoutes(t *testing.T) {
+func TestTorrentAPIFormat(t *testing.T) {
 	app := fiber.New()
 	
-	// Register the implemented routes
-	app.Post("/api/torrents/:hash/start", func(c *fiber.Ctx) error { return c.SendStatus(200) })
-	app.Post("/api/torrents/:hash/stop", func(c *fiber.Ctx) error { return c.SendStatus(200) })
-	app.Post("/api/torrents/:hash/recheck", func(c *fiber.Ctx) error { return c.SendStatus(200) })
-	app.Post("/api/torrents/:hash/files/priority", func(c *fiber.Ctx) error { return c.SendStatus(200) })
+	// Use REAL model to verify ACTUAL tags
+	app.Get("/api/torrents", func(c *fiber.Ctx) error {
+		torrents := []*models.Torrent{
+			{
+				Hash:          "123",
+				Name:          "Test Movie",
+				AddedOn:       1710624000,
+				SeedingTime:   3600,
+				DownloadSpeed: 1024,
+				UploadSpeed:   512,
+				TotalRead:     1000000,
+				TotalWritten:  500000,
+				IsSequential:  true,
+			},
+		}
+		return c.JSON(torrents)
+	})
 
-	tests := []struct {
-		method string
-		url    string
-		status int
-	}{
-		{"POST", "/api/torrents/123/start", 200},
-		{"POST", "/api/torrents/123/stop", 200},
-		{"POST", "/api/torrents/123/recheck", 200},
-		{"POST", "/api/torrents/123/files/priority", 200},
+	req := httptest.NewRequest("GET", "/api/torrents", nil)
+	resp, _ := app.Test(req)
+
+	// Decode into map to check raw key strings
+	var raw []map[string]interface{}
+	_ = json.NewDecoder(resp.Body).Decode(&raw)
+
+	if len(raw) == 0 {
+		t.Fatal("Expected at least one torrent in response")
 	}
 
-	for _, tt := range tests {
-		req := httptest.NewRequest(tt.method, tt.url, nil)
-		resp, _ := app.Test(req)
-		if resp.StatusCode != tt.status {
-			t.Errorf("%s %s expected %d, got %d", tt.method, tt.url, tt.status, resp.StatusCode)
+	tor := raw[0]
+	requiredFields := []string{
+		"addedOn",
+		"seedingTime",
+		"downloadSpeed",
+		"uploadSpeed",
+		"totalRead",
+		"totalWritten",
+		"isSequential",
+	}
+
+	for _, field := range requiredFields {
+		if _, ok := tor[field]; !ok {
+			t.Errorf("JSON Format Error: Missing required camelCase field '%s' in real model output", field)
 		}
 	}
 }
