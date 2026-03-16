@@ -92,35 +92,36 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 					"tasks":    tasks,
 					"state":    state,
 					"storage":  cachedStorage,
+					"focusHash": focus,
 				}
 
 				// If client has a focus, optionally enrich with file data
 				if focus != "" {
 					files, _ := ts.GetFiles(focus)
-					if len(files) > 0 {
-						type fileDTO struct {
-							Name     string  `json:"name"`
-							Size     int64   `json:"size"`
-							Progress float64 `json:"progress"`
-							Priority int     `json:"priority"`
-							Index    int     `json:"index"`
-						}
-						fileList := make([]fileDTO, len(files))
-						for i, f := range files {
-							progress := 0.0
-							if f.Length() > 0 {
-								progress = float64(f.BytesCompleted()) / float64(f.Length())
-							}
-							fileList[i] = fileDTO{
-								Name:     f.DisplayPath(),
-								Size:     f.Length(),
-								Progress: progress,
-								Priority: int(f.Priority()),
-								Index:    i,
-							}
-						}
-						payload["focusedFiles"] = fileList
+					type fileDTO struct {
+						Name     string  `json:"name"`
+						Size     int64   `json:"size"`
+						Progress float64 `json:"progress"`
+						Priority int     `json:"priority"`
+						Index    int     `json:"index"`
 					}
+					fileList := make([]fileDTO, 0)
+					for i, f := range files {
+						progress := 0.0
+						if f.Length() > 0 {
+							progress = float64(f.BytesCompleted()) / float64(f.Length())
+						}
+						fileList = append(fileList, fileDTO{
+							Name:     f.DisplayPath(),
+							Size:     f.Length(),
+							Progress: progress,
+							Priority: int(f.Priority()),
+							Index:    i,
+						})
+					}
+					payload["focusedFiles"] = fileList
+				} else {
+					payload["focusedFiles"] = []interface{}{}
 				}
 
 				syncData, err := json.Marshal(fiber.Map{
