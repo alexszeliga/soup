@@ -62,6 +62,7 @@ func (r *bunRepo) migrate(ctx context.Context) error {
 
 	// Manual column migrations for existing tables
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN save_path TEXT")
+	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN added_on INTEGER DEFAULT 0")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN total_read INTEGER DEFAULT 0")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN total_written INTEGER DEFAULT 0")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN seeding_time INTEGER DEFAULT 0")
