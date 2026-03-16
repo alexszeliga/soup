@@ -525,7 +525,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 		// Map enriched fields to DTO
 		t.AddedOn = sample.addedOn
 		t.SeedingTime = int64(sample.seedingTimeBase)
-		t.ContentPath = filepath.Join(s.prefs.SavePath, t.name)
+		t.ContentPath = filepath.Join(s.prefs.SavePath, t.Name)
 		t.IsSequential = sample.isSequential
 		t.IsNonMedia = sample.isNonMedia
 
