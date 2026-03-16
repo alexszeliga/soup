@@ -6,7 +6,7 @@ import (
 )
 
 // Torrent represents the data structure for a single BitTorrent download (DTO).
-// The JSON tags are carefully matched to the qBittorrent API format used by the frontend.
+// The JSON tags are STRICTLY matched to the qBittorrent API format used by packages/core/src/SyncEngine.ts
 type Torrent struct {
 	Hash          string         `json:"hash"`
 	Name          string         `json:"name"`
@@ -26,8 +26,8 @@ type Torrent struct {
 	ActivePeers   int            `json:"activePeers"`
 	TotalPeers    int            `json:"totalPeers"`
 	Availability  float64        `json:"availability"`
-	IsSequential  bool           `json:"is_sequential"`
-	IsForceStart  bool           `json:"is_force_start"`
+	IsSequential  bool           `json:"seq_dl"`
+	IsForceStart  bool           `json:"force_start"`
 	IsNonMedia    bool           `json:"is_non_media"`
 	MediaInfo     MediaInfo      `json:"mediaInfo"`
 	MediaMetadata *MediaMetadata `json:"mediaMetadata,omitempty"`
