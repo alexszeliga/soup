@@ -131,8 +131,13 @@ func (s *IdentityService) DetectTarget() (Identity, error) {
 	_ = os.WriteFile(torrentPath, []byte(dummyContent), 0644)
 
 	// Run Container
+	containerName := "soup-identity-probe"
+	// Kill any existing probe first
+	_ = exec.Command("docker", "rm", "-f", containerName).Run()
+
 	containerCmd := "apk add --no-cache qbittorrent-nox && qbittorrent-nox --webui-port=8081 --profile=/config /detect.torrent"
 	cmd := exec.Command("docker", "run", "--rm",
+		"--name", containerName,
 		"-v", torrentPath+":/detect.torrent",
 		"alpine:latest", "sh", "-c", containerCmd)
 	
@@ -142,10 +147,12 @@ func (s *IdentityService) DetectTarget() (Identity, error) {
 
 	select {
 	case id := <-identityChan:
+		// Success! Kill it immediately
+		_ = exec.Command("docker", "rm", "-f", containerName).Run()
 		return id, nil
 	case <-time.After(60 * time.Second):
 		// Cleanup potentially hung container
-		_ = exec.Command("docker", "ps", "-q", "--filter", "ancestor=alpine:latest").Run()
+		_ = exec.Command("docker", "rm", "-f", containerName).Run()
 		return Identity{}, fmt.Errorf("detection timed out")
 	}
 }
