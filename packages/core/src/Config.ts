@@ -90,6 +90,7 @@ export class ConfigLoader {
    */
   public static getClientConfig(config: Config) {
     return {
+      backend: 'qbittorrent',
       syncInterval: config.SYNC_INTERVAL_MS,
       tmdbImageBase: config.TMDB_IMAGE_BASE_URL,
       env: config.NODE_ENV,
