@@ -45,8 +45,21 @@ clean:
 	@echo "Cleaning up logs and pids..."
 	@rm -f $(API_LOG) $(WEB_LOG) .api.pid .web.pid
 
-docker-up:
-	@docker compose --env-file .env up -d --build
+docker-up: docker-up-go
+
+docker-up-go:
+	@docker compose -f docker-compose.go.yml --env-file .env up -d --build
+
+docker-up-legacy:
+	@docker compose -f docker-compose.yml --env-file .env up -d --build
+
+docker-up-all:
+	@make docker-up-legacy
+	@make docker-up-go
 
 docker-down:
-	@docker compose --env-file .env down
+	@docker compose -f docker-compose.go.yml down
+	@docker compose -f docker-compose.yml down
+
+docker-migrate:
+	@docker exec -it soup-go /app/soup-go migrate -old-db /data/soup.db -qb-url ${QB_URL}

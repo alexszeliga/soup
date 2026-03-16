@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# Soup Web Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The Soup Web Dashboard is a React-based management interface for the Soup BitTorrent engine. It provides a real-time, poster-centric view of your media library with integrated management controls.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Real-time Telemetry:** Uses WebSockets to provide 500ms updates for speeds, progress, and system health.
+- **Poster-Centric UI:** Automatically displays high-quality box art and metadata for identified movies and TV shows.
+- **Integrated Ingestion:** Multi-file selection and transfer directly into organized media library roots.
+- **Web-Based Explorer:** Browse the server's filesystem directly from the dashboard for path configuration.
+- **Material 3 Design:** Responsive, high-density interface optimized for both desktop and mobile.
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
+- Node.js 20+
+- pnpm
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Setup
+```bash
+# From root
+pnpm install
+pnpm --filter @soup/web dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | Base URL for the Soup API (Default: `/api`) |
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Architecture
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **`src/hooks/useTorrents.ts`:** Centralized state management for WebSocket synchronization and action handlers.
+- **`src/components/`:** Material 3 UI components (Modals, Lists, Stats).
+- **`src/context/NotificationContext.tsx`:** Global Snackbar feedback system.
+
+## Build
+```bash
+pnpm build
 ```
+The production assets will be generated in `dist/`.
