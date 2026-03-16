@@ -2,8 +2,10 @@ package torrent
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -266,6 +268,56 @@ func TestTorrentService_FilePriority(t *testing.T) {
 	err := service.SetFilePriority(hash, 0, 7)
 	if err != nil {
 		t.Fatalf("SetFilePriority failed: %v", err)
+	}
+}
+
+func TestTorrentService_DTOIntegrity(t *testing.T) {
+	repo, _ := repository.NewSqliteRepository(":memory:")
+	defer repo.Close()
+
+	hash := "0123456789abcdef0123456789abcdef01234567"
+	ctx := context.Background()
+	
+	// Mock a migrated torrent with stats
+	_ = repo.SaveTorrent(ctx, hash, "Migrated Movie", "magnet:...")
+	_ = repo.UpdateTorrentStats(ctx, hash, 1000, 2000, 3600)
+
+	mockTor := &MockTorrent{HashStr: hash, NameStr: "Migrated Movie"}
+	engine := &MockEngine{ReturnTor: mockTor}
+	service := NewTorrentService(engine, repo, nil, "/tmp", false)
+	_ = service.RestoreState(ctx)
+
+	list, _ := service.List(ctx)
+	if len(list) == 0 {
+		t.Fatal("Expected 1 torrent")
+	}
+
+	tor := list[0]
+	
+	// Marshall to JSON to verify tags
+	data, _ := json.Marshal(tor)
+	jsonStr := string(data)
+
+	// Check for critical snake_case keys expected by SyncEngine.ts
+	expectedKeys := []string{
+		"\"dlspeed\":",
+		"\"upspeed\":",
+		"\"added_on\":",
+		"\"seeding_time\":",
+		"\"ratio\":",
+		"\"total_read\":",
+		"\"total_written\":",
+		"\"content_path\":",
+	}
+
+	for _, key := range expectedKeys {
+		if !strings.Contains(jsonStr, key) {
+			t.Errorf("JSON missing critical key %s: %s", key, jsonStr)
+		}
+	}
+
+	if tor.Ratio != 2.0 {
+		t.Errorf("Expected ratio 2.0, got %f", tor.Ratio)
 	}
 }
 
