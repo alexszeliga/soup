@@ -1,0 +1,21 @@
+services:
+  soup-go:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+    container_name: soup-go
+    ports:
+      - "${SOUP_GO_PORT:-3002}:3001"
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - MEDIA_ROOT=/media
+      - DATA_DIR=/downloads
+      - ENGINE_DB_PATH=/data/engine.db
+      - WEB_DIST_PATH=/app/web/dist
+    volumes:
+      - ./data:/data
+      - ${LOCAL_DOWNLOAD_ROOT}:/downloads
+      - ${MEDIA_ROOT}:/media
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+    restart: unless-stopped
