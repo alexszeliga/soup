@@ -36,11 +36,11 @@ const GlobalStats: React.FC<GlobalStatsProps> = ({
         </div>
         <div className="flex items-center space-x-2">
           <Package size={14} className="text-orange-500" />
-          <span className="text-[11px] font-black">{serverState?.ingest_info_speed ? formatBytes(serverState.ingest_info_speed) : '0 B'}/s</span>
+          <span className="text-[11px] font-black">{serverState && typeof serverState.ingest_info_speed === 'number' ? formatBytes(serverState.ingest_info_speed) : '0 B'}/s</span>
         </div>
         <div className="flex items-center space-x-2">
           <Globe size={14} className="text-zinc-400" />
-          <span className="text-[11px] font-black">{serverState?.dht_nodes ?? 0} nodes</span>
+          <span className="text-[11px] font-black">{(serverState?.dht_nodes as number) ?? 0} nodes</span>
         </div>
       </div>
 
