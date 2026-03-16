@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Package, CheckCircle2, Circle } from 'lucide-react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import { useNotification } from '../context/NotificationContext';
@@ -79,13 +79,14 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [isIngesting, setIsIngesting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const { showNotification } = useNotification();
 
   // Load Libraries
   useEffect(() => {
     const fetchLibraries = async () => {
       try {
-        const res = await fetch('/api/libraries');
+        const res = await fetch('/api/ingest/libraries');
         const data = await res.json();
         setLibraries(data);
         if (data.length > 0) {
@@ -112,18 +113,26 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     const fetchSuggestions = async () => {
       setIsLoading(true);
       try {
-        const url = `/api/torrents/${torrent.hash}/suggest-paths${selectedLibrary ? `?library=${encodeURIComponent(selectedLibrary)}` : ''}`;
+        const url = `/api/ingest/suggest-paths?hash=${torrent.hash}${selectedLibrary ? `&library=${encodeURIComponent(selectedLibrary)}` : ''}${showAll ? '&showAll=true' : ''}`;
         const res = await fetch(url);
         const data = await res.json();
         setSuggestedPaths(data);
         
+        // Auto-select files > 100MB by default if none selected yet
         setSelectedIndices(prev => {
           if (prev.size > 0) return prev;
           const defaults = new Set<number>();
-          const files = torrent.files || [];
-          files.forEach(f => {
-            if (f.size > 100 * 1024 * 1024) defaults.add(f.index);
+          // Try to match suggestions with files to find large ones
+          data.forEach((s: SuggestedPath) => {
+            const file = torrent.files?.find(f => f.index === s.index);
+            if (file && file.size > 100 * 1024 * 1024) {
+              defaults.add(s.index);
+            }
           });
+          // If still none, select first
+          if (defaults.size === 0 && data.length > 0) {
+            defaults.add(data[0].index);
+          }
           return defaults;
         });
       } catch (err) {
@@ -133,7 +142,7 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
       }
     };
     fetchSuggestions();
-  }, [torrent.hash, selectedLibrary]);
+  }, [torrent.hash, selectedLibrary, torrent.files, showAll]);
 
   const handleToggleFile = (index: number) => {
     setSelectedIndices(prev => {
@@ -144,34 +153,48 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
     });
   };
 
+  const handleSelectAll = () => {
+    if (selectedIndices.size === suggestions.length) {
+      setSelectedIndices(new Set());
+    } else {
+      setSelectedIndices(new Set(suggestions.map(s => s.index)));
+    }
+  };
+
   const handleStartIngestion = async () => {
-    if (selectedIndices.size === 0) return;
+    if (selectedIndices.size === 0 || !selectedLibrary) return;
     
     setIsIngesting(true);
-    const fileMap: Record<string, string> = {};
+    const mapping: Record<string, string> = {};
     
     selectedIndices.forEach(idx => {
       const suggestion = suggestions.find(s => idx === s.index);
       if (suggestion) {
-        fileMap[suggestion.sourcePath] = suggestion.suggestedPath;
+        mapping[suggestion.sourcePath] = suggestion.suggestedPath;
       }
     });
 
     try {
-      const res = await fetch(`/api/torrents/${torrent.hash}/ingest`, {
+      const res = await fetch(`/api/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileMap })
+        body: JSON.stringify({ 
+          hash: torrent.hash,
+          library: selectedLibrary,
+          mapping,
+          savePath: torrent.contentPath
+        })
       });
 
       if (res.ok) {
         showNotification('Copy task queued successfully', 'success');
         onIngestStarted();
       } else {
-        throw new Error('Failed to queue ingest task');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to queue ingest task');
       }
-    } catch {
-      showNotification('Ingestion failed to start', 'error');
+    } catch (err: any) {
+      showNotification(err.message || 'Ingestion failed to start', 'error');
     } finally {
       setIsIngesting(false);
     }
@@ -185,22 +208,46 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
           <p className="text-xs sm:text-sm font-medium text-zinc-500">Select files and the target library for your media.</p>
         </div>
 
-        <div className="flex flex-col space-y-2">
-          <label className="text-[9px] sm:text-[10px] font-black uppercase text-zinc-400 tracking-widest">Target Library</label>
-          <select 
-            value={selectedLibrary}
-            onChange={(e) => setSelectedLibrary(e.target.value)}
-            className="h-10 sm:h-12 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 font-bold text-xs sm:text-sm"
-          >
-            {libraries.length === 0 && <option value="">(No subdirectories found)</option>}
-            {libraries.map(lib => (
-              <option key={lib} value={lib}>{lib}</option>
-            ))}
-          </select>
+        <div className="flex items-end gap-4">
+          <div className="flex flex-col space-y-2">
+            <label className="text-[9px] sm:text-[10px] font-black uppercase text-zinc-400 tracking-widest">Filters</label>
+            <button 
+              onClick={() => setShowAll(!showAll)}
+              className={`h-10 sm:h-12 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${showAll ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500'}`}
+            >
+              {showAll ? 'Showing All' : 'Showing Media Only'}
+            </button>
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label className="text-[9px] sm:text-[10px] font-black uppercase text-zinc-400 tracking-widest">Target Library</label>
+            <select 
+              value={selectedLibrary}
+              onChange={(e) => setSelectedLibrary(e.target.value)}
+              className="h-10 sm:h-12 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-500/50 font-bold text-xs sm:text-sm min-w-[160px]"
+            >
+              {libraries.length === 0 && <option value="">(No libraries found)</option>}
+              {libraries.map(lib => (
+                <option key={lib} value={lib}>{lib}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </header>
 
       <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <button 
+            onClick={handleSelectAll}
+            className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            {selectedIndices.size === suggestions.length ? 'Deselect All' : 'Select All'}
+          </button>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            {selectedIndices.size} of {suggestions.length} selected
+          </p>
+        </div>
+
         {/* Desktop View: Table */}
         <div className="hidden sm:block border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
           <table className="w-full text-left text-sm">
@@ -215,6 +262,10 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
               {isLoading ? (
                 <tr>
                   <td colSpan={3} className="py-20 text-center animate-pulse font-bold text-zinc-400">Recalculating paths...</td>
+                </tr>
+              ) : suggestions.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="py-20 text-center font-bold text-zinc-400">No files eligible for ingestion.</td>
                 </tr>
               ) : suggestions.map(s => (
                 <IngestRow 
@@ -234,6 +285,10 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
             <div className="py-20 text-center animate-pulse font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800">
               Recalculating...
             </div>
+          ) : suggestions.length === 0 ? (
+            <div className="py-20 text-center font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800">
+              No files eligible.
+            </div>
           ) : suggestions.map(s => (
             <IngestCard 
               key={s.index} 
@@ -252,11 +307,11 @@ const IngestTab: React.FC<IngestTabProps> = ({ torrent, onIngestStarted }) => {
           </div>
           <div className="min-w-0">
             <p className="text-[9px] sm:text-xs font-black uppercase text-zinc-400 tracking-widest">Destination Root</p>
-            <p className="text-base sm:text-lg font-black truncate">{selectedLibrary || 'Media Root'}</p>
+            <p className="text-base sm:text-lg font-black truncate">{selectedLibrary || 'Select a library'}</p>
           </div>
         </div>
         <button 
-          disabled={selectedIndices.size === 0 || isIngesting || isLoading}
+          disabled={selectedIndices.size === 0 || !selectedLibrary || isIngesting || isLoading}
           onClick={handleStartIngestion}
           className="h-12 sm:h-14 px-6 sm:px-10 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] rounded-xl sm:rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
         >

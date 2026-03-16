@@ -1,13 +1,16 @@
 import React from 'react';
 import TaskMonitor from './TaskMonitor';
 import type { SortOption } from '../utils/sorting';
+import type { IngestionTask } from '../hooks/useTorrents';
 
 interface HeaderProps {
   sortBy: SortOption;
   setSortBy: (option: SortOption) => void;
+  tasks: IngestionTask[];
+  isWebSocketActive: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ sortBy, setSortBy }) => {
+const Header: React.FC<HeaderProps> = ({ sortBy, setSortBy, tasks, isWebSocketActive }) => {
   return (
     <header className="h-20 flex items-center justify-between px-6 lg:px-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50 sticky top-0 z-20">
       <div className="min-w-0">
@@ -34,7 +37,7 @@ const Header: React.FC<HeaderProps> = ({ sortBy, setSortBy }) => {
           </div>
         </div>
 
-        <TaskMonitor />
+        <TaskMonitor externalTasks={tasks} isWebSocketActive={isWebSocketActive} />
       </div>
     </header>
   );
