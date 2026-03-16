@@ -63,12 +63,6 @@ func NewFromEngineInterface(t EngineTorrent) *Torrent {
 		stateName = "Seeding"
 	}
 
-	// Determine if we are checking
-	if stats.PiecesChecking > 0 {
-		state = "checkingDL"
-		stateName = "Checking"
-	}
-
 	displayName := t.Name()
 	// If name is just the infohash (anacrolix default), show pending
 	if length == 0 || strings.HasPrefix(displayName, "infohash:") {
