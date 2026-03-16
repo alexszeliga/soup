@@ -29,6 +29,7 @@ type torrentSample struct {
 	totalWrittenBase int64
 	seedingTimeBase  float64 // in seconds
 	addedOn          int64
+	name             string
 	isSequential     bool
 	isNonMedia       bool
 	metadata         *models.MediaMetadata
@@ -290,6 +291,7 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 			totalWrittenBase: rec.TotalWritten,
 			seedingTimeBase:  float64(rec.SeedingTime),
 			addedOn:          rec.CreatedAt.Unix(),
+			name:             rec.Name,
 			isNonMedia:       isNonMedia,
 			isSequential:     isSeq,
 		}
@@ -316,7 +318,7 @@ func (s *TorrentService) AddMagnet(ctx context.Context, uri string) (models.Engi
 	hash := t.InfoHash().HexString()
 
 	// 1. Persist the magnet for future restarts
-	if err := s.repo.SaveTorrent(ctx, hash, uri); err != nil {
+	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), uri); err != nil {
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
 
@@ -345,7 +347,7 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 
 	// 1. Persist (We use the magnet representation for simple recovery)
 	magnet := mi.Magnet(nil, nil).String()
-	if err := s.repo.SaveTorrent(ctx, hash, magnet); err != nil {
+	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), magnet); err != nil {
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
 
@@ -376,7 +378,15 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	go func() {
 		<-t.GotInfo()
 		
-		// If we already have some bytes but aren't complete, it's likely a migration
+		// 1. Update in-memory name and persist to DB
+		s.mu.Lock()
+		if sample, ok := s.lastSamples[hash]; ok {
+			sample.name = t.Name()
+			_ = s.repo.SetTorrentName(context.Background(), hash, sample.name)
+		}
+		s.mu.Unlock()
+
+		// 2. If we already have some bytes but aren't complete, it's likely a migration
 		// or restart. Trigger a recheck to be sure.
 		if t.BytesCompleted() > 0 && t.BytesCompleted() < t.Length() {
 			log.Printf("[Lifecycle] Existing data detected for %s, triggering recheck...", t.Name())
@@ -458,14 +468,15 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 	alpha := 0.3 // Smoothing factor
 
 	for _, et := range engineTorrents {
-		t := models.NewFromEngineInterface(et)
-		hash := t.Hash
-
+		hash := et.InfoHash().HexString()
+		
 		sample, ok := s.lastSamples[hash]
 		if !ok {
 			sample = &torrentSample{timestamp: now, addedOn: now.Unix()}
 			s.lastSamples[hash] = sample
 		}
+
+		t := models.NewFromEngineInterface(et, sample.name)
 
 		stats := et.Stats()
 		currentRead := stats.BytesRead.Int64()

@@ -35,11 +35,11 @@ type Torrent struct {
 
 // NewFromEngine maps a native anacrolix torrent to our Soup model.
 func NewFromEngine(t *torrent.Torrent) *Torrent {
-	return NewFromEngineInterface(TorrentWrapper{t})
+	return NewFromEngineInterface(TorrentWrapper{t}, "")
 }
 
 // NewFromEngineInterface maps any EngineTorrent interface implementation to our Soup model.
-func NewFromEngineInterface(t EngineTorrent) *Torrent {
+func NewFromEngineInterface(t EngineTorrent, fallbackName string) *Torrent {
 	// 1. Calculate progress
 	progress := 0.0
 	length := t.Length()
@@ -64,9 +64,13 @@ func NewFromEngineInterface(t EngineTorrent) *Torrent {
 	}
 
 	displayName := t.Name()
-	// If name is just the infohash (anacrolix default), show pending
+	// If name is just the infohash (anacrolix default), show pending or fallback
 	if length == 0 || strings.HasPrefix(displayName, "infohash:") {
-		displayName = "Metadata Pending..."
+		if fallbackName != "" {
+			displayName = fallbackName
+		} else {
+			displayName = "Metadata Pending..."
+		}
 	}
 
 	return &Torrent{

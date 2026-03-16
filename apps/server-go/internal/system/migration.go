@@ -105,8 +105,17 @@ func (s *MigrationService) Run(ctx context.Context) error {
 			continue
 		}
 
+		// Find Name
+		name := ""
+		for _, qt := range qbTorrents {
+			if strings.ToLower(qt.Hash) == strings.ToLower(hash) {
+				name = qt.Name
+				break
+			}
+		}
+
 		// Port to new repo
-		_ = s.repo.SaveTorrent(ctx, hash, magnet)
+		_ = s.repo.SaveTorrent(ctx, hash, name, magnet)
 		if isNonMedia {
 			_ = s.repo.SetNonMedia(ctx, hash, true)
 		}
