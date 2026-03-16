@@ -3,14 +3,15 @@ package models
 import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 	"github.com/anacrolix/dht/v2"
 	"golang.org/x/time/rate"
 )
 
 // TorrentEngine defines the subset of anacrolix/torrent.Client methods we use.
 type TorrentEngine interface {
-	AddMagnet(uri string) (EngineTorrent, error)
-	AddTorrent(mi *metainfo.MetaInfo) (EngineTorrent, error)
+	AddMagnet(uri string, savePath string) (EngineTorrent, error)
+	AddTorrent(mi *metainfo.MetaInfo, savePath string) (EngineTorrent, error)
 	Torrents() []EngineTorrent
 	DhtNodes() int
 	SetRateLimits(dl, up int64)
@@ -176,23 +177,39 @@ func (w FileWrapper) SetPriority(priority int) {
 }
 
 type EngineWrapper struct {
-	Client     *torrent.Client
-	DlLimit    *rate.Limiter
-	UpLimit    *rate.Limiter
-	DhtEnabled bool
-	PexEnabled bool
+	Client          *torrent.Client
+	PieceCompletion storage.PieceCompletion
+	DlLimit         *rate.Limiter
+	UpLimit         *rate.Limiter
+	DhtEnabled      bool
+	PexEnabled      bool
 }
 
-func (w *EngineWrapper) AddMagnet(uri string) (EngineTorrent, error) {
-	t, err := w.Client.AddMagnet(uri)
+func (w *EngineWrapper) AddMagnet(uri string, savePath string) (EngineTorrent, error) {
+	spec, err := torrent.TorrentSpecFromMagnetUri(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	if savePath != "" {
+		spec.Storage = storage.NewFileWithCompletion(savePath, w.PieceCompletion)
+	}
+
+	t, _, err := w.Client.AddTorrentSpec(spec)
 	if err != nil {
 		return nil, err
 	}
 	return TorrentWrapper{t}, nil
 }
 
-func (w *EngineWrapper) AddTorrent(mi *metainfo.MetaInfo) (EngineTorrent, error) {
-	t, err := w.Client.AddTorrent(mi)
+func (w *EngineWrapper) AddTorrent(mi *metainfo.MetaInfo, savePath string) (EngineTorrent, error) {
+	spec := torrent.TorrentSpecFromMetaInfo(mi)
+	
+	if savePath != "" {
+		spec.Storage = storage.NewFileWithCompletion(savePath, w.PieceCompletion)
+	}
+
+	t, _, err := w.Client.AddTorrentSpec(spec)
 	if err != nil {
 		return nil, err
 	}

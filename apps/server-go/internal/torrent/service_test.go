@@ -83,16 +83,19 @@ func (m *MockTorrent) SetSequential(b bool)  {}
 
 type MockEngine struct {
 	models.TorrentEngine
-	AddedMagnet string
-	ReturnTor   *MockTorrent
+	AddedMagnet   string
+	AddedSavePath string
+	ReturnTor     *MockTorrent
 }
 
-func (m *MockEngine) AddMagnet(uri string) (models.EngineTorrent, error) {
+func (m *MockEngine) AddMagnet(uri string, savePath string) (models.EngineTorrent, error) {
 	m.AddedMagnet = uri
+	m.AddedSavePath = savePath
 	return m.ReturnTor, nil
 }
 
-func (m *MockEngine) AddTorrent(mi *metainfo.MetaInfo) (models.EngineTorrent, error) {
+func (m *MockEngine) AddTorrent(mi *metainfo.MetaInfo, savePath string) (models.EngineTorrent, error) {
+	m.AddedSavePath = savePath
 	return m.ReturnTor, nil
 }
 
@@ -188,7 +191,7 @@ func TestTorrentService_RestoreState(t *testing.T) {
 
 	ctx := context.Background()
 	hash := "0123456789abcdef0123456789abcdef01234567"
-	_ = repo.SaveTorrent(ctx, hash, "RestoreTest", "magnet1")
+	_ = repo.SaveTorrent(ctx, hash, "RestoreTest", "/tmp", "magnet1")
 
 	infoChan := make(chan struct{})
 	close(infoChan)
@@ -198,6 +201,32 @@ func TestTorrentService_RestoreState(t *testing.T) {
 
 	if err := service.RestoreState(ctx); err != nil {
 		t.Fatalf("restore failed: %v", err)
+	}
+}
+
+func TestTorrentService_RestoreStateWithCustomPath(t *testing.T) {
+	repo, _ := repository.NewSqliteRepository(":memory:")
+	defer repo.Close()
+
+	ctx := context.Background()
+	hash := "0123456789abcdef0123456789abcdef01234567"
+	customPath := "/mnt/data/torrents"
+	
+	// Use MigrateTorrent to set all fields including custom savePath
+	_ = repo.MigrateTorrent(ctx, hash, "PathTest", customPath, "magnet1", 0, 0, 0, 0)
+
+	infoChan := make(chan struct{})
+	close(infoChan)
+	mockTor := &MockTorrent{HashStr: hash, NameStr: "PathTest", GotInfoChan: infoChan}
+	engine := &MockEngine{ReturnTor: mockTor}
+	service := NewTorrentService(engine, repo, nil, "/tmp", false)
+
+	if err := service.RestoreState(ctx); err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	if engine.AddedSavePath != customPath {
+		t.Errorf("Expected engine to receive custom savePath %s, got %s", customPath, engine.AddedSavePath)
 	}
 }
 
@@ -279,7 +308,7 @@ func TestTorrentService_DTOIntegrity(t *testing.T) {
 	ctx := context.Background()
 	
 	// Mock a migrated torrent with stats
-	_ = repo.SaveTorrent(ctx, hash, "Migrated Movie", "magnet:...")
+	_ = repo.SaveTorrent(ctx, hash, "Migrated Movie", "/tmp", "magnet:...")
 	_ = repo.UpdateTorrentStats(ctx, hash, 1000, 2000, 3600)
 
 	mockTor := &MockTorrent{HashStr: hash, NameStr: "Migrated Movie"}

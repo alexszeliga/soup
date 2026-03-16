@@ -12,6 +12,7 @@ type TorrentRecord struct {
 
 	Hash         string    `bun:"hash,pk"`
 	Name         string    `bun:"name"`
+	SavePath     string    `bun:"save_path"`
 	MagnetURI    string    `bun:"magnet_uri,notnull"`
 	AddedOn      int64     `bun:"added_on"`
 	TotalRead    int64     `bun:"total_read,default:0"`

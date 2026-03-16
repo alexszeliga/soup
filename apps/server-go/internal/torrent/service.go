@@ -273,8 +273,8 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 	defer s.mu.Unlock()
 
 	for _, rec := range records {
-		log.Printf("Restoring torrent: %s", rec.Hash)
-		t, err := s.engine.AddMagnet(rec.MagnetURI)
+		log.Printf("Restoring torrent: %s (SavePath: %s)", rec.Hash, rec.SavePath)
+		t, err := s.engine.AddMagnet(rec.MagnetURI, rec.SavePath)
 		if err != nil {
 			log.Printf("Failed to restore torrent %s: %v", rec.Hash, err)
 			continue
@@ -310,7 +310,9 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 
 // AddMagnet adds a new magnet link, ensures it persists, and manages its lifecycle.
 func (s *TorrentService) AddMagnet(ctx context.Context, uri string) (models.EngineTorrent, error) {
-	t, err := s.engine.AddMagnet(uri)
+	// Use default save path if not specified
+	savePath := s.prefs.SavePath
+	t, err := s.engine.AddMagnet(uri, savePath)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +320,7 @@ func (s *TorrentService) AddMagnet(ctx context.Context, uri string) (models.Engi
 	hash := t.InfoHash().HexString()
 
 	// 1. Persist the magnet for future restarts
-	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), uri); err != nil {
+	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), savePath, uri); err != nil {
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
 
@@ -338,7 +340,8 @@ func (s *TorrentService) AddMagnet(ctx context.Context, uri string) (models.Engi
 
 // AddTorrent adds a new torrent from metainfo, ensures it persists, and manages its lifecycle.
 func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) (models.EngineTorrent, error) {
-	t, err := s.engine.AddTorrent(mi)
+	savePath := s.prefs.SavePath
+	t, err := s.engine.AddTorrent(mi, savePath)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +350,7 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 
 	// 1. Persist (We use the magnet representation for simple recovery)
 	magnet := mi.Magnet(nil, nil).String()
-	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), magnet); err != nil {
+	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), savePath, magnet); err != nil {
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
 

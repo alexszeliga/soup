@@ -61,6 +61,7 @@ func (r *bunRepo) migrate(ctx context.Context) error {
 	}
 
 	// Manual column migrations for existing tables
+	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN save_path TEXT")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN total_read INTEGER DEFAULT 0")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN total_written INTEGER DEFAULT 0")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE torrents ADD COLUMN seeding_time INTEGER DEFAULT 0")
@@ -137,10 +138,11 @@ func (r *bunRepo) IsSequential(ctx context.Context, hash string) (bool, error) {
 	return record.IsSequential, nil
 }
 
-func (r *bunRepo) SaveTorrent(ctx context.Context, hash string, name string, magnet string) error {
+func (r *bunRepo) SaveTorrent(ctx context.Context, hash string, name string, savePath string, magnet string) error {
 	record := &TorrentRecord{
 		Hash:      hash,
 		Name:      name,
+		SavePath:  savePath,
 		MagnetURI: magnet,
 		AddedOn:   time.Now().Unix(),
 	}
@@ -148,15 +150,17 @@ func (r *bunRepo) SaveTorrent(ctx context.Context, hash string, name string, mag
 		Model(record).
 		On("CONFLICT (hash) DO UPDATE").
 		Set("name = EXCLUDED.name").
+		Set("save_path = EXCLUDED.save_path").
 		Set("magnet_uri = EXCLUDED.magnet_uri").
 		Exec(ctx)
 	return err
 }
 
-func (r *bunRepo) MigrateTorrent(ctx context.Context, hash, name, magnet string, addedOn, totalRead, totalWritten, seedingTime int64) error {
+func (r *bunRepo) MigrateTorrent(ctx context.Context, hash, name, savePath, magnet string, addedOn, totalRead, totalWritten, seedingTime int64) error {
 	record := &TorrentRecord{
 		Hash:         hash,
 		Name:         name,
+		SavePath:     savePath,
 		MagnetURI:    magnet,
 		AddedOn:      addedOn,
 		TotalRead:    totalRead,
@@ -167,6 +171,7 @@ func (r *bunRepo) MigrateTorrent(ctx context.Context, hash, name, magnet string,
 		Model(record).
 		On("CONFLICT (hash) DO UPDATE").
 		Set("name = EXCLUDED.name").
+		Set("save_path = EXCLUDED.save_path").
 		Set("magnet_uri = EXCLUDED.magnet_uri").
 		Set("added_on = EXCLUDED.added_on").
 		Set("total_read = EXCLUDED.total_read").

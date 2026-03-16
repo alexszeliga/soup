@@ -82,7 +82,7 @@ func TestSqliteRepo_Torrents(t *testing.T) {
 	magnet := "magnet:?xt=urn:btih:th1"
 
 	// Save
-	if err := repo.SaveTorrent(ctx, hash, name, magnet); err != nil {
+	if err := repo.SaveTorrent(ctx, hash, name, "/tmp", magnet); err != nil {
 		t.Errorf("Failed to save torrent: %v", err)
 	}
 
@@ -119,6 +119,34 @@ func TestSqliteRepo_Torrents(t *testing.T) {
 	list, _ = repo.GetTorrents(ctx)
 	if len(list) != 0 {
 		t.Error("Expected torrent to be deleted")
+	}
+}
+
+func TestSqliteRepo_MigrateTorrent(t *testing.T) {
+	repo, _ := NewSqliteRepository(":memory:")
+	defer repo.Close()
+
+	ctx := context.Background()
+	hash := "migrate-hash"
+	name := "Migrated Torrent"
+	savePath := "/custom/path"
+	magnet := "magnet:?xt=urn:btih:migrate-hash"
+
+	if err := repo.MigrateTorrent(ctx, hash, name, savePath, magnet, 123456789, 1000, 2000, 3600); err != nil {
+		t.Fatalf("MigrateTorrent failed: %v", err)
+	}
+
+	list, _ := repo.GetTorrents(ctx)
+	if len(list) != 1 {
+		t.Fatalf("Expected 1 torrent, got %d", len(list))
+	}
+
+	rec := list[0]
+	if rec.SavePath != savePath {
+		t.Errorf("Expected SavePath %s, got %s", savePath, rec.SavePath)
+	}
+	if rec.AddedOn != 123456789 {
+		t.Errorf("Expected AddedOn 123456789, got %d", rec.AddedOn)
 	}
 }
 
