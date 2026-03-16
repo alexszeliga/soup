@@ -290,7 +290,7 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 			totalReadBase:    rec.TotalRead,
 			totalWrittenBase: rec.TotalWritten,
 			seedingTimeBase:  float64(rec.SeedingTime),
-			addedOn:          rec.CreatedAt.Unix(),
+			addedOn:          rec.AddedOn,
 			name:             rec.Name,
 			isNonMedia:       isNonMedia,
 			isSequential:     isSeq,

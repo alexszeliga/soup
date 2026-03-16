@@ -141,12 +141,36 @@ func (r *bunRepo) SaveTorrent(ctx context.Context, hash string, name string, mag
 		Hash:      hash,
 		Name:      name,
 		MagnetURI: magnet,
+		AddedOn:   time.Now().Unix(),
 	}
 	_, err := r.db.NewInsert().
 		Model(record).
 		On("CONFLICT (hash) DO UPDATE").
 		Set("name = EXCLUDED.name").
 		Set("magnet_uri = EXCLUDED.magnet_uri").
+		Exec(ctx)
+	return err
+}
+
+func (r *bunRepo) MigrateTorrent(ctx context.Context, hash, name, magnet string, addedOn, totalRead, totalWritten, seedingTime int64) error {
+	record := &TorrentRecord{
+		Hash:         hash,
+		Name:         name,
+		MagnetURI:    magnet,
+		AddedOn:      addedOn,
+		TotalRead:    totalRead,
+		TotalWritten: totalWritten,
+		SeedingTime:  seedingTime,
+	}
+	_, err := r.db.NewInsert().
+		Model(record).
+		On("CONFLICT (hash) DO UPDATE").
+		Set("name = EXCLUDED.name").
+		Set("magnet_uri = EXCLUDED.magnet_uri").
+		Set("added_on = EXCLUDED.added_on").
+		Set("total_read = EXCLUDED.total_read").
+		Set("total_written = EXCLUDED.total_written").
+		Set("seeding_time = EXCLUDED.seeding_time").
 		Exec(ctx)
 	return err
 }
