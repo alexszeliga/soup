@@ -143,6 +143,13 @@ func (s *MigrationService) Run(ctx context.Context) error {
 	}
 
 	log.Printf("[Migration] SUCCESS: Migrated %d torrents and their metadata.", count)
+	
+	// Force flush WAL to main DB file
+	if err := s.repo.Checkpoint(ctx); err != nil {
+		log.Printf("[Migration] Warning: Checkpoint failed: %v", err)
+	}
+
+	log.Println("[Migration] NOTE: Please RESTART the soup-go server (docker restart soup-go) to apply changes.")
 	return nil
 }
 

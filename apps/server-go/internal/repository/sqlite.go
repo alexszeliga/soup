@@ -160,6 +160,11 @@ func (r *bunRepo) SetTorrentName(ctx context.Context, hash string, name string) 
 	return err
 }
 
+func (r *bunRepo) Checkpoint(ctx context.Context) error {
+	_, err := r.db.ExecContext(ctx, "PRAGMA wal_checkpoint(FULL)")
+	return err
+}
+
 
 func (r *bunRepo) GetTorrents(ctx context.Context) ([]TorrentRecord, error) {
 	var records []TorrentRecord
