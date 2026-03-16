@@ -138,13 +138,6 @@ func main() {
 	ids := system.NewIdentityService("spoof.json")
 	ids.StartAutoSync(context.Background())
 
-	// Add a test magnet (Sintel) if engine is empty and no torrents in DB
-	existingInDB, _ := repo.GetTorrents(context.Background())
-	if len(engine.Torrents()) == 0 && len(existingInDB) == 0 {
-		magnet := "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10"
-		_, _ = ts.AddMagnet(context.Background(), magnet)
-	}
-
 	// Auto-add any .torrent files found in DATA_DIR (useful for discovery/spoofing)
 	tFiles, _ := filepath.Glob(filepath.Join(absDataDir, "*.torrent"))
 	for _, tf := range tFiles {
@@ -181,8 +174,14 @@ func main() {
 func runMigration() {
 	cfg := config.Load()
 	
+	// Get QB_URL from environment or fallback to common local default
+	defaultQB := os.Getenv("QB_URL")
+	if defaultQB == "" {
+		defaultQB = "http://localhost:8080/api/v2"
+	}
+
 	oldDbPath := flag.String("old-db", "../server/soup.db", "Path to the old TypeScript soup.db")
-	qbUrl := flag.String("qb-url", "https://qb.osage.lol/api/v2", "qBittorrent API URL")
+	qbUrl := flag.String("qb-url", defaultQB, "qBittorrent API URL")
 	flag.CommandLine.Parse(os.Args[2:])
 
 	repo, err := repository.NewSqliteRepository(cfg.EngineDBPath)
