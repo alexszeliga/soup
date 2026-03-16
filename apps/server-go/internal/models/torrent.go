@@ -6,7 +6,7 @@ import (
 )
 
 // Torrent represents the data structure for a single BitTorrent download (DTO).
-// The JSON tags are carefully matched to the TypeScript Torrent model.
+// The JSON tags are carefully matched to the qBittorrent API format used by the frontend.
 type Torrent struct {
 	Hash          string         `json:"hash"`
 	Name          string         `json:"name"`
@@ -14,21 +14,21 @@ type Torrent struct {
 	Progress      float64        `json:"progress"`
 	State         string         `json:"state"`
 	StateName     string         `json:"stateName"`
-	DownloadSpeed int64          `json:"downloadSpeed"`
-	UploadSpeed   int64          `json:"uploadSpeed"`
-	TotalRead     int64          `json:"totalRead"`
-	TotalWritten  int64          `json:"totalWritten"`
-	ContentPath   string         `json:"contentPath"`
-	AddedOn       int64          `json:"addedOn"`
-	SeedingTime   int64          `json:"seedingTime"`
+	DownloadSpeed int64          `json:"dlspeed"`
+	UploadSpeed   int64          `json:"upspeed"`
+	TotalRead     int64          `json:"total_read"`
+	TotalWritten  int64          `json:"total_written"`
+	ContentPath   string         `json:"content_path"`
+	AddedOn       int64          `json:"added_on"`
+	SeedingTime   int64          `json:"seeding_time"`
 	Ratio         float64        `json:"ratio"`
 	Eta           int64          `json:"eta"`
 	ActivePeers   int            `json:"activePeers"`
 	TotalPeers    int            `json:"totalPeers"`
 	Availability  float64        `json:"availability"`
-	IsSequential  bool           `json:"isSequential"`
-	IsForceStart  bool           `json:"isForceStart"`
-	IsNonMedia    bool           `json:"isNonMedia"`
+	IsSequential  bool           `json:"is_sequential"`
+	IsForceStart  bool           `json:"is_force_start"`
+	IsNonMedia    bool           `json:"is_non_media"`
 	MediaInfo     MediaInfo      `json:"mediaInfo"`
 	MediaMetadata *MediaMetadata `json:"mediaMetadata,omitempty"`
 }
@@ -94,7 +94,8 @@ func NewFromEngineInterface(t EngineTorrent, fallbackName string) *Torrent {
 		Availability:  1.0, // Placeholder
 		IsSequential:  false,
 		IsForceStart:  false,
-		MediaInfo:     GetMediaInfo(t.Name()),
+		IsNonMedia:    false,
+		MediaInfo:     GetMediaInfo(displayName),
 	}
 }
 

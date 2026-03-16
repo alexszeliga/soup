@@ -379,10 +379,11 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 		<-t.GotInfo()
 		
 		// 1. Update in-memory name and persist to DB
+		torrentHash := t.InfoHash().HexString()
 		s.mu.Lock()
-		if sample, ok := s.lastSamples[hash]; ok {
+		if sample, ok := s.lastSamples[torrentHash]; ok {
 			sample.name = t.Name()
-			_ = s.repo.SetTorrentName(context.Background(), hash, sample.name)
+			_ = s.repo.SetTorrentName(context.Background(), torrentHash, sample.name)
 		}
 		s.mu.Unlock()
 
@@ -524,7 +525,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 		// Map enriched fields to DTO
 		t.AddedOn = sample.addedOn
 		t.SeedingTime = int64(sample.seedingTimeBase)
-		t.ContentPath = filepath.Join(s.prefs.SavePath, t.Name)
+		t.ContentPath = filepath.Join(s.prefs.SavePath, t.name)
 		t.IsSequential = sample.isSequential
 		t.IsNonMedia = sample.isNonMedia
 
