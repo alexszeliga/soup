@@ -32,8 +32,15 @@ type torrentSample struct {
 	name             string
 	isSequential     bool
 	isNonMedia       bool
+	savePath         string
 	metadata         *models.MediaMetadata
 }
+
+// Configuration Constants
+const (
+	EmaSmoothingAlpha   = 0.3
+	TelemetrySyncInterval = 10 * time.Second
+)
 
 // MetadataWaitTimeout is how long we block the lifecycle routine before continuing without metadata.
 // Exported for testing purposes.
@@ -292,6 +299,7 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 			seedingTimeBase:  float64(rec.SeedingTime),
 			addedOn:          rec.AddedOn,
 			name:             rec.Name,
+			savePath:         rec.SavePath,
 			isNonMedia:       isNonMedia,
 			isSequential:     isSeq,
 		}
@@ -329,6 +337,7 @@ func (s *TorrentService) AddMagnet(ctx context.Context, uri string) (models.Engi
 	s.lastSamples[hash] = &torrentSample{
 		timestamp: time.Now(),
 		addedOn:   time.Now().Unix(),
+		savePath:  savePath,
 	}
 	s.mu.Unlock()
 
@@ -359,6 +368,7 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 	s.lastSamples[hash] = &torrentSample{
 		timestamp: time.Now(),
 		addedOn:   time.Now().Unix(),
+		savePath:  savePath,
 	}
 	s.mu.Unlock()
 
@@ -469,7 +479,6 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 	defer s.mu.Unlock()
 
 	now := time.Now()
-	alpha := 0.3 // Smoothing factor
 
 	for _, et := range engineTorrents {
 		hash := et.InfoHash().HexString()
@@ -480,7 +489,33 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 			s.lastSamples[hash] = sample
 		}
 
-		t := models.NewFromEngineInterface(et, sample.name, sample.addedOn)
+		// Use the metadata root if it's media, else save path
+		contentPath := sample.savePath
+		if sample.name != "" {
+			contentPath = filepath.Join(sample.savePath, sample.name)
+		}
+
+		// Lock in base info to prevent flickering
+		baseInfo := models.TorrentBaseInfo{
+			Name:             sample.name,
+			AddedOn:          sample.addedOn,
+			TotalReadBase:    sample.totalReadBase,
+			TotalWrittenBase: sample.totalWrittenBase,
+			SeedingTimeBase:  int64(sample.seedingTimeBase),
+			IsNonMedia:       sample.isNonMedia,
+			IsSequential:     sample.isSequential,
+			ContentPath:      contentPath,
+			Metadata:         sample.metadata,
+		}
+
+		if !sample.isNonMedia && sample.metadata == nil {
+			if meta, err := s.repo.GetMetadata(ctx, hash); err == nil && meta != nil {
+				sample.metadata = meta
+				baseInfo.Metadata = meta
+			}
+		}
+
+		t := models.NewFromEngineInterface(et, baseInfo)
 
 		stats := et.Stats()
 		currentRead := stats.BytesRead.Int64()
@@ -493,14 +528,14 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 			instUp := float64(currentWritten-sample.bytesWritten) / duration
 
 			// Apply EMA smoothing
-			sample.emaDl = (alpha * instDl) + ((1 - alpha) * sample.emaDl)
-			sample.emaUp = (alpha * instUp) + ((1 - alpha) * sample.emaUp)
+			sample.emaDl = (EmaSmoothingAlpha * instDl) + ((1 - EmaSmoothingAlpha) * sample.emaDl)
+			sample.emaUp = (EmaSmoothingAlpha * instUp) + ((1 - EmaSmoothingAlpha) * sample.emaUp)
 
 			t.DownloadSpeed = int64(sample.emaDl)
 			t.UploadSpeed = int64(sample.emaUp)
 
 			// Calculate ETA
-			if t.Progress < 1.0 && t.DownloadSpeed > 1024 {
+			if t.Progress < 1.0 && t.DownloadSpeed > models.StalledThreshold {
 				remaining := t.Size - int64(float64(t.Size)*t.Progress)
 				t.Eta = remaining / t.DownloadSpeed
 			}
@@ -511,46 +546,19 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 			}
 
 			// Refine state (Stalled detection)
-			if t.State == "downloading" && t.DownloadSpeed < 1024 {
+			if t.State == "downloading" && t.DownloadSpeed < models.StalledThreshold {
 				t.State = "stalledDL"
 				t.StateName = "Stalled"
-			} else if t.State == "uploading" && t.UploadSpeed < 1024 {
+			} else if t.State == "uploading" && t.UploadSpeed < models.StalledThreshold {
 				t.State = "stalledUP"
 				t.StateName = "Seeding (Stalled)"
 			}
 		}
 
-		// Update persistent cumulative stats in sample
+		// Update sample for next tick
 		sample.bytesRead = currentRead
 		sample.bytesWritten = currentWritten
 		sample.timestamp = now
-
-		// Map enriched fields to DTO
-		t.AddedOn = sample.addedOn
-		t.SeedingTime = int64(sample.seedingTimeBase)
-		t.ContentPath = filepath.Join(s.prefs.SavePath, t.Name)
-		t.IsSequential = sample.isSequential
-		t.IsNonMedia = sample.isNonMedia
-
-		t.TotalRead = sample.totalReadBase + currentRead
-		t.TotalWritten = sample.totalWrittenBase + currentWritten
-
-		if t.TotalRead > 0 {
-			t.Ratio = float64(t.TotalWritten) / float64(t.TotalRead)
-		} else if t.TotalWritten > 0 {
-			t.Ratio = 9.99 // Cap for seeding without downloading
-		}
-
-		s.lastSamples[hash] = sample
-
-		if !t.IsNonMedia {
-			if sample.metadata == nil {
-				if meta, err := s.repo.GetMetadata(ctx, t.Hash); err == nil && meta != nil {
-					sample.metadata = meta
-				}
-			}
-			t.MediaMetadata = sample.metadata
-		}
 
 		list = append(list, t)
 	}
@@ -573,7 +581,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 }
 
 func (s *TorrentService) telemetryLoop() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(TelemetrySyncInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
