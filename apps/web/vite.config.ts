@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     server: {
       proxy: {
+        "/ws": {
+          target: `ws://localhost:${apiPort}`,
+          ws: true,
+        },
         '/api': {
           target: `http://localhost:${apiPort}`,
           changeOrigin: true,

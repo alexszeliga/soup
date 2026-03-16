@@ -83,6 +83,10 @@ export interface QBServerState {
   dl_info_speed: number;
   /** Global upload speed in bytes per second. */
   up_info_speed: number;
+  /** Ingestion (file transfer) speed in bytes per second. */
+  ingest_info_speed?: number;
+  /** Number of DHT nodes. */
+  dht_nodes?: number;
   /** Free space on disk in bytes. */
   free_space_on_disk: number;
   /** True if alternative speed limits are enabled. */
@@ -304,12 +308,12 @@ export class QBClient {
 
     const data = await response.json() as RawTorrentFileData[];
     
-    return data.map((f, index) => ({
+    return data.map((f, i) => ({
       name: f.name,
       size: f.size,
       progress: f.progress,
       priority: f.priority,
-      index
+      index: f.index !== undefined ? (f.index as number) : i
     }));
   }
 
