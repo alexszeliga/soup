@@ -45,8 +45,12 @@ export function useTorrents(selectedTorrentHash: string | null) {
   const currentFocusRef = useRef<string | null>(null);
   currentFocusRef.current = selectedTorrentHash;
 
+  // Map of hash -> target state ('active' | 'inactive')
+  const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
+
   // Connectivity State
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
+  const isConnectionLost = consecutiveFailures >= 3;
 
   const fetchData = useCallback(async () => {
     if (isWebSocketActive) return;
