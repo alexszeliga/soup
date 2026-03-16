@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   isDestructive?: boolean;
+  children?: React.ReactNode;
 }
 
 /**
@@ -24,6 +25,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   isDestructive = true,
+  children,
 }) => {
   if (!isOpen) return null;
 
@@ -37,9 +39,17 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <h3 className="text-2xl font-black tracking-tight mb-3 text-zinc-900 dark:text-zinc-100">
           {title}
         </h3>
-        <p className="text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed mb-8">
+        <p className="text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed mb-4">
           {message}
         </p>
+
+        {children && (
+          <div className="mb-8">
+            {children}
+          </div>
+        )}
+        
+        {!children && <div className="mb-8" />}
         
         <div className="flex justify-end space-x-3">
           <button
