@@ -186,7 +186,7 @@ func TestTorrentService_RestoreState(t *testing.T) {
 
 	ctx := context.Background()
 	hash := "0123456789abcdef0123456789abcdef01234567"
-	_ = repo.SaveTorrent(ctx, hash, "magnet1")
+	_ = repo.SaveTorrent(ctx, hash, "RestoreTest", "magnet1")
 
 	infoChan := make(chan struct{})
 	close(infoChan)

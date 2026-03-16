@@ -136,18 +136,30 @@ func (r *bunRepo) IsSequential(ctx context.Context, hash string) (bool, error) {
 	return record.IsSequential, nil
 }
 
-func (r *bunRepo) SaveTorrent(ctx context.Context, hash string, magnetURI string) error {
+func (r *bunRepo) SaveTorrent(ctx context.Context, hash string, name string, magnet string) error {
 	record := &TorrentRecord{
 		Hash:      hash,
-		MagnetURI: magnetURI,
+		Name:      name,
+		MagnetURI: magnet,
 	}
 	_, err := r.db.NewInsert().
 		Model(record).
 		On("CONFLICT (hash) DO UPDATE").
+		Set("name = EXCLUDED.name").
 		Set("magnet_uri = EXCLUDED.magnet_uri").
 		Exec(ctx)
 	return err
 }
+
+func (r *bunRepo) SetTorrentName(ctx context.Context, hash string, name string) error {
+	_, err := r.db.NewUpdate().
+		Model((*TorrentRecord)(nil)).
+		Set("name = ?", name).
+		Where("hash = ?", hash).
+		Exec(ctx)
+	return err
+}
+
 
 func (r *bunRepo) GetTorrents(ctx context.Context) ([]TorrentRecord, error) {
 	var records []TorrentRecord

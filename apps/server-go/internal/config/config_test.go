@@ -11,7 +11,9 @@ func TestLoad_Defaults(t *testing.T) {
 	os.Unsetenv("SOUP_PORT")
 	os.Unsetenv("TMDB_API_KEY")
 	os.Unsetenv("LOCAL_DOWNLOAD_ROOT")
+	os.Unsetenv("DATA_DIR")
 	os.Unsetenv("DB_PATH")
+	os.Unsetenv("ENGINE_DB_PATH")
 	os.Unsetenv("MEDIA_ROOT")
 	os.Setenv("SOUP_ENV", "/non-existent") // Prevent loading project .env
 
@@ -75,6 +77,8 @@ func TestLoad_EnvOverrides(t *testing.T) {
 	// Cleanup
 	os.Unsetenv("TMDB_API_KEY")
 	os.Unsetenv("LOCAL_DOWNLOAD_ROOT")
+	os.Unsetenv("DATA_DIR")
 	os.Unsetenv("DB_PATH")
+	os.Unsetenv("ENGINE_DB_PATH")
 	os.Unsetenv("MEDIA_ROOT")
 }

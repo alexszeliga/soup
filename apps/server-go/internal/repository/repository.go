@@ -9,7 +9,9 @@ import (
 // It follows the "No-Waste" roadmap by providing a single source of truth for all services.
 type Repository interface {
 	// Torrent Persistence (for re-adding on restart)
-	SaveTorrent(ctx context.Context, hash string, magnetURI string) error
+	SaveTorrent(ctx context.Context, hash string, name string, magnet string) error
+	SetTorrentName(ctx context.Context, hash string, name string) error
+
 	GetTorrents(ctx context.Context) ([]TorrentRecord, error)
 	DeleteTorrent(ctx context.Context, hash string) error
 	UpdateTorrentStats(ctx context.Context, hash string, totalRead, totalWritten, seedingTime int64) error

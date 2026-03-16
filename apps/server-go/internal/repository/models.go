@@ -11,6 +11,7 @@ type TorrentRecord struct {
 	bun.BaseModel `bun:"table:torrents,alias:t"`
 
 	Hash         string    `bun:"hash,pk"`
+	Name         string    `bun:"name"`
 	MagnetURI    string    `bun:"magnet_uri,notnull"`
 	CreatedAt    time.Time `bun:"created_at,default:current_timestamp"`
 	TotalRead    int64     `bun:"total_read,default:0"`

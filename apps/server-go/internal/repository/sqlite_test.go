@@ -78,17 +78,28 @@ func TestSqliteRepo_Torrents(t *testing.T) {
 
 	ctx := context.Background()
 	hash := "th1"
+	name := "Test Torrent"
 	magnet := "magnet:?xt=urn:btih:th1"
 
 	// Save
-	if err := repo.SaveTorrent(ctx, hash, magnet); err != nil {
+	if err := repo.SaveTorrent(ctx, hash, name, magnet); err != nil {
 		t.Errorf("Failed to save torrent: %v", err)
 	}
 
 	// List
 	list, _ := repo.GetTorrents(ctx)
-	if len(list) != 1 || list[0].Hash != hash {
+	if len(list) != 1 || list[0].Hash != hash || list[0].Name != name {
 		t.Errorf("List mismatch. Got %v", list)
+	}
+
+	// Update Name
+	newName := "Updated Name"
+	if err := repo.SetTorrentName(ctx, hash, newName); err != nil {
+		t.Errorf("Failed to set name: %v", err)
+	}
+	list, _ = repo.GetTorrents(ctx)
+	if list[0].Name != newName {
+		t.Errorf("Expected name %s, got %s", newName, list[0].Name)
 	}
 
 	// Update stats
