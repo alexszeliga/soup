@@ -480,7 +480,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 			s.lastSamples[hash] = sample
 		}
 
-		t := models.NewFromEngineInterface(et, sample.name)
+		t := models.NewFromEngineInterface(et, sample.name, sample.addedOn)
 
 		stats := et.Stats()
 		currentRead := stats.BytesRead.Int64()

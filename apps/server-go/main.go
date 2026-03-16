@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -69,9 +70,22 @@ func main() {
 			}
 			if err := json.Unmarshal(data, &id); err == nil {
 				log.Printf("Applying Spoof Identity: %s (%s)", id.UserAgent, id.PeerIDPrefix)
+				
+				// 1. Set User Agent for HTTP tracker requests
 				tCfg.HTTPUserAgent = id.UserAgent
-				tCfg.Bep20 = id.PeerIDPrefix
+				
+				// 2. Set Extended Handshake version
 				tCfg.ExtendedHandshakeClientVersion = id.UserAgent
+				
+				// 3. Set Base Peer ID (20 bytes)
+				// Format: -qB4630-RANDOM...
+				var peerID [20]byte
+				copy(peerID[:], id.PeerIDPrefix)
+				_, _ = rand.Read(peerID[len(id.PeerIDPrefix):])
+				tCfg.PeerID = string(peerID[:])
+				
+				// 4. Force BEP20 to match PeerID prefix for consistency
+				tCfg.Bep20 = id.PeerIDPrefix
 			}
 		}
 	}

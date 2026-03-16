@@ -35,11 +35,11 @@ type Torrent struct {
 
 // NewFromEngine maps a native anacrolix torrent to our Soup model.
 func NewFromEngine(t *torrent.Torrent) *Torrent {
-	return NewFromEngineInterface(TorrentWrapper{t}, "")
+	return NewFromEngineInterface(TorrentWrapper{t}, "", 0)
 }
 
 // NewFromEngineInterface maps any EngineTorrent interface implementation to our Soup model.
-func NewFromEngineInterface(t EngineTorrent, fallbackName string) *Torrent {
+func NewFromEngineInterface(t EngineTorrent, fallbackName string, addedOn int64) *Torrent {
 	// 1. Calculate progress
 	progress := 0.0
 	length := t.Length()
@@ -84,8 +84,8 @@ func NewFromEngineInterface(t EngineTorrent, fallbackName string) *Torrent {
 		UploadSpeed:   0, // Calculated in TorrentService
 		TotalRead:     stats.BytesRead.Int64(),
 		TotalWritten:  stats.BytesWritten.Int64(),
-		ContentPath:   t.Name(),
-		AddedOn:       0,
+		ContentPath:   displayName,
+		AddedOn:       addedOn,
 		SeedingTime:   0,
 		Ratio:         0,
 		Eta:           -1,
