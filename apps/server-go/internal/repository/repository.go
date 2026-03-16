@@ -10,6 +10,7 @@ import (
 type Repository interface {
 	// Torrent Persistence (for re-adding on restart)
 	SaveTorrent(ctx context.Context, hash string, name string, magnet string) error
+	MigrateTorrent(ctx context.Context, hash, name, magnet string, addedOn, totalRead, totalWritten, seedingTime int64) error
 	SetTorrentName(ctx context.Context, hash string, name string) error
 	Checkpoint(ctx context.Context) error
 

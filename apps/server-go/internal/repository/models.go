@@ -13,7 +13,7 @@ type TorrentRecord struct {
 	Hash         string    `bun:"hash,pk"`
 	Name         string    `bun:"name"`
 	MagnetURI    string    `bun:"magnet_uri,notnull"`
-	CreatedAt    time.Time `bun:"created_at,default:current_timestamp"`
+	AddedOn      int64     `bun:"added_on"`
 	TotalRead    int64     `bun:"total_read,default:0"`
 	TotalWritten int64     `bun:"total_written,default:0"`
 	SeedingTime  int64     `bun:"seeding_time,default:0"` // in seconds

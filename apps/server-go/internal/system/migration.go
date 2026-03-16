@@ -77,7 +77,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 
 	// 3. Migrate Torrents and Metadata
 	log.Println("[Migration] Migrating torrents and metadata...")
-	rows, err := oldDb.Query("SELECT hash, metadata_id, is_non_media FROM torrents")
+	rows, err := oldDb.Query("SELECT hash, metadata_id, is_non_media, added_on, total_read, total_written, seeding_time FROM torrents")
 	if err != nil {
 		return fmt.Errorf("failed to query old torrents: %w", err)
 	}
@@ -88,15 +88,18 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		var hash string
 		var metadataId sql.NullString
 		var isNonMedia bool
-		if err := rows.Scan(&hash, &metadataId, &isNonMedia); err != nil {
+		var addedOn, totalRead, totalWritten, seedingTime int64
+		if err := rows.Scan(&hash, &metadataId, &isNonMedia, &addedOn, &totalRead, &totalWritten, &seedingTime); err != nil {
 			continue
 		}
 
 		// Find magnet
 		var magnet string
+		name := ""
 		for _, qt := range qbTorrents {
 			if strings.ToLower(qt.Hash) == strings.ToLower(hash) {
 				magnet = fmt.Sprintf("magnet:?xt=urn:btih:%s", qt.Hash)
+				name = qt.Name
 				break
 			}
 		}
@@ -106,17 +109,8 @@ func (s *MigrationService) Run(ctx context.Context) error {
 			continue
 		}
 
-		// Find Name
-		name := ""
-		for _, qt := range qbTorrents {
-			if strings.ToLower(qt.Hash) == strings.ToLower(hash) {
-				name = qt.Name
-				break
-			}
-		}
-
-		// Port to new repo
-		_ = s.repo.SaveTorrent(ctx, hash, name, magnet)
+		// Port to new repo with all stats
+		_ = s.repo.MigrateTorrent(ctx, hash, name, magnet, addedOn, totalRead, totalWritten, seedingTime)
 		if isNonMedia {
 			_ = s.repo.SetNonMedia(ctx, hash, true)
 		}
