@@ -28,12 +28,15 @@ function App() {
     torrents,
     serverState,
     storageStats,
+    tasks,
+    focusedFiles,
     isLoading,
     error,
     isConnectionLost,
     pendingTransitions,
     pendingAltSpeedTarget,
     config,
+    isWebSocketActive,
     handleAddTorrent,
     handleDelete,
     handleToggleAltSpeeds,
@@ -68,6 +71,7 @@ function App() {
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
           apiUrl={API_URL}
+          backendType={config?.backend}
         />
       </Suspense>
 
@@ -75,6 +79,7 @@ function App() {
       <Suspense fallback={null}>
         <TorrentDetailModal
           torrent={selectedTorrent}
+          focusedFiles={focusedFiles}
           isOpen={!!selectedTorrentHash}
           onClose={() => setSelectedTorrentHash(null)}
           onDelete={handleDelete}
@@ -116,7 +121,7 @@ function App() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col max-h-screen overflow-hidden bg-white dark:bg-zinc-950">
-        <Header sortBy={sortBy} setSortBy={setSortBy} />
+        <Header sortBy={sortBy} setSortBy={setSortBy} tasks={tasks} isWebSocketActive={isWebSocketActive} />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="max-w-[1400px] mx-auto w-full p-4 lg:p-8">
