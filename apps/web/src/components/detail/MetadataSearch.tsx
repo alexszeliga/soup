@@ -30,7 +30,7 @@ export const MetadataSearch: React.FC<MetadataSearchProps> = ({
     </header>
 
     <form onSubmit={onSearch} className="flex gap-2">
-      <div className="flex-1 h-12 sm:h-14 px-4 sm:px-6 bg-zinc-100 dark:bg-zinc-900 rounded-xl sm:rounded-2xl flex items-center border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
+      <div className="flex-1 h-12 sm:h-14 px-4 sm:px-6 bg-zinc-50 dark:bg-zinc-950 rounded-xl sm:rounded-2xl flex items-center border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-blue-500/50 transition-all shadow-inner">
         <input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-transparent border-none outline-none text-sm font-bold w-full" placeholder="Enter title..." />
       </div>
       <button type="submit" disabled={isSearching} className="h-12 sm:h-14 px-6 sm:px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50">

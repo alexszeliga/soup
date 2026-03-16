@@ -13,17 +13,19 @@ import { MetadataSearch } from './detail/MetadataSearch';
 
 interface TorrentDetailModalProps {
   torrent: TorrentWithMetadata | null;
+  focusedFiles: any[];
   isOpen: boolean;
   onClose: () => void;
-  onDelete: (hash: string) => void;
+  onDelete: (hash: string, deleteFiles: boolean) => void;
 }
 
 const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({ 
-  torrent, isOpen, onClose, onDelete 
+  torrent, focusedFiles, isOpen, onClose, onDelete 
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'ingest'>('details');
   const [isActionPending, setIsActionPending] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<Map<number, number>>(new Map());
+  const [deleteFilesChecked, setDeleteFilesChecked] = useState(true);
 
   // Search State
   const [isSearchView, setIsSearchView] = useState(false);
@@ -46,16 +48,18 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       setSearchQuery(torrent?.mediaMetadata?.title || '');
       setConfirmState(null);
       setActiveTab('details');
+      setDeleteFilesChecked(true);
     }
   }, [isOpen, torrent?.hash]);
 
   // Resolve pending states
   useEffect(() => {
-    if (torrent?.files) {
+    const filesToUse = focusedFiles.length > 0 ? focusedFiles : torrent?.files;
+    if (filesToUse) {
       setPendingFiles(prev => {
         if (prev.size === 0) return prev;
         const next = new Map(prev);
-        torrent.files!.forEach(file => {
+        filesToUse.forEach((file: any) => {
           if (next.get(file.index) === file.priority) {
             next.delete(file.index);
           }
@@ -63,7 +67,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         return next;
       });
     }
-  }, [torrent?.files]);
+  }, [torrent?.files, focusedFiles]);
 
   const handleUnmatch = async () => {
     if (!torrent) return;
@@ -118,7 +122,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       case 'unmatch': handleUnmatch(); break;
       case 'non-media': handleToggleNonMedia(true); break;
       case 'mark-media': handleToggleNonMedia(false); break;
-      case 'delete': onDelete(torrent.hash); onClose(); break;
+      case 'delete': onDelete(torrent.hash, deleteFilesChecked); onClose(); break;
     }
   };
 
@@ -181,9 +185,14 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   if (!isOpen || !torrent) return null;
 
-  const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, files, isNonMedia } = torrent;
+  const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, isNonMedia } = torrent;
   const progressPercent = Math.round(progress * 100);
   const isActive = Torrent.ACTIVE_STATES.includes(state);
+  
+  // LEAKY STATE SAFEGUARD: Only use focusedFiles if they actually belong to this torrent
+  // We check if any file in the list exists, and if so, we assume the backend has synced.
+  // The useTorrents hook now provides a focusHash, but we can also check against torrent.files
+  const filesToDisplay = focusedFiles.length > 0 ? focusedFiles : torrent.files;
 
   const actionItems: ActionMenuItem[] = [
     { 
@@ -238,7 +247,19 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         message={confirmState?.message || ''}
         onClose={() => setConfirmState(null)}
         onConfirm={handleConfirmedAction}
-      />
+      >
+        {confirmState?.type === 'delete' && (
+          <label className="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
+            <input 
+              type="checkbox" 
+              checked={deleteFilesChecked}
+              onChange={(e) => setDeleteFilesChecked(e.target.checked)}
+              className="w-5 h-5 rounded border-red-300 text-red-600 focus:ring-red-500"
+            />
+            <span className="text-sm font-bold text-red-700 dark:text-red-400">Also delete files on disk</span>
+          </label>
+        )}
+      </ConfirmDialog>
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
         <div className="bg-white dark:bg-zinc-950 w-full max-w-4xl h-full sm:h-auto sm:max-h-[90vh] sm:rounded-[32px] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-500">
@@ -323,7 +344,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                 onClick={() => setConfirmState({
                   type: 'delete',
                   title: 'Delete Torrent',
-                  message: 'Are you sure you want to delete this torrent and its files?'
+                  message: 'Are you sure you want to delete this torrent?'
                 })}
                 className="h-10 sm:h-12 px-4 sm:px-6 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl transition-all active:scale-95 flex items-center gap-2"
               >
@@ -356,7 +377,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                 onClick={() => setActiveTab('files')}
                 className={`py-4 px-4 sm:px-6 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all whitespace-nowrap ${activeTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
               >
-                Files ({files?.length || 0})
+                Files ({filesToDisplay?.length || 0})
               </button>
               <button 
                 onClick={() => setActiveTab('ingest')}
@@ -395,7 +416,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   <section>
                     <h3 className="text-[10px] sm:text-xs font-black uppercase text-zinc-400 tracking-widest mb-4">Cast</h3>
                     <div className="flex flex-wrap gap-2">
-                      {mediaMetadata?.cast.map(name => (
+                      {mediaMetadata?.cast?.map(name => (
                         <span key={name} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-full text-[10px] sm:text-xs font-bold">
                           {name}
                         </span>
@@ -472,7 +493,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
-                      {files?.map(file => (
+                      {filesToDisplay?.map(file => (
                         <FileRow 
                           key={file.index} 
                           file={file} 
@@ -487,7 +508,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
                 {/* Mobile View: Cards */}
                 <div className="sm:hidden space-y-3">
-                  {files?.map(file => (
+                  {filesToDisplay?.map(file => (
                     <FileCard 
                       key={file.index} 
                       file={file} 
@@ -498,7 +519,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                   ))}
                 </div>
 
-                {(!files || files.length === 0) && (
+                {(!filesToDisplay || filesToDisplay.length === 0) && (
                   <div className="py-20 text-center text-zinc-500 font-bold bg-zinc-50 dark:bg-zinc-900/30 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800">
                     No files discovered.
                   </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDown, ArrowUp, HardDrive, Zap, ZapOff } from 'lucide-react';
+import { ArrowDown, ArrowUp, HardDrive, Zap, ZapOff, Package, Globe } from 'lucide-react';
 import type { QBServerState } from '@soup/core/QBClient.js';
 import type { DiskStats } from '@soup/core/StorageService.js';
 import { formatBytes } from '../utils/format';
@@ -25,7 +25,7 @@ const GlobalStats: React.FC<GlobalStatsProps> = ({
 }) => {
   return (
     <div className={`${isMobile ? '' : 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50'} rounded-3xl p-4 space-y-4 shadow-inner`}>
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-2 gap-2">
         <div className="flex items-center space-x-2">
           <ArrowDown size={14} className="text-blue-500" />
           <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.dl_info_speed) : '0 B'}/s</span>
@@ -33,6 +33,14 @@ const GlobalStats: React.FC<GlobalStatsProps> = ({
         <div className="flex items-center space-x-2">
           <ArrowUp size={14} className="text-emerald-500" />
           <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.up_info_speed) : '0 B'}/s</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Package size={14} className="text-orange-500" />
+          <span className="text-[11px] font-black">{serverState && typeof serverState.ingest_info_speed === 'number' ? formatBytes(serverState.ingest_info_speed) : '0 B'}/s</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Globe size={14} className="text-zinc-400" />
+          <span className="text-[11px] font-black">{(serverState?.dht_nodes as number) ?? 0} nodes</span>
         </div>
       </div>
 

@@ -1,4 +1,6 @@
-# Soup Testing Initiative: Core Coverage
+# Soup Testing Initiative: Core Coverage (Legacy)
+
+> **Note:** This document tracks the testing initiative for the original TypeScript `@soup/core` package. With the transition to the Go-native engine, this coverage is primarily maintained for regression testing during the migration phase.
 
 This document tracks the systematic effort to bring @soup/core to 90%+ test coverage using a strict Red-Green-Refactor workflow.
 
