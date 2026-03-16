@@ -27,7 +27,7 @@ func (m *MockRepo) DeleteFinishedTasks(ctx context.Context) error  { return nil 
 func (m *MockRepo) GetTorrents(ctx context.Context) ([]repository.TorrentRecord, error) {
 	return []repository.TorrentRecord{}, nil
 }
-func (m *MockRepo) SaveTorrent(ctx context.Context, hash, name, magnet string) error { return nil }
+func (m *MockRepo) SaveTorrent(ctx context.Context, hash, name, savePath, magnet string) error { return nil }
 func (m *MockRepo) SetTorrentName(ctx context.Context, hash, name string) error      { return nil }
 
 func TestIngestion_EmpiricalCopy(t *testing.T) {

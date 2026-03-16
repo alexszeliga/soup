@@ -2,7 +2,12 @@ package models
 
 import (
 	"strings"
-	"github.com/anacrolix/torrent"
+)
+
+// Constants for DTO logic
+const (
+	RatioCap         = 9.99
+	StalledThreshold = 1024 // 1 KB/s
 )
 
 // Torrent represents the data structure for a single BitTorrent download (DTO).
@@ -33,13 +38,22 @@ type Torrent struct {
 	MediaMetadata *MediaMetadata `json:"mediaMetadata,omitempty"`
 }
 
-// NewFromEngine maps a native anacrolix torrent to our Soup model.
-func NewFromEngine(t *torrent.Torrent) *Torrent {
-	return NewFromEngineInterface(TorrentWrapper{t}, "", 0)
+// TorrentBaseInfo provides the necessary persistence context to avoid 0-flicker during mapping.
+type TorrentBaseInfo struct {
+	Name             string
+	AddedOn          int64
+	TotalReadBase    int64
+	TotalWrittenBase int64
+	SeedingTimeBase  int64
+	IsNonMedia       bool
+	IsSequential     bool
+	ContentPath      string
+	Metadata         *MediaMetadata
 }
 
 // NewFromEngineInterface maps any EngineTorrent interface implementation to our Soup model.
-func NewFromEngineInterface(t EngineTorrent, fallbackName string, addedOn int64) *Torrent {
+// It REQUIRES baseInfo to ensure stable fields (added_on, total stats) from the first frame.
+func NewFromEngineInterface(t EngineTorrent, base TorrentBaseInfo) *Torrent {
 	// 1. Calculate progress
 	progress := 0.0
 	length := t.Length()
@@ -66,11 +80,21 @@ func NewFromEngineInterface(t EngineTorrent, fallbackName string, addedOn int64)
 	displayName := t.Name()
 	// If name is just the infohash (anacrolix default), show pending or fallback
 	if length == 0 || strings.HasPrefix(displayName, "infohash:") {
-		if fallbackName != "" {
-			displayName = fallbackName
+		if base.Name != "" {
+			displayName = base.Name
 		} else {
 			displayName = "Metadata Pending..."
 		}
+	}
+
+	totalRead := base.TotalReadBase + stats.BytesRead.Int64()
+	totalWritten := base.TotalWrittenBase + stats.BytesWritten.Int64()
+
+	var ratio float64
+	if totalRead > 0 {
+		ratio = float64(totalWritten) / float64(totalRead)
+	} else if totalWritten > 0 {
+		ratio = RatioCap
 	}
 
 	return &Torrent{
@@ -82,20 +106,21 @@ func NewFromEngineInterface(t EngineTorrent, fallbackName string, addedOn int64)
 		StateName:     stateName,
 		DownloadSpeed: 0, // Calculated in TorrentService
 		UploadSpeed:   0, // Calculated in TorrentService
-		TotalRead:     stats.BytesRead.Int64(),
-		TotalWritten:  stats.BytesWritten.Int64(),
-		ContentPath:   displayName,
-		AddedOn:       addedOn,
-		SeedingTime:   0,
-		Ratio:         0,
+		TotalRead:     totalRead,
+		TotalWritten:  totalWritten,
+		ContentPath:   base.ContentPath,
+		AddedOn:       base.AddedOn,
+		SeedingTime:   base.SeedingTimeBase,
+		Ratio:         ratio,
 		Eta:           -1,
 		ActivePeers:   stats.ActivePeers,
 		TotalPeers:    stats.TotalPeers,
-		Availability:  1.0, // Placeholder
-		IsSequential:  false,
+		Availability:  1.0, // Placeholder until pieces mapped
+		IsSequential:  base.IsSequential,
 		IsForceStart:  false,
-		IsNonMedia:    false,
+		IsNonMedia:    base.IsNonMedia,
 		MediaInfo:     GetMediaInfo(displayName),
+		MediaMetadata: base.Metadata,
 	}
 }
 
