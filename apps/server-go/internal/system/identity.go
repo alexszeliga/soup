@@ -7,8 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 )
@@ -78,92 +77,74 @@ func (s *IdentityService) StartAutoSync(ctx context.Context) {
 }
 
 func (s *IdentityService) SyncCycle() {
-	log.Println("[IdentitySync] Starting automated spoof discovery cycle...")
+	log.Println("[IdentitySync] Fetching latest qBittorrent version from GitHub...")
 	
-	target, err := s.DetectTarget()
+	target, err := s.FetchLatestVersion()
 	if err != nil {
-		log.Printf("[IdentitySync] ERROR: Discovery failed: %v", err)
+		log.Printf("[IdentitySync] ERROR: Version fetch failed: %v", err)
 		return
 	}
 
 	s.mu.RLock()
 	changed := target.UserAgent != s.current.UserAgent || target.PeerIDPrefix != s.current.PeerIDPrefix
 	s.mu.RUnlock()
-if changed {
-	log.Printf("[IdentitySync] CRITICAL: New qBittorrent identity detected! Target: %s", target.UserAgent)
 
-	data, _ := json.MarshalIndent(target, "", "  ")
-	if err := os.WriteFile(s.spoofFilePath, data, 0644); err != nil {
-		log.Printf("[IdentitySync] Failed to save spoof.json: %v", err)
-		return
-	}
+	if changed {
+		log.Printf("[IdentitySync] CRITICAL: New qBittorrent identity detected! Target: %s", target.UserAgent)
 
-	log.Println("[IdentitySync] identity updated. Restarting application to apply changes...")
-	// The bombproof way: exit and let Docker restart us
-	os.Exit(0)
-} else {
-	log.Printf("[IdentitySync] Current identity (%s) is still up to date.", s.current.UserAgent)
-}
-}
-
-
-func (s *IdentityService) DetectTarget() (Identity, error) {
-	// Setup Mock Tracker
-	identityChan := make(chan Identity, 1)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/announce", func(w http.ResponseWriter, r *http.Request) {
-		ua := r.Header.Get("User-Agent")
-		peerID := r.URL.Query().Get("peer_id")
-		if ua != "" && peerID != "" {
-			select {
-			case identityChan <- Identity{
-				UserAgent:    ua,
-				PeerIDPrefix: peerID[:8],
-				DetectedAt:   time.Now(),
-			}:
-			default:
-			}
+		data, _ := json.MarshalIndent(target, "", "  ")
+		if err := os.WriteFile(s.spoofFilePath, data, 0644); err != nil {
+			log.Printf("[IdentitySync] Failed to save spoof.json: %v", err)
+			return
 		}
-		w.WriteHeader(http.StatusOK)
-	})
 
-	srv := &http.Server{Addr: ":9998", Handler: mux}
-	go srv.ListenAndServe()
-	defer srv.Close()
+		log.Println("[IdentitySync] Identity updated. Restarting application to apply changes...")
+		os.Exit(0)
+	} else {
+		log.Printf("[IdentitySync] Current identity (%s) is still up to date.", s.current.UserAgent)
+	}
+}
 
-	// Prepare dummy torrent
-	tmpDir, _ := os.MkdirTemp("", "soup-sync-*")
-	defer os.RemoveAll(tmpDir)
-	
-	torrentPath := filepath.Join(tmpDir, "detect.torrent")
-	// Use 172.17.0.1 (default Docker bridge) to reach host
-	trackerURL := "http://172.17.0.1:9998/announce"
-	dummyContent := fmt.Sprintf("d8:announce%d:%s4:infod6:lengthi1e4:name6:detect12:piece lengthi16384e6:pieces20:00000000000000000000ee", len(trackerURL), trackerURL)
-	_ = os.WriteFile(torrentPath, []byte(dummyContent), 0644)
+func (s *IdentityService) FetchLatestVersion() (Identity, error) {
+	// 1. Fetch latest release tag from GitHub
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get("https://api.github.com/repos/qbittorrent/qBittorrent/releases/latest")
+	if err != nil {
+		return Identity{}, err
+	}
+	defer resp.Body.Close()
 
-	// Run Container
-	containerName := "soup-identity-probe"
-	// Kill any existing probe first
-	_ = exec.Command("docker", "rm", "-f", containerName).Run()
-
-	containerCmd := "apk add --no-cache qbittorrent-nox && qbittorrent-nox --webui-port=8081 --profile=/config /detect.torrent"
-	cmd := exec.Command("docker", "run", "--rm",
-		"--name", containerName,
-		"-v", torrentPath+":/detect.torrent",
-		"alpine:latest", "sh", "-c", containerCmd)
-	
-	if err := cmd.Start(); err != nil {
-		return Identity{}, fmt.Errorf("docker start failed: %w (ensure /var/run/docker.sock is mounted)", err)
+	if resp.StatusCode != http.StatusOK {
+		return Identity{}, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
-	select {
-	case id := <-identityChan:
-		// Success! Kill it immediately
-		_ = exec.Command("docker", "rm", "-f", containerName).Run()
-		return id, nil
-	case <-time.After(60 * time.Second):
-		// Cleanup potentially hung container
-		_ = exec.Command("docker", "rm", "-f", containerName).Run()
-		return Identity{}, fmt.Errorf("detection timed out")
+	var release struct {
+		TagName string `json:"tag_name"`
 	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return Identity{}, err
+	}
+
+	// 2. Parse version (e.g., "release-4.6.3" -> "4.6.3")
+	re := regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)`)
+	matches := re.FindStringSubmatch(release.TagName)
+	if len(matches) != 4 {
+		return Identity{}, fmt.Errorf("failed to parse version from tag: %s", release.TagName)
+	}
+
+	major := matches[1]
+	minor := matches[2]
+	patch := matches[3]
+
+	// 3. Construct Identity
+	// User-Agent: qBittorrent/4.6.3
+	// PeerID: -qB4630- (format: -qB + major + minor + patch + 0 + -)
+	ua := fmt.Sprintf("qBittorrent/%s.%s.%s", major, minor, patch)
+	prefix := fmt.Sprintf("-qB%s%s%s0-", major, minor, patch)
+
+	return Identity{
+		UserAgent:    ua,
+		PeerIDPrefix: prefix,
+		DetectedAt:   time.Now(),
+	}, nil
 }

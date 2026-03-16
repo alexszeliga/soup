@@ -475,6 +475,13 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 	engineTorrents := s.engine.Torrents()
 	list := make([]*models.Torrent, 0, len(engineTorrents))
 
+	// Fetch all records once to avoid N+1 queries during sample population
+	records, _ := s.repo.GetTorrents(ctx)
+	recordMap := make(map[string]repository.TorrentRecord)
+	for _, r := range records {
+		recordMap[r.Hash] = r
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -485,7 +492,18 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 		
 		sample, ok := s.lastSamples[hash]
 		if !ok {
+			// Initialize from DB if possible to avoid 0-flicker
 			sample = &torrentSample{timestamp: now, addedOn: now.Unix()}
+			if rec, found := recordMap[hash]; found {
+				sample.addedOn = rec.AddedOn
+				sample.name = rec.Name
+				sample.savePath = rec.SavePath
+				sample.totalReadBase = rec.TotalRead
+				sample.totalWrittenBase = rec.TotalWritten
+				sample.seedingTimeBase = float64(rec.SeedingTime)
+				sample.isNonMedia = rec.IsNonMedia
+				sample.isSequential = rec.IsSequential
+			}
 			s.lastSamples[hash] = sample
 		}
 
