@@ -92,7 +92,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 					"tasks":    tasks,
 					"state":    state,
 					"storage":  cachedStorage,
-					"focusHash": focus,
+					"focusHash": focus, // Explicitly tag which torrent these files belong to
 				}
 
 				// If client has a focus, optionally enrich with file data
