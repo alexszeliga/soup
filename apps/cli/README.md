@@ -72,8 +72,8 @@ SOUP_URL=https://soup.your-domain.com
 ### System
 | Command | Description |
 |---------|-------------|
-| `soup settings` | View key qBittorrent preferences. |
-| `soup settings --set <json>` | Update preferences (e.g., `--set '{"dl_limit": 1048576}'`). |
+| `soup settings` | View core application preferences. |
+| `soup settings --set <json>` | Update preferences (e.g., `--set '{"alt_dl_limit": 1048576}'`). |
 
 ## Development
 
