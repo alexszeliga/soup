@@ -41,17 +41,15 @@ export function useTorrents(selectedTorrentHash: string | null) {
   const [isWebSocketActive, setIsWebSocketActive] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   
-  // Map of hash -> target state ('active' | 'inactive')
-  const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
+  // Track the current focus to prevent stale data updates
+  const currentFocusRef = useRef<string | null>(null);
+  currentFocusRef.current = selectedTorrentHash;
 
   // Connectivity State
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
-  const isConnectionLost = consecutiveFailures >= 3;
 
   const fetchData = useCallback(async () => {
-    // If WebSocket is active, we don't need to poll anything!
     if (isWebSocketActive) return;
-
     try {
       const [torrentsRes, stateRes, storageRes, tasksRes] = await Promise.all([
         fetch(`${API_URL}/torrents`),
@@ -59,82 +57,90 @@ export function useTorrents(selectedTorrentHash: string | null) {
         fetch(`${API_URL}/system/storage`),
         fetch(`${API_URL}/tasks`)
       ]);
-
       if (!torrentsRes.ok || !stateRes.ok || !storageRes.ok || !tasksRes.ok) throw new Error('Failed to fetch data');
-      
       const [torrentsData, stateData, storageData, tasksData] = await Promise.all([
         torrentsRes.json() as Promise<TorrentWithMetadata[]>,
         stateRes.json() as Promise<QBServerState>,
         storageRes.json() as Promise<DiskStats[]>,
         tasksRes.json() as Promise<IngestionTask[]>
       ]);
-      
       setTorrents(torrentsData);
       setServerState(stateData);
       setStorageStats(storageData);
       setTasks(tasksData);
-
       setError(null);
       setConsecutiveFailures(0);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setConsecutiveFailures(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTorrentHash, isWebSocketActive]);
+  }, [isWebSocketActive]);
 
-  // --- WebSocket Connection Logic ---
+  // --- Persistent WebSocket Connection ---
   useEffect(() => {
-    const connect = () => {
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout>;
 
-      ws.onopen = () => {
+    const connect = () => {
+      socket = new WebSocket(WS_URL);
+      wsRef.current = socket;
+
+      socket.onopen = () => {
         console.log('🚀 Soup-Go WebSocket Connected');
         setIsWebSocketActive(true);
         setConsecutiveFailures(0);
-        // Resend focus on reconnect
-        if (selectedTorrentHash) {
-          ws.send(JSON.stringify({ type: 'focus', hash: selectedTorrentHash }));
+        // Send initial focus if any
+        if (currentFocusRef.current) {
+          socket?.send(JSON.stringify({ type: 'focus', hash: currentFocusRef.current }));
         }
       };
 
-      ws.onmessage = (event) => {
+      socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'torrents') {
-          // Legacy/Fallback type
-          setTorrents(data.payload);
-        } else if (data.type === 'sync') {
-          // Modern full sync type from Soup-Go
-          const { torrents, state, storage, tasks, focusedFiles } = data.payload;
+        if (data.type === 'sync') {
+          const { torrents, state, storage, tasks, focusedFiles, focusHash } = data.payload;
+          
           if (torrents) setTorrents(torrents);
           if (state) setServerState(state);
           if (storage) setStorageStats(storage);
           if (tasks) setTasks(tasks);
-          if (focusedFiles) setFocusedFiles(focusedFiles);
+
+          // SAFE FILE UPDATE: Only update if the incoming data matches our current selection
+          if (focusHash === currentFocusRef.current) {
+            setFocusedFiles(focusedFiles || []);
+          } else if (!currentFocusRef.current) {
+            setFocusedFiles([]);
+          }
         }
       };
 
-      ws.onclose = () => {
-        console.warn('⚠️ Soup-Go WebSocket Closed. Falling back to polling.');
+      socket.onclose = () => {
+        console.warn('⚠️ Soup-Go WebSocket Closed. Reconnecting...');
         setIsWebSocketActive(false);
-        // Retry connection after 5 seconds
-        setTimeout(connect, 5000);
-      };
-
-      ws.onerror = (err) => {
-        console.error('❌ WebSocket Error', err);
-        ws.close();
+        reconnectTimeout = setTimeout(connect, 3000);
       };
     };
 
     connect();
     return () => {
-      if (wsRef.current) wsRef.current.close();
+      if (socket) socket.close();
+      clearTimeout(reconnectTimeout);
     };
-  }, [selectedTorrentHash]);
+  }, []); // Run once on mount
+
+  // --- Dynamic Focus Handling (No reconnection needed) ---
+  useEffect(() => {
+    if (isWebSocketActive && wsRef.current?.readyState === WebSocket.OPEN) {
+      // Clear local state immediately to avoid "ghost" files
+      setFocusedFiles([]);
+      wsRef.current.send(JSON.stringify({ 
+        type: 'focus', 
+        hash: selectedTorrentHash 
+      }));
+    }
+  }, [selectedTorrentHash, isWebSocketActive]);
 
   const handleAddTorrent = async (data: { url?: string; file?: File }) => {
     try {

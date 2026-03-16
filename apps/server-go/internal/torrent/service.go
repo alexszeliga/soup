@@ -386,24 +386,27 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	t.AllowDataUpload()
 
 	// 2. Trigger Download Watcher
-	// We run this in a background goroutine so it triggers DownloadAll as soon as 
-	// metadata arrives, even if the discovery routine below times out.
 	go func() {
 		<-t.GotInfo()
 		
 		// 1. Update in-memory name and persist to DB
 		torrentHash := t.InfoHash().HexString()
 		s.mu.Lock()
-		if sample, ok := s.lastSamples[torrentHash]; ok {
+		sample, hasSample := s.lastSamples[torrentHash]
+		if hasSample {
 			sample.name = t.Name()
 			_ = s.repo.SetTorrentName(context.Background(), torrentHash, sample.name)
 		}
 		s.mu.Unlock()
 
-		// 2. If we already have some bytes but aren't complete, it's likely a migration
-		// or restart. Trigger a recheck to be sure.
-		if t.BytesCompleted() > 0 && t.BytesCompleted() < t.Length() {
-			log.Printf("[Lifecycle] Existing data detected for %s, triggering recheck...", t.Name())
+		// 2. Takeover Detection Logic
+		// If we have no bytes completed yet, but we have totalReadBase > 0,
+		// it's a migration/takeover. Trigger a VerifyData() to find existing files.
+		if t.BytesCompleted() == 0 && hasSample && sample.totalReadBase > 0 {
+			log.Printf("[Lifecycle] Takeover detected for %s (Expected: %d bytes), forcing data verification...", t.Name(), sample.totalReadBase)
+			_ = t.VerifyData()
+		} else if t.BytesCompleted() > 0 && t.BytesCompleted() < t.Length() {
+			log.Printf("[Lifecycle] Partial data detected for %s, triggering recheck...", t.Name())
 			_ = t.VerifyData()
 		}
 
