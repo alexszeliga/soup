@@ -43,8 +43,8 @@ func Load() *Config {
 	return &Config{
 		Port:         port,
 		TMDBApiKey:   getEnv("TMDB_API_KEY", ""),
-		DataDir:      getEnv("LOCAL_DOWNLOAD_ROOT", "./downloads"),
-		EngineDBPath: getEnv("DB_PATH", "./soup.db"),
+		DataDir:      getEnv("LOCAL_DOWNLOAD_ROOT", getEnv("DATA_DIR", "./downloads")),
+		EngineDBPath: getEnv("DB_PATH", getEnv("ENGINE_DB_PATH", "./soup.db")),
 		MediaRoot:    getEnv("MEDIA_ROOT", "./media"),
 		SyncInterval: getEnvInt("DEV_SYNC_INTERVAL", 500),
 		WebDistPath:  webDistPath,

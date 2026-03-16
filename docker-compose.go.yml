@@ -9,8 +9,8 @@ services:
     environment:
       - TMDB_API_KEY=${TMDB_API_KEY}
       - MEDIA_ROOT=/media
-      - DATA_DIR=/downloads
-      - ENGINE_DB_PATH=/data/engine.db
+      - DB_PATH=/data/engine.db
+      - LOCAL_DOWNLOAD_ROOT=/downloads
       - WEB_DIST_PATH=/app/web/dist
     volumes:
       - ./data:/data
