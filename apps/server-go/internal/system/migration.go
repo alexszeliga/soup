@@ -42,9 +42,10 @@ type oldMetadata struct {
 type qbTorrent struct {
 	Hash         string `json:"hash"`
 	Name         string `json:"name"`
+	SavePath     string `json:"save_path"`
 	AddedOn      int64  `json:"added_on"`
-	TotalRead    int64  `json:"total_uploaded"`   // qB uses total_uploaded for lifetime upload
-	TotalWritten int64  `json:"total_downloaded"` // qB uses total_downloaded for lifetime download
+	TotalRead    int64  `json:"total_downloaded"` // Go engine uses TotalRead for lifetime download
+	TotalWritten int64  `json:"total_uploaded"`   // Go engine uses TotalWritten for lifetime upload
 	SeedingTime  int64  `json:"seeding_time"`
 }
 
@@ -97,13 +98,14 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		}
 
 		// Find magnet and stats from qBittorrent
-		var magnet, name string
+		var magnet, name, savePath string
 		var addedOn, totalRead, totalWritten, seedingTime int64
 		
 		for _, qt := range qbTorrents {
 			if strings.ToLower(qt.Hash) == strings.ToLower(hash) {
 				magnet = fmt.Sprintf("magnet:?xt=urn:btih:%s", qt.Hash)
 				name = qt.Name
+				savePath = qt.SavePath
 				addedOn = qt.AddedOn
 				totalRead = qt.TotalRead
 				totalWritten = qt.TotalWritten
@@ -118,7 +120,10 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		}
 
 		// Port to new repo with all stats
-		_ = s.repo.MigrateTorrent(ctx, hash, name, magnet, addedOn, totalRead, totalWritten, seedingTime)
+		if err := s.repo.MigrateTorrent(ctx, hash, name, savePath, magnet, addedOn, totalRead, totalWritten, seedingTime); err != nil {
+			log.Printf("[Migration] Error migrating torrent %s: %v", hash, err)
+		}
+		
 		if isNonMedia {
 			_ = s.repo.SetNonMedia(ctx, hash, true)
 		}

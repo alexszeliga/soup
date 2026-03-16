@@ -114,11 +114,12 @@ func main() {
 
 	// 5. Initialize Torrent Service
 	ts := torrent.NewTorrentService(&models.EngineWrapper{
-		Client:     engine,
-		DlLimit:    dlLimit,
-		UpLimit:    upLimit,
-		DhtEnabled: dhtEnabled,
-		PexEnabled: pexEnabled,
+		Client:          engine,
+		PieceCompletion: pc,
+		DlLimit:         dlLimit,
+		UpLimit:         upLimit,
+		DhtEnabled:      dhtEnabled,
+		PexEnabled:      pexEnabled,
 	}, repo, tmdb, absDataDir, cfg.IsDocker)
 
 	// Restore persisted torrents
