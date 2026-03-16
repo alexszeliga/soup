@@ -68,11 +68,12 @@ func (s *MigrationService) Run(ctx context.Context) error {
 	}
 
 	// 2. Fetch Torrent Info from qBittorrent
-	log.Println("[Migration] Fetching torrent info from qBittorrent...")
+	log.Printf("[Migration] Connecting to qBittorrent at %s...", s.qbUrl)
 	qbTorrents, err := s.fetchQBTorrents()
 	if err != nil {
-		return fmt.Errorf("failed to fetch qBittorrent info: %w", err)
+		return fmt.Errorf("CRITICAL: could not connect to qBittorrent at %s. Ensure qBittorrent is running and accessible. Error: %w", s.qbUrl, err)
 	}
+	log.Printf("[Migration] Found %d torrents in qBittorrent.", len(qbTorrents))
 
 	// 3. Migrate Torrents and Metadata
 	log.Println("[Migration] Migrating torrents and metadata...")
