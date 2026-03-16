@@ -375,6 +375,14 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	// metadata arrives, even if the discovery routine below times out.
 	go func() {
 		<-t.GotInfo()
+		
+		// If we already have some bytes but aren't complete, it's likely a migration
+		// or restart. Trigger a recheck to be sure.
+		if t.BytesCompleted() > 0 && t.BytesCompleted() < t.Length() {
+			log.Printf("[Lifecycle] Existing data detected for %s, triggering recheck...", t.Name())
+			_ = t.VerifyData()
+		}
+
 		t.DownloadAll()
 		log.Printf("[Lifecycle] Metadata arrived, download started for: %s", t.Name())
 	}()
@@ -508,16 +516,18 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 		t.ContentPath = filepath.Join(s.prefs.SavePath, t.Name)
 		t.IsSequential = sample.isSequential
 		t.IsNonMedia = sample.isNonMedia
-		
-		totalWritten := sample.totalWrittenBase + currentWritten
-		totalRead := sample.totalReadBase + currentRead
-		if totalRead > 0 {
-			t.Ratio = float64(totalWritten) / float64(totalRead)
-		} else if totalWritten > 0 {
+
+		t.TotalRead = sample.totalReadBase + currentRead
+		t.TotalWritten = sample.totalWrittenBase + currentWritten
+
+		if t.TotalRead > 0 {
+			t.Ratio = float64(t.TotalWritten) / float64(t.TotalRead)
+		} else if t.TotalWritten > 0 {
 			t.Ratio = 9.99 // Cap for seeding without downloading
 		}
 
-		// Enrich with cached metadata
+		s.lastSamples[hash] = sample
+
 		if !t.IsNonMedia {
 			if sample.metadata == nil {
 				if meta, err := s.repo.GetMetadata(ctx, t.Hash); err == nil && meta != nil {

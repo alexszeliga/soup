@@ -1,10 +1,12 @@
 package models
 
 import (
+	"strings"
 	"github.com/anacrolix/torrent"
 )
 
 // Torrent represents the data structure for a single BitTorrent download (DTO).
+// The JSON tags are carefully matched to the TypeScript Torrent model.
 type Torrent struct {
 	Hash          string         `json:"hash"`
 	Name          string         `json:"name"`
@@ -12,13 +14,13 @@ type Torrent struct {
 	Progress      float64        `json:"progress"`
 	State         string         `json:"state"`
 	StateName     string         `json:"stateName"`
-	DownloadSpeed int64          `json:"dlspeed"`
-	UploadSpeed   int64          `json:"upspeed"`
-	TotalRead     int64          `json:"total_read"`
-	TotalWritten  int64          `json:"total_written"`
+	DownloadSpeed int64          `json:"downloadSpeed"`
+	UploadSpeed   int64          `json:"uploadSpeed"`
+	TotalRead     int64          `json:"totalRead"`
+	TotalWritten  int64          `json:"totalWritten"`
 	ContentPath   string         `json:"contentPath"`
-	AddedOn       int64          `json:"added_on"`
-	SeedingTime   int64          `json:"seeding_time"`
+	AddedOn       int64          `json:"addedOn"`
+	SeedingTime   int64          `json:"seedingTime"`
 	Ratio         float64        `json:"ratio"`
 	Eta           int64          `json:"eta"`
 	ActivePeers   int            `json:"activePeers"`
@@ -55,15 +57,27 @@ func NewFromEngineInterface(t EngineTorrent) *Torrent {
 	// Check for info ready
 	if length == 0 {
 		state = "metaDL"
-		stateName = "Fetching Metadata"
+		stateName = "Metadata Pending"
 	} else if completed == length && length > 0 {
 		state = "uploading"
 		stateName = "Seeding"
 	}
 
+	// Determine if we are checking
+	if stats.PiecesChecking > 0 {
+		state = "checkingDL"
+		stateName = "Checking"
+	}
+
+	displayName := t.Name()
+	// If name is just the infohash (anacrolix default), show pending
+	if length == 0 || strings.HasPrefix(displayName, "infohash:") {
+		displayName = "Metadata Pending..."
+	}
+
 	return &Torrent{
 		Hash:          t.InfoHash().HexString(),
-		Name:          t.Name(),
+		Name:          displayName,
 		Size:          length,
 		Progress:      progress,
 		State:         state,
