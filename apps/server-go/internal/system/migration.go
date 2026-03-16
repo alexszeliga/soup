@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/alexszeliga/soup/apps/server-go/internal/models"
@@ -47,6 +48,10 @@ type qbTorrent struct {
 	TotalRead    int64  `json:"total_downloaded"` // Go engine uses TotalRead for lifetime download
 	TotalWritten int64  `json:"total_uploaded"`   // Go engine uses TotalWritten for lifetime upload
 	SeedingTime  int64  `json:"seeding_time"`
+}
+
+type qbTracker struct {
+	URL string `json:"url"`
 }
 
 func (s *MigrationService) Run(ctx context.Context) error {
@@ -97,30 +102,33 @@ func (s *MigrationService) Run(ctx context.Context) error {
 			continue
 		}
 
-		// Find magnet and stats from qBittorrent
-		var magnet, name, savePath string
-		var addedOn, totalRead, totalWritten, seedingTime int64
-		
-		for _, qt := range qbTorrents {
-			if strings.ToLower(qt.Hash) == strings.ToLower(hash) {
-				magnet = fmt.Sprintf("magnet:?xt=urn:btih:%s", qt.Hash)
-				name = qt.Name
-				savePath = qt.SavePath
-				addedOn = qt.AddedOn
-				totalRead = qt.TotalRead
-				totalWritten = qt.TotalWritten
-				seedingTime = qt.SeedingTime
+		// Find details from qBittorrent
+		var qbt *qbTorrent
+		for i := range qbTorrents {
+			if strings.ToLower(qbTorrents[i].Hash) == strings.ToLower(hash) {
+				qbt = &qbTorrents[i]
 				break
 			}
 		}
 
-		if magnet == "" {
+		if qbt == nil {
 			log.Printf("[Migration] Warning: Torrent %s not found in qBittorrent swarm, skipping engine start", hash)
 			continue
 		}
 
+		// Fetch trackers for metadata resolution
+		trackers, _ := s.fetchQBTrackers(qbt.Hash)
+		
+		// Build Rich Magnet
+		magnet := fmt.Sprintf("magnet:?xt=urn:btih:%s&dn=%s", qbt.Hash, url.QueryEscape(qbt.Name))
+		for _, tr := range trackers {
+			if strings.HasPrefix(tr.URL, "http") || strings.HasPrefix(tr.URL, "udp") {
+				magnet += "&tr=" + url.QueryEscape(tr.URL)
+			}
+		}
+
 		// Port to new repo with all stats
-		if err := s.repo.MigrateTorrent(ctx, hash, name, savePath, magnet, addedOn, totalRead, totalWritten, seedingTime); err != nil {
+		if err := s.repo.MigrateTorrent(ctx, hash, qbt.Name, qbt.SavePath, magnet, qbt.AddedOn, qbt.TotalRead, qbt.TotalWritten, qbt.SeedingTime); err != nil {
 			log.Printf("[Migration] Error migrating torrent %s: %v", hash, err)
 		}
 		
@@ -176,4 +184,22 @@ func (s *MigrationService) fetchQBTorrents() ([]qbTorrent, error) {
 		return nil, err
 	}
 	return torrents, nil
+}
+
+func (s *MigrationService) fetchQBTrackers(hash string) ([]qbTracker, error) {
+	resp, err := http.Get(s.qbUrl + "/torrents/trackers?hash=" + hash)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
+	}
+
+	var trackers []qbTracker
+	if err := json.NewDecoder(resp.Body).Decode(&trackers); err != nil {
+		return nil, err
+	}
+	return trackers, nil
 }
