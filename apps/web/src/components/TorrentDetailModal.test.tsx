@@ -35,6 +35,7 @@ describe('TorrentDetailModal', () => {
     isOpen: true,
     onClose: vi.fn(),
     onDelete: vi.fn(),
+    focusedFiles: [],
   };
 
   beforeEach(() => {

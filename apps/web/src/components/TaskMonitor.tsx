@@ -1,49 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Package } from 'lucide-react';
+import type { IngestionTask } from '../hooks/useTorrents';
 
-interface Task {
-  id: string;
-  torrentHash: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  currentFile: string | null;
-  fileMap: string;
-  errorMessage: string | null;
+interface TaskMonitorProps {
+  externalTasks: IngestionTask[];
+  isWebSocketActive: boolean;
 }
 
-const TaskMonitor: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+/**
+ * Monitor for background ingestion tasks.
+ * Relies on external state (typically WebSocket sync) for real-time updates.
+ */
+const TaskMonitor: React.FC<TaskMonitorProps> = ({ externalTasks }) => {
   const [isOpen, setIsOpen] = useState(false);
-
-  const fetchTasks = async () => {
-    try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      setTasks(data);
-    } catch (err) {
-      console.error('Failed to fetch tasks', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleClearFinished = async () => {
     try {
       await fetch('/api/tasks/clear', { method: 'POST' });
-      fetchTasks();
     } catch (err) {
       console.error('Failed to clear tasks', err);
     }
   };
 
-  const activeTasks = tasks.filter(t => t.status === 'queued' || t.status === 'processing');
-  const recentTasks = tasks.filter(t => t.status === 'completed' || t.status === 'failed').slice(0, 5);
+  const activeTasks = externalTasks.filter(t => t.status === 'queued' || t.status === 'processing');
+  const recentTasks = externalTasks.filter(t => t.status === 'completed' || t.status === 'failed').slice(0, 5);
 
-  if (tasks.length === 0) return null;
+  if (externalTasks.length === 0) return null;
 
   return (
     <div className="flex items-center space-x-6">
@@ -80,8 +62,14 @@ const TaskMonitor: React.FC = () => {
               )}
 
               {[...activeTasks, ...recentTasks].map(task => {
-                const fileEntries = Object.entries(JSON.parse(task.fileMap));
-                const totalFiles = fileEntries.length;
+                // Handle potentially missing or malformed fileMap
+                let totalFiles = 0;
+                try {
+                  const fileEntries = Object.entries(JSON.parse(task.fileMap || '{}'));
+                  totalFiles = fileEntries.length;
+                } catch (e) {
+                  // Fallback for non-JSON or missing map
+                }
                 
                 return (
                   <div key={task.id} className="p-3 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
