@@ -48,8 +48,19 @@ func (s *IdentityService) GetCurrent() Identity {
 
 // StartAutoSync runs the discovery loop.
 func (s *IdentityService) StartAutoSync(ctx context.Context) {
-	// 1. Initial check on startup
-	go s.SyncCycle()
+	s.mu.RLock()
+	// Check if we have a fresh identity (less than 14 days old)
+	isFresh := !s.current.DetectedAt.IsZero() && time.Since(s.current.DetectedAt) < 14*24*time.Hour
+	currentUA := s.current.UserAgent
+	s.mu.RUnlock()
+
+	// 1. Initial check on startup (only if not fresh)
+	if !isFresh {
+		go s.SyncCycle()
+	} else {
+		log.Printf("[IdentitySync] Identity is fresh (%s old). Using cached spoof: %s", 
+			time.Since(s.current.DetectedAt).Round(time.Hour), currentUA)
+	}
 
 	// 2. Ticker for every 14 days
 	ticker := time.NewTicker(14 * 24 * time.Hour)
