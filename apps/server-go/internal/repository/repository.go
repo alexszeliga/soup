@@ -11,6 +11,7 @@ type Repository interface {
 	// Torrent Persistence (for re-adding on restart)
 	SaveTorrent(ctx context.Context, hash string, name string, magnet string) error
 	SetTorrentName(ctx context.Context, hash string, name string) error
+	Checkpoint(ctx context.Context) error
 
 	GetTorrents(ctx context.Context) ([]TorrentRecord, error)
 	DeleteTorrent(ctx context.Context, hash string) error
