@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"fmt"
 	"log"
 	"net/http"
@@ -119,7 +120,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		// 100% RELIABLE TAKEOVER: Fetch the actual .torrent file from qB
 		// This contains the full 'Info' dict, bypassing 'Metadata Pending' stalls.
 		magnet := ""
-		torrentBytes, err := s.exportTorrent(qbt.Hash)
+		_, err := s.exportTorrent(qbt.Hash)
 		if err == nil {
 			// We store the magnet representation for persistence, 
 			// but we'll use the bytes for the initial add if we were adding fresh.
