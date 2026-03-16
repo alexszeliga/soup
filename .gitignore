@@ -16,6 +16,8 @@ pnpm-debug.log*
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 
 # Environment / Secrets
 .env
