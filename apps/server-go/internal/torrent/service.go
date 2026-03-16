@@ -475,7 +475,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 	engineTorrents := s.engine.Torrents()
 	list := make([]*models.Torrent, 0, len(engineTorrents))
 
-	// Fetch all records once to avoid N+1 queries during sample population
+	// 1. Fetch all records once to avoid N+1 queries during sample population
 	records, _ := s.repo.GetTorrents(ctx)
 	recordMap := make(map[string]repository.TorrentRecord)
 	for _, r := range records {
@@ -507,13 +507,33 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 			s.lastSamples[hash] = sample
 		}
 
-		// Use the metadata root if it's media, else save path
+		// 2. Perform Stats Calculation BEFORE creating DTO
+		stats := et.Stats()
+		currentRead := stats.BytesRead.Int64()
+		currentWritten := stats.BytesWritten.Int64()
+		
+		duration := now.Sub(sample.timestamp).Seconds()
+		if duration > 0 {
+			// EMA Speed Smoothing
+			instDl := float64(currentRead-sample.bytesRead) / duration
+			instUp := float64(currentWritten-sample.bytesWritten) / duration
+			sample.emaDl = (EmaSmoothingAlpha * instDl) + ((1 - EmaSmoothingAlpha) * sample.emaDl)
+			sample.emaUp = (EmaSmoothingAlpha * instUp) + ((1 - EmaSmoothingAlpha) * sample.emaUp)
+
+			// Update Seeding Time Accumulator (Only if actually seeding)
+			// State is determined by NewFromEngineInterface logic essentially, but we can pre-check
+			isComplete := et.Length() > 0 && et.BytesCompleted() == et.Length()
+			if isComplete && sample.emaUp > 0 {
+				sample.seedingTimeBase += duration
+			}
+		}
+
+		// 3. Construct the BaseInfo with the LATEST accumulated stats
 		contentPath := sample.savePath
 		if sample.name != "" {
 			contentPath = filepath.Join(sample.savePath, sample.name)
 		}
 
-		// Lock in base info to prevent flickering
 		baseInfo := models.TorrentBaseInfo{
 			Name:             sample.name,
 			AddedOn:          sample.addedOn,
@@ -533,44 +553,27 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 			}
 		}
 
+		// 4. Map to DTO
 		t := models.NewFromEngineInterface(et, baseInfo)
+		
+		// 5. Apply calculated EMA speeds to DTO
+		t.DownloadSpeed = int64(sample.emaDl)
+		t.UploadSpeed = int64(sample.emaUp)
 
-		stats := et.Stats()
-		currentRead := stats.BytesRead.Int64()
-		currentWritten := stats.BytesWritten.Int64()
-
-		duration := now.Sub(sample.timestamp).Seconds()
-		if duration > 0 {
-			// Calculate instantaneous rates
-			instDl := float64(currentRead-sample.bytesRead) / duration
-			instUp := float64(currentWritten-sample.bytesWritten) / duration
-
-			// Apply EMA smoothing
-			sample.emaDl = (EmaSmoothingAlpha * instDl) + ((1 - EmaSmoothingAlpha) * sample.emaDl)
-			sample.emaUp = (EmaSmoothingAlpha * instUp) + ((1 - EmaSmoothingAlpha) * sample.emaUp)
-
-			t.DownloadSpeed = int64(sample.emaDl)
-			t.UploadSpeed = int64(sample.emaUp)
-
-			// Calculate ETA
-			if t.Progress < 1.0 && t.DownloadSpeed > models.StalledThreshold {
+		// 6. Refine State and ETA based on calculated speeds
+		if t.DownloadSpeed > models.StalledThreshold {
+			if t.Progress < 1.0 {
 				remaining := t.Size - int64(float64(t.Size)*t.Progress)
 				t.Eta = remaining / t.DownloadSpeed
 			}
+		} else if t.State == "downloading" {
+			t.State = "stalledDL"
+			t.StateName = "Stalled"
+		}
 
-			// Update seeding time if applicable
-			if t.IsComplete() && t.State == "uploading" && t.UploadSpeed > 0 { 
-				sample.seedingTimeBase += duration
-			}
-
-			// Refine state (Stalled detection)
-			if t.State == "downloading" && t.DownloadSpeed < models.StalledThreshold {
-				t.State = "stalledDL"
-				t.StateName = "Stalled"
-			} else if t.State == "uploading" && t.UploadSpeed < models.StalledThreshold {
-				t.State = "stalledUP"
-				t.StateName = "Seeding (Stalled)"
-			}
+		if t.State == "uploading" && t.UploadSpeed < models.StalledThreshold {
+			t.State = "stalledUP"
+			t.StateName = "Seeding (Stalled)"
 		}
 
 		// Update sample for next tick
