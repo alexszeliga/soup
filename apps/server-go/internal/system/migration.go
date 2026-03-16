@@ -40,8 +40,12 @@ type oldMetadata struct {
 }
 
 type qbTorrent struct {
-	Hash string `json:"hash"`
-	Name string `json:"name"`
+	Hash         string `json:"hash"`
+	Name         string `json:"name"`
+	AddedOn      int64  `json:"added_on"`
+	TotalRead    int64  `json:"total_uploaded"`   // qB uses total_uploaded for lifetime upload
+	TotalWritten int64  `json:"total_downloaded"` // qB uses total_downloaded for lifetime download
+	SeedingTime  int64  `json:"seeding_time"`
 }
 
 func (s *MigrationService) Run(ctx context.Context) error {
@@ -55,7 +59,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 
 	// 1. Migrate Noise Tokens
 	log.Println("[Migration] Migrating noise tokens...")
-	tokenRows, err := oldDb.Query("SELECT token, hitCount FROM noise_tokens")
+	tokenRows, err := oldDb.Query("SELECT token, hit_count FROM noise_tokens")
 	if err == nil {
 		defer tokenRows.Close()
 		for tokenRows.Next() {
@@ -77,7 +81,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 
 	// 3. Migrate Torrents and Metadata
 	log.Println("[Migration] Migrating torrents and metadata...")
-	rows, err := oldDb.Query("SELECT hash, metadata_id, is_non_media, added_on, total_read, total_written, seeding_time FROM torrents")
+	rows, err := oldDb.Query("SELECT hash, metadata_id, is_non_media FROM torrents")
 	if err != nil {
 		return fmt.Errorf("failed to query old torrents: %w", err)
 	}
@@ -88,18 +92,22 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		var hash string
 		var metadataId sql.NullString
 		var isNonMedia bool
-		var addedOn, totalRead, totalWritten, seedingTime int64
-		if err := rows.Scan(&hash, &metadataId, &isNonMedia, &addedOn, &totalRead, &totalWritten, &seedingTime); err != nil {
+		if err := rows.Scan(&hash, &metadataId, &isNonMedia); err != nil {
 			continue
 		}
 
-		// Find magnet
-		var magnet string
-		name := ""
+		// Find magnet and stats from qBittorrent
+		var magnet, name string
+		var addedOn, totalRead, totalWritten, seedingTime int64
+		
 		for _, qt := range qbTorrents {
 			if strings.ToLower(qt.Hash) == strings.ToLower(hash) {
 				magnet = fmt.Sprintf("magnet:?xt=urn:btih:%s", qt.Hash)
 				name = qt.Name
+				addedOn = qt.AddedOn
+				totalRead = qt.TotalRead
+				totalWritten = qt.TotalWritten
+				seedingTime = qt.SeedingTime
 				break
 			}
 		}
