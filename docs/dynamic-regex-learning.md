@@ -1,6 +1,8 @@
 # Dynamic Regex Learning: "The Noise Miner"
 
-This document defines the architecture for a self-learning filename cleaner in **Mammal Soup**.
+> **Status:** Partially implemented in TypeScript `@soup/core`. Re-implementation in `apps/server-go` is planned for the next phase of parity hardening.
+
+This document defines the architecture for a self-learning filename cleaner in **Soup**.
 
 ## Objective
 Improve the accuracy of media title extraction by dynamically identifying and storing "noise" tokens (release groups, technical specs, scene tags) that are not part of the standard static library.

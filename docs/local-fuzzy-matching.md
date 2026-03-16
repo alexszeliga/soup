@@ -1,6 +1,8 @@
 # Local Fuzzy Matching Strategy: "The Fuzzy Barrier"
 
-This document outlines the plan to implement a local-first, typo-tolerant metadata matching layer for **Mammal Soup** using **Fuse.js**.
+> **Status:** Fully implemented in TypeScript `@soup/core`. Migration to `apps/server-go` using a native Go fuzzy matching library (e.g. `go-fuzzywuzzy` or `gofuzzy`) is planned for the next phase.
+
+This document outlines the plan to implement a local-first, typo-tolerant metadata matching layer for **Soup** using **Fuse.js**.
 
 ## Core Objective
 Minimize external API calls to TMDB by resolving new torrents against existing metadata records in the local SQLite database, even when filenames contain typos or residual "scene junk."
