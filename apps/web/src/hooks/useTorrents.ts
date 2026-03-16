@@ -1,32 +1,45 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
 import type { QBServerState } from '@soup/core/QBClient.js';
 import type { DiskStats } from '@soup/core/StorageService.js';
 import { useNotification } from '../context/NotificationContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
-
-const ACTIVE_STATES = [
-  'allocating', 'downloading', 'metaDL', 'stalledDL', 'checkingDL', 
-  'forcedDL', 'queuedDL', 'uploading', 'stalledUP', 'forcedUP', 
-  'queuedUP', 'checkingUP', 'moving'
-];
+// Use the current host but with ws:// protocol
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 interface ClientConfig {
+  backend: 'qbittorrent' | 'soup-go';
   syncInterval: number;
   tmdbImageBase: string;
   env: string;
+}
+
+export interface IngestionTask {
+  id: string;
+  torrentHash: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  currentFile: string | null;
+  fileMap: string;
+  errorMessage: string | null;
 }
 
 export function useTorrents(selectedTorrentHash: string | null) {
   const [torrents, setTorrents] = useState<TorrentWithMetadata[]>([]);
   const [serverState, setServerState] = useState<QBServerState | null>(null);
   const [storageStats, setStorageStats] = useState<DiskStats[]>([]);
+  const [tasks, setTasks] = useState<IngestionTask[]>([]);
+  const [focusedFiles, setFocusedFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingAltSpeedTarget, setPendingAltSpeedTarget] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<ClientConfig | null>(null);
   const { showNotification } = useNotification();
+  
+  // Real-time connectivity state
+  const [isWebSocketActive, setIsWebSocketActive] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
   
   // Map of hash -> target state ('active' | 'inactive')
   const [pendingTransitions, setPendingTransitions] = useState<Map<string, 'active' | 'inactive'>>(new Map());
@@ -36,54 +49,33 @@ export function useTorrents(selectedTorrentHash: string | null) {
   const isConnectionLost = consecutiveFailures >= 3;
 
   const fetchData = useCallback(async () => {
+    // If WebSocket is active, we don't need to poll anything!
+    if (isWebSocketActive) return;
+
     try {
-      const torrentsUrl = selectedTorrentHash 
-        ? `${API_URL}/torrents/focus/${selectedTorrentHash}`
-        : `${API_URL}/torrents`;
-        
-      const [torrentsRes, stateRes, storageRes] = await Promise.all([
-        fetch(torrentsUrl),
+      const [torrentsRes, stateRes, storageRes, tasksRes] = await Promise.all([
+        fetch(`${API_URL}/torrents`),
         fetch(`${API_URL}/state`),
-        fetch(`${API_URL}/system/storage`)
+        fetch(`${API_URL}/system/storage`),
+        fetch(`${API_URL}/tasks`)
       ]);
 
-      if (!torrentsRes.ok || !stateRes.ok || !storageRes.ok) throw new Error('Failed to fetch data');
+      if (!torrentsRes.ok || !stateRes.ok || !storageRes.ok || !tasksRes.ok) throw new Error('Failed to fetch data');
       
-      const [torrentsData, stateData, storageData] = await Promise.all([
+      const [torrentsData, stateData, storageData, tasksData] = await Promise.all([
         torrentsRes.json() as Promise<TorrentWithMetadata[]>,
         stateRes.json() as Promise<QBServerState>,
-        storageRes.json() as Promise<DiskStats[]>
+        storageRes.json() as Promise<DiskStats[]>,
+        tasksRes.json() as Promise<IngestionTask[]>
       ]);
       
       setTorrents(torrentsData);
       setServerState(stateData);
       setStorageStats(storageData);
+      setTasks(tasksData);
+
       setError(null);
       setConsecutiveFailures(0);
-
-      // Resolve pending alt speed transition
-      setPendingAltSpeedTarget(prev => {
-        if (prev !== null && stateData.use_alt_speed_limits === prev) {
-          return null;
-        }
-        return prev;
-      });
-
-      // Clean up pending transitions that have completed
-      setPendingTransitions(prev => {
-        if (prev.size === 0) return prev;
-        const next = new Map(prev);
-        torrentsData.forEach((t) => {
-          const target = next.get(t.hash);
-          if (target) {
-            const isCurrentlyActive = ACTIVE_STATES.includes(t.state);
-            if ((target === 'active' && isCurrentlyActive) || (target === 'inactive' && !isCurrentlyActive)) {
-              next.delete(t.hash);
-            }
-          }
-        });
-        return next;
-      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
@@ -91,13 +83,64 @@ export function useTorrents(selectedTorrentHash: string | null) {
     } finally {
       setIsLoading(false);
     }
+  }, [selectedTorrentHash, isWebSocketActive]);
+
+  // --- WebSocket Connection Logic ---
+  useEffect(() => {
+    const connect = () => {
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('🚀 Soup-Go WebSocket Connected');
+        setIsWebSocketActive(true);
+        setConsecutiveFailures(0);
+        // Resend focus on reconnect
+        if (selectedTorrentHash) {
+          ws.send(JSON.stringify({ type: 'focus', hash: selectedTorrentHash }));
+        }
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'torrents') {
+          // Legacy/Fallback type
+          setTorrents(data.payload);
+        } else if (data.type === 'sync') {
+          // Modern full sync type from Soup-Go
+          const { torrents, state, storage, tasks, focusedFiles } = data.payload;
+          if (torrents) setTorrents(torrents);
+          if (state) setServerState(state);
+          if (storage) setStorageStats(storage);
+          if (tasks) setTasks(tasks);
+          if (focusedFiles) setFocusedFiles(focusedFiles);
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn('⚠️ Soup-Go WebSocket Closed. Falling back to polling.');
+        setIsWebSocketActive(false);
+        // Retry connection after 5 seconds
+        setTimeout(connect, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('❌ WebSocket Error', err);
+        ws.close();
+      };
+    };
+
+    connect();
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
   }, [selectedTorrentHash]);
 
   const handleAddTorrent = async (data: { url?: string; file?: File }) => {
     try {
       const formData = new FormData();
       if (data.file) {
-        formData.append('torrent', data.file);
+        formData.append('torrents', data.file);
       }
       
       const response = await fetch(`${API_URL}/torrents`, {
@@ -108,17 +151,17 @@ export function useTorrents(selectedTorrentHash: string | null) {
 
       if (!response.ok) throw new Error('Failed to add torrent');
       showNotification('Torrent added successfully', 'success');
-      fetchData();
+      if (!isWebSocketActive) fetchData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       showNotification(message, 'error');
     }
   };
 
-  const handleDelete = async (hash: string) => {
+  const handleDelete = async (hash: string, deleteFiles: boolean = true) => {
     setPendingTransitions(prev => new Map(prev).set(hash, 'inactive'));
     try {
-      const res = await fetch(`${API_URL}/torrents?hashes=${hash}&deleteFiles=true`, {
+      const res = await fetch(`${API_URL}/torrents/${hash}?deleteFiles=${deleteFiles}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete torrent');
@@ -167,23 +210,28 @@ export function useTorrents(selectedTorrentHash: string | null) {
     fetchConfig();
   }, []);
 
-  // Main Polling Loop
+  // Main Polling Loop (Only active when WebSocket is down)
   useEffect(() => {
+    if (isWebSocketActive) return;
+
     fetchData();
     const interval = setInterval(fetchData, config?.syncInterval || 2000);
     return () => clearInterval(interval);
-  }, [fetchData, config?.syncInterval, pendingAltSpeedTarget]);
+  }, [fetchData, config?.syncInterval, isWebSocketActive]);
 
   return {
     torrents,
     serverState,
     storageStats,
+    tasks,
+    focusedFiles,
     isLoading,
     error,
     isConnectionLost,
     pendingTransitions,
     pendingAltSpeedTarget,
     config,
+    isWebSocketActive,
     fetchData,
     handleAddTorrent,
     handleDelete,
