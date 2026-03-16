@@ -327,16 +327,16 @@ func TestTorrentService_DTOIntegrity(t *testing.T) {
 	data, _ := json.Marshal(tor)
 	jsonStr := string(data)
 
-	// Check for critical camelCase keys expected by Frontend
+	// Check for critical snake_case keys expected by SyncEngine.ts
 	expectedKeys := []string{
-		"\"downloadSpeed\":",
-		"\"uploadSpeed\":",
-		"\"addedOn\":",
-		"\"seedingTime\":",
+		"\"dlspeed\":",
+		"\"upspeed\":",
+		"\"added_on\":",
+		"\"seeding_time\":",
 		"\"ratio\":",
-		"\"totalRead\":",
-		"\"totalWritten\":",
-		"\"contentPath\":",
+		"\"total_read\":",
+		"\"total_written\":",
+		"\"content_path\":",
 	}
 
 	for _, key := range expectedKeys {

@@ -11,7 +11,7 @@ const (
 )
 
 // Torrent represents the data structure for a single BitTorrent download (DTO).
-// The JSON tags are STRICTLY matched to the camelCase properties expected by the frontend.
+// The JSON tags are STRICTLY matched to the qBittorrent API format used by packages/core/src/SyncEngine.ts
 type Torrent struct {
 	Hash          string         `json:"hash"`
 	Name          string         `json:"name"`
@@ -19,21 +19,21 @@ type Torrent struct {
 	Progress      float64        `json:"progress"`
 	State         string         `json:"state"`
 	StateName     string         `json:"stateName"`
-	DownloadSpeed int64          `json:"downloadSpeed"`
-	UploadSpeed   int64          `json:"uploadSpeed"`
-	TotalRead     int64          `json:"totalRead"`
-	TotalWritten  int64          `json:"totalWritten"`
-	ContentPath   string         `json:"contentPath"`
-	AddedOn       int64          `json:"addedOn"`
-	SeedingTime   int64          `json:"seedingTime"`
+	DownloadSpeed int64          `json:"dlspeed"`
+	UploadSpeed   int64          `json:"upspeed"`
+	TotalRead     int64          `json:"total_read"`
+	TotalWritten  int64          `json:"total_written"`
+	ContentPath   string         `json:"content_path"`
+	AddedOn       int64          `json:"added_on"`
+	SeedingTime   int64          `json:"seeding_time"`
 	Ratio         float64        `json:"ratio"`
 	Eta           int64          `json:"eta"`
 	ActivePeers   int            `json:"activePeers"`
 	TotalPeers    int            `json:"totalPeers"`
 	Availability  float64        `json:"availability"`
-	IsSequential  bool           `json:"isSequential"`
-	IsForceStart  bool           `json:"isForceStart"`
-	IsNonMedia    bool           `json:"isNonMedia"`
+	IsSequential  bool           `json:"seq_dl"`
+	IsForceStart  bool           `json:"force_start"`
+	IsNonMedia    bool           `json:"is_non_media"`
 	MediaInfo     MediaInfo      `json:"mediaInfo"`
 	MediaMetadata *MediaMetadata `json:"mediaMetadata,omitempty"`
 }
