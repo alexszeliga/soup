@@ -74,13 +74,56 @@ func (w TorrentWrapper) Drop() {
 }
 
 func (w TorrentWrapper) DropWithData() {
-	// Note: anacrolix/torrent.Torrent.Drop() only removes from client.
-	// Actual file deletion is handled by TorrentService using filesystem calls.
 	w.Torrent.Drop()
 }
 
 func (w TorrentWrapper) InfoHash() metainfo.Hash {
 	return w.Torrent.InfoHash()
+}
+
+func (w TorrentWrapper) Name() string {
+	return w.Torrent.Name()
+}
+
+func (w TorrentWrapper) Length() int64 {
+	return w.Torrent.Length()
+}
+
+func (w TorrentWrapper) BytesCompleted() int64 {
+	return w.Torrent.BytesCompleted()
+}
+
+func (w TorrentWrapper) AllowDataDownload() {
+	w.Torrent.AllowDataDownload()
+}
+
+func (w TorrentWrapper) DisallowDataDownload() {
+	w.Torrent.DisallowDataDownload()
+}
+
+func (w TorrentWrapper) AllowDataUpload() {
+	w.Torrent.AllowDataUpload()
+}
+
+func (w TorrentWrapper) DisallowDataUpload() {
+	w.Torrent.DisallowDataUpload()
+}
+
+func (w TorrentWrapper) VerifyData() error {
+	w.Torrent.VerifyData()
+	return nil
+}
+
+func (w TorrentWrapper) NumPieces() int {
+	return w.Torrent.NumPieces()
+}
+
+func (w TorrentWrapper) CancelPieces(start, end int) {
+	// Not directly supported in simple wrapper
+}
+
+func (w TorrentWrapper) DownloadAll() {
+	w.Torrent.DownloadAll()
 }
 
 func (w TorrentWrapper) Files() []EngineFile {
@@ -97,13 +140,8 @@ func (w TorrentWrapper) Stats() torrent.TorrentStats {
 }
 
 func (w TorrentWrapper) SetSequential(sequential bool) {
-	// In anacrolix/torrent, we can achieve sequential download by
-	// setting piece priorities in ascending order.
 	if sequential {
 		for i := 0; i < w.Torrent.NumPieces(); i++ {
-			// Higher priority for earlier pieces
-			// Note: This is a simplistic implementation. 
-			// Truly sequential usually involves a moving window.
 			w.Torrent.Piece(i).SetPriority(torrent.PiecePriorityNormal)
 		}
 	}
@@ -145,20 +183,15 @@ type EngineWrapper struct {
 	PexEnabled bool
 }
 
-func (w EngineWrapper) AddMagnet(uri string) (EngineTorrent, error) {
+func (w *EngineWrapper) AddMagnet(uri string) (EngineTorrent, error) {
 	t, err := w.Client.AddMagnet(uri)
 	if err != nil {
 		return nil, err
 	}
-	// PEX can be toggled on the torrent level
-	if !w.PexEnabled {
-		// Note: anacrolix doesn't have a direct per-torrent PEX toggle in the basic API, 
-		// but it respects the private flag. Global PEX usually handled in ClientConfig.
-	}
 	return TorrentWrapper{t}, nil
 }
 
-func (w EngineWrapper) AddTorrent(mi *metainfo.MetaInfo) (EngineTorrent, error) {
+func (w *EngineWrapper) AddTorrent(mi *metainfo.MetaInfo) (EngineTorrent, error) {
 	t, err := w.Client.AddTorrent(mi)
 	if err != nil {
 		return nil, err
@@ -166,7 +199,7 @@ func (w EngineWrapper) AddTorrent(mi *metainfo.MetaInfo) (EngineTorrent, error) 
 	return TorrentWrapper{t}, nil
 }
 
-func (w EngineWrapper) Torrents() []EngineTorrent {
+func (w *EngineWrapper) Torrents() []EngineTorrent {
 	engineTorrents := w.Client.Torrents()
 	list := make([]EngineTorrent, len(engineTorrents))
 	for i, t := range engineTorrents {
@@ -175,7 +208,7 @@ func (w EngineWrapper) Torrents() []EngineTorrent {
 	return list
 }
 
-func (w EngineWrapper) DhtNodes() int {
+func (w *EngineWrapper) DhtNodes() int {
 	var total int
 	for _, s := range w.Client.DhtServers() {
 		stats := s.Stats()
@@ -186,7 +219,7 @@ func (w EngineWrapper) DhtNodes() int {
 	return total
 }
 
-func (w EngineWrapper) SetRateLimits(dl, up int64) {
+func (w *EngineWrapper) SetRateLimits(dl, up int64) {
 	if w.DlLimit != nil {
 		if dl > 0 {
 			w.DlLimit.SetLimit(rate.Limit(dl))
@@ -206,16 +239,12 @@ func (w EngineWrapper) SetRateLimits(dl, up int64) {
 
 func (w *EngineWrapper) SetDht(enabled bool) {
 	w.DhtEnabled = enabled
-	// Note: anacrolix/torrent.DhtServer interface doesn't expose Close().
-	// Global DHT is best handled at Client initialization.
 }
 
 func (w *EngineWrapper) SetPex(enabled bool) {
 	w.PexEnabled = enabled
-	// Note: Global PEX is typically a ClientConfig setting.
 }
 
-
-func (w EngineWrapper) Close() []error {
+func (w *EngineWrapper) Close() []error {
 	return w.Client.Close()
 }
