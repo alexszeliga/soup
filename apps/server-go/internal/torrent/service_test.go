@@ -58,6 +58,7 @@ func (m *MockTorrent) Drop()         {}
 func (m *MockTorrent) Name() string  { return m.NameStr }
 func (m *MockTorrent) Length() int64 { return 1000 }
 func (m *MockTorrent) BytesCompleted() int64 { return 1000 }
+func (m *MockTorrent) Metainfo() metainfo.MetaInfo { return metainfo.MetaInfo{} }
 func (m *MockTorrent) InfoHash() metainfo.Hash {
 	h := metainfo.NewHashFromHex(m.HashStr)
 	return h

@@ -32,9 +32,3 @@ reset:
 # Migration: Port existing torrents from TS/qBittorrent to Go
 migrate:
 	go run main.go migrate -old-db ../server/soup.db -qb-url https://qb.osage.lol/api/v2
-
-# Spoofing: Auto-detect latest qBittorrent identity via Docker
-spoof:
-	go run ../../scripts/detect-qb-identity.go
-
-.PHONY: test fmt lint vet handoff dev reset migrate spoof
