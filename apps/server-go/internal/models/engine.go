@@ -32,6 +32,7 @@ type EngineTorrent interface {
 	BytesCompleted() int64
 	InfoHash() metainfo.Hash
 	Files() []EngineFile
+	Metainfo() metainfo.MetaInfo
 	
 	// Control Methods
 	AllowDataDownload()
@@ -134,6 +135,10 @@ func (w TorrentWrapper) Files() []EngineFile {
 		list[i] = FileWrapper{f}
 	}
 	return list
+}
+
+func (w TorrentWrapper) Metainfo() metainfo.MetaInfo {
+	return w.Torrent.Metainfo()
 }
 
 func (w TorrentWrapper) Stats() torrent.TorrentStats {

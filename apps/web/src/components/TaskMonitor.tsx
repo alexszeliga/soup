@@ -67,7 +67,7 @@ const TaskMonitor: React.FC<TaskMonitorProps> = ({ externalTasks }) => {
                 try {
                   const fileEntries = Object.entries(JSON.parse(task.fileMap || '{}'));
                   totalFiles = fileEntries.length;
-                } catch (e) {
+                } catch {
                   // Fallback for non-JSON or missing map
                 }
                 

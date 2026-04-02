@@ -282,7 +282,19 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 
 	for _, rec := range records {
 		log.Printf("Restoring torrent: %s (SavePath: %s)", rec.Hash, rec.SavePath)
-		t, err := s.engine.AddMagnet(rec.MagnetURI, rec.SavePath)
+		
+		var t models.EngineTorrent
+		var err error
+		
+		torrentFilePath := filepath.Join(s.dataDir, ".torrents", rec.Hash+".torrent")
+		mi, loadErr := metainfo.LoadFromFile(torrentFilePath)
+		if loadErr == nil {
+			log.Printf("Restoring from saved .torrent file: %s", torrentFilePath)
+			t, err = s.engine.AddTorrent(mi, rec.SavePath)
+		} else {
+			t, err = s.engine.AddMagnet(rec.MagnetURI, rec.SavePath)
+		}
+
 		if err != nil {
 			log.Printf("Failed to restore torrent %s: %v", rec.Hash, err)
 			continue
@@ -426,8 +438,22 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	go func() {
 		<-t.GotInfo()
 		
-		// 1. Update in-memory name and persist to DB
+		// 0. Save .torrent file for fast restarts
 		torrentHash := t.InfoHash().HexString()
+		torrentDir := filepath.Join(s.dataDir, ".torrents")
+		_ = os.MkdirAll(torrentDir, 0755)
+		torrentFilePath := filepath.Join(torrentDir, torrentHash+".torrent")
+		if _, err := os.Stat(torrentFilePath); os.IsNotExist(err) {
+			mi := t.Metainfo()
+			f, err := os.Create(torrentFilePath)
+			if err == nil {
+				_ = mi.Write(f)
+				f.Close()
+				log.Printf("Saved .torrent file for %s", torrentHash)
+			}
+		}
+
+		// 1. Update in-memory name and persist to DB
 		s.mu.Lock()
 		sample, hasSample := s.lastSamples[torrentHash]
 		if hasSample {
