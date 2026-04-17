@@ -18,17 +18,21 @@ type MockRepo struct {
 }
 
 func (m *MockRepo) SaveTask(ctx context.Context, task *models.IngestionTask) error { return nil }
-func (m *MockRepo) GetTask(ctx context.Context, id string) (*models.IngestionTask, error) { return nil, nil }
+func (m *MockRepo) GetTask(ctx context.Context, id string) (*models.IngestionTask, error) {
+	return nil, nil
+}
 func (m *MockRepo) GetTasks(ctx context.Context) ([]*models.IngestionTask, error) {
 	return []*models.IngestionTask{}, nil
 }
 func (m *MockRepo) DeleteTask(ctx context.Context, id string) error { return nil }
-func (m *MockRepo) DeleteFinishedTasks(ctx context.Context) error  { return nil }
+func (m *MockRepo) DeleteFinishedTasks(ctx context.Context) error   { return nil }
 func (m *MockRepo) GetTorrents(ctx context.Context) ([]repository.TorrentRecord, error) {
 	return []repository.TorrentRecord{}, nil
 }
-func (m *MockRepo) SaveTorrent(ctx context.Context, hash, name, savePath, magnet string) error { return nil }
-func (m *MockRepo) SetTorrentName(ctx context.Context, hash, name string) error      { return nil }
+func (m *MockRepo) SaveTorrent(ctx context.Context, hash, name, savePath, magnet string) error {
+	return nil
+}
+func (m *MockRepo) SetTorrentName(ctx context.Context, hash, name string) error { return nil }
 
 func TestIngestion_EmpiricalCopy(t *testing.T) {
 	// 1. Setup temp directories
@@ -45,7 +49,7 @@ func TestIngestion_EmpiricalCopy(t *testing.T) {
 	fileName := "sintel.mp4"
 	absSourceDir := filepath.Join(downloadDir, torrentName)
 	_ = os.MkdirAll(absSourceDir, 0755)
-	
+
 	sourceFile := filepath.Join(absSourceDir, fileName)
 	content := []byte("fake movie data")
 	_ = os.WriteFile(sourceFile, content, 0644)
@@ -61,14 +65,14 @@ func TestIngestion_EmpiricalCopy(t *testing.T) {
 	}
 
 	task := service.EnqueueTask("h1", downloadDir, mapping)
-	
+
 	maxWait := 5 * time.Second
 	start := time.Now()
 	for {
 		if time.Since(start) > maxWait {
 			t.Fatalf("Timed out waiting for ingestion task")
 		}
-		
+
 		if task.Status == models.TaskCompleted {
 			break
 		}
@@ -139,12 +143,12 @@ func TestIngestion_SpeedCalculation(t *testing.T) {
 		ID:     "test-speed",
 		Status: models.TaskProcessing,
 	}
-	
+
 	completedBytes := int64(0)
 	totalBytes := int64(len(data))
 	lastUpdate := time.Now()
 	lastBytes := int64(0)
-	
+
 	// Throttled to 100KB/s
 	throttled := &ThrottledReader{
 		r:         bytes.NewReader(data),
@@ -152,7 +156,7 @@ func TestIngestion_SpeedCalculation(t *testing.T) {
 	}
 
 	dest := filepath.Join(mediaRoot, "throttled.dat")
-	
+
 	// We run copyReader in a goroutine and poll for speed
 	done := make(chan error)
 	go func() {
@@ -166,7 +170,7 @@ func TestIngestion_SpeedCalculation(t *testing.T) {
 		if speed > maxSpeed {
 			maxSpeed = speed
 		}
-		
+
 		select {
 		case err := <-done:
 			if err != nil {
@@ -233,7 +237,7 @@ func TestSuggestPath(t *testing.T) {
 func TestResolveSourcePath(t *testing.T) {
 	repo := &MockRepo{}
 	service := NewIngestionService("/media", repo)
-	
+
 	t.Run("Standard folder torrent", func(t *testing.T) {
 		result := service.ResolveSourcePath("The.Office", "S01E01.mkv", "", "/mnt/downloads")
 		expected := "/mnt/downloads/S01E01.mkv"

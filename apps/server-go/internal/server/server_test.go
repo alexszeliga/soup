@@ -18,7 +18,7 @@ type MockEngine struct {
 
 func (m *MockEngine) AddMagnet(uri string) (models.EngineTorrent, error) {
 	m.AddedMagnet = uri
-	return nil, nil 
+	return nil, nil
 }
 
 func (m *MockEngine) DhtNodes() int { return 0 }
@@ -57,7 +57,7 @@ func TestAddTorrentRoute(t *testing.T) {
 
 func TestTorrentAPIFormat(t *testing.T) {
 	app := fiber.New()
-	
+
 	// Use REAL model to verify ACTUAL tags
 	app.Get("/api/torrents", func(c *fiber.Ctx) error {
 		torrents := []*models.Torrent{

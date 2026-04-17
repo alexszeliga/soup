@@ -65,9 +65,9 @@ func NewFromEngineInterface(t EngineTorrent, base TorrentBaseInfo) *Torrent {
 	// 2. Determine State
 	state := "downloading"
 	stateName := "Downloading"
-	
+
 	stats := t.Stats()
-	
+
 	// Check for info ready
 	if length == 0 {
 		state = "metaDL"

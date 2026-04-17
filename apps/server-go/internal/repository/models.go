@@ -10,16 +10,16 @@ import (
 type TorrentRecord struct {
 	bun.BaseModel `bun:"table:torrents,alias:t"`
 
-	Hash         string    `bun:"hash,pk"`
-	Name         string    `bun:"name"`
-	SavePath     string    `bun:"save_path"`
-	MagnetURI    string    `bun:"magnet_uri,notnull"`
-	AddedOn      int64     `bun:"added_on"`
-	TotalRead    int64     `bun:"total_read,default:0"`
-	TotalWritten int64     `bun:"total_written,default:0"`
-	SeedingTime  int64     `bun:"seeding_time,default:0"` // in seconds
-	IsNonMedia   bool      `bun:"is_non_media,default:false"`
-	IsSequential bool      `bun:"is_sequential,default:false"`
+	Hash         string `bun:"hash,pk"`
+	Name         string `bun:"name"`
+	SavePath     string `bun:"save_path"`
+	MagnetURI    string `bun:"magnet_uri,notnull"`
+	AddedOn      int64  `bun:"added_on"`
+	TotalRead    int64  `bun:"total_read,default:0"`
+	TotalWritten int64  `bun:"total_written,default:0"`
+	SeedingTime  int64  `bun:"seeding_time,default:0"` // in seconds
+	IsNonMedia   bool   `bun:"is_non_media,default:false"`
+	IsSequential bool   `bun:"is_sequential,default:false"`
 }
 
 // MetadataRecord represents cached media metadata.
@@ -63,4 +63,3 @@ type NoiseTokenRecord struct {
 	HitCount  int       `bun:"hit_count,notnull,default:1"`
 	UpdatedAt time.Time `bun:"updated_at,default:current_timestamp"`
 }
-

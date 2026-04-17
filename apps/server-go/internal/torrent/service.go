@@ -20,7 +20,7 @@ type torrentSample struct {
 	bytesRead    int64
 	bytesWritten int64
 	timestamp    time.Time
-	
+
 	// EMA Speeds
 	emaDl float64
 	emaUp float64
@@ -39,7 +39,7 @@ type torrentSample struct {
 
 // Configuration Constants
 const (
-	EmaSmoothingAlpha   = 0.3
+	EmaSmoothingAlpha     = 0.3
 	TelemetrySyncInterval = 10 * time.Second
 )
 
@@ -50,14 +50,14 @@ var MetadataWaitTimeout = 60 * time.Second
 // Preferences stores application-wide settings.
 type Preferences struct {
 	UseAltSpeedLimits bool   `json:"use_alt_speed_limits"`
-	AltDlLimit         int64  `json:"alt_dl_limit"`
-	AltUpLimit         int64  `json:"alt_up_limit"`
-	GlobalDlLimit      int64  `json:"dl_limit"`
-	GlobalUpLimit      int64  `json:"up_limit"`
-	SavePath           string `json:"save_path"`
-	MediaRoot          string `json:"media_root"`
-	Dht                bool   `json:"dht"`
-	Pex                bool   `json:"pex"`
+	AltDlLimit        int64  `json:"alt_dl_limit"`
+	AltUpLimit        int64  `json:"alt_up_limit"`
+	GlobalDlLimit     int64  `json:"dl_limit"`
+	GlobalUpLimit     int64  `json:"up_limit"`
+	SavePath          string `json:"save_path"`
+	MediaRoot         string `json:"media_root"`
+	Dht               bool   `json:"dht"`
+	Pex               bool   `json:"pex"`
 }
 
 // TorrentService orchestrates the BitTorrent engine and its persistence.
@@ -67,9 +67,9 @@ type TorrentService struct {
 	tmdb     *metadata.TMDBProvider
 	dataDir  string // Root directory for torrent downloads
 	isDocker bool
-	
+
 	// Speed tracking
-	mu         sync.Mutex
+	mu          sync.Mutex
 	lastSamples map[string]*torrentSample // Using pointers for in-memory stability
 
 	// Preferences
@@ -87,14 +87,14 @@ func NewTorrentService(engine models.TorrentEngine, repo repository.Repository, 
 		prefs: Preferences{
 			AltDlLimit:    1024 * 1024, // 1MB default
 			AltUpLimit:    1024 * 1024,
-			GlobalDlLimit: -1,          // unlimited
+			GlobalDlLimit: -1, // unlimited
 			GlobalUpLimit: -1,
 			SavePath:      dataDir,
 			Dht:           false, // Disabled by default
 			Pex:           false, // Disabled by default
 		},
 	}
-	
+
 	// Load preferences from DB
 	s.loadPreferences()
 
@@ -104,7 +104,7 @@ func NewTorrentService(engine models.TorrentEngine, repo repository.Repository, 
 
 	// Start background telemetry syncer
 	go s.telemetryLoop()
-	
+
 	return s
 }
 
@@ -230,7 +230,7 @@ func (s *TorrentService) UpdatePreferences(p PartialPreferences) {
 	if p.GlobalUpLimit != nil {
 		s.prefs.GlobalUpLimit = *p.GlobalUpLimit
 	}
-	
+
 	s.savePreferences()
 	s.applyLimits()
 	s.applyNetworkSettings()
@@ -282,10 +282,10 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 
 	for _, rec := range records {
 		log.Printf("Restoring torrent: %s (SavePath: %s)", rec.Hash, rec.SavePath)
-		
+
 		var t models.EngineTorrent
 		var err error
-		
+
 		torrentFilePath := filepath.Join(s.dataDir, ".torrents", rec.Hash+".torrent")
 		mi, loadErr := metainfo.LoadFromFile(torrentFilePath)
 		if loadErr == nil {
@@ -423,8 +423,8 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 			// Note: anacrolix handles this internally but explicit triggers help in restricted environments
 			// Since we don't have a direct 'Announce' on the interface, we rely on the engine's internal retry
 			// but we can ensure it's allowed to download.
-			t.AllowDataDownload() 
-			
+			t.AllowDataDownload()
+
 			select {
 			case <-ticker.C:
 				continue
@@ -437,7 +437,7 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	// 3. Trigger Download Watcher
 	go func() {
 		<-t.GotInfo()
-		
+
 		// 0. Save .torrent file for fast restarts
 		torrentHash := t.InfoHash().HexString()
 		torrentDir := filepath.Join(s.dataDir, ".torrents")
@@ -502,7 +502,7 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 				sample.metadata = meta
 			}
 			s.mu.Unlock()
-			return 
+			return
 		}
 
 		// Perform match using our NoiseMiner logic
@@ -520,7 +520,7 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 				meta := candidates[0]
 				log.Printf("[Matcher] Matched metadata for %s: %s (%d)", hash, meta.Title, meta.Year)
 				_ = s.repo.SaveMetadata(context.Background(), hash, meta)
-				
+
 				// Update in-memory cache
 				s.mu.Lock()
 				if sample, ok := s.lastSamples[hash]; ok {
@@ -555,7 +555,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 
 	for _, et := range engineTorrents {
 		hash := et.InfoHash().HexString()
-		
+
 		sample, ok := s.lastSamples[hash]
 		if !ok {
 			// Initialize from DB if possible to avoid 0-flicker
@@ -577,7 +577,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 		stats := et.Stats()
 		currentRead := stats.BytesRead.Int64()
 		currentWritten := stats.BytesWritten.Int64()
-		
+
 		duration := now.Sub(sample.timestamp).Seconds()
 		if duration > 0 {
 			// EMA Speed Smoothing
@@ -621,7 +621,7 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 
 		// 4. Map to DTO
 		t := models.NewFromEngineInterface(et, baseInfo)
-		
+
 		// 5. Apply calculated EMA speeds to DTO
 		t.DownloadSpeed = int64(sample.emaDl)
 		t.UploadSpeed = int64(sample.emaUp)
@@ -848,7 +848,7 @@ func (s *TorrentService) LinkMetadata(ctx context.Context, hash string, metadata
 func (s *TorrentService) Unmatch(ctx context.Context, hash string) error {
 	// 1. Clear from DB
 	err := s.repo.UnmatchTorrent(ctx, hash)
-	
+
 	// 2. Clear from in-memory cache
 	s.mu.Lock()
 	if sample, ok := s.lastSamples[hash]; ok {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -122,7 +122,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		magnet := ""
 		_, err := s.exportTorrent(qbt.Hash)
 		if err == nil {
-			// We store the magnet representation for persistence, 
+			// We store the magnet representation for persistence,
 			// but we'll use the bytes for the initial add if we were adding fresh.
 			// Actually, let's build a Rich Magnet with trackers as a fallback.
 			trackers, _ := s.fetchQBTrackers(qbt.Hash)
@@ -141,7 +141,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 		if err := s.repo.MigrateTorrent(ctx, hash, qbt.Name, qbt.SavePath, magnet, qbt.AddedOn, qbt.TotalRead, qbt.TotalWritten, qbt.SeedingTime); err != nil {
 			log.Printf("[Migration] Error migrating torrent %s: %v", hash, err)
 		}
-		
+
 		if isNonMedia {
 			_ = s.repo.SetNonMedia(ctx, hash, true)
 		}
@@ -151,7 +151,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 			var m oldMetadata
 			err := oldDb.QueryRow("SELECT id, title, year, plot, cast, poster_path, created_at FROM metadata WHERE id = ?", metadataId.String).
 				Scan(&m.ID, &m.Title, &m.Year, &m.Plot, &m.Cast, &m.PosterPath, &m.CreatedAt)
-			
+
 			if err == nil {
 				newMeta := &models.MediaMetadata{
 					ID:         m.ID,
@@ -168,7 +168,7 @@ func (s *MigrationService) Run(ctx context.Context) error {
 	}
 
 	log.Printf("[Migration] SUCCESS: Migrated %d torrents and their metadata.", count)
-	
+
 	// Force flush WAL to main DB file
 	if err := s.repo.Checkpoint(ctx); err != nil {
 		log.Printf("[Migration] Warning: Checkpoint failed: %v", err)

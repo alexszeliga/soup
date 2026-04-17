@@ -23,22 +23,22 @@ type MockFile struct {
 	Name string
 }
 
-func (m *MockFile) DisplayPath() string { return m.Name }
-func (m *MockFile) Length() int64      { return 100 }
+func (m *MockFile) DisplayPath() string   { return m.Name }
+func (m *MockFile) Length() int64         { return 100 }
 func (m *MockFile) BytesCompleted() int64 { return 100 }
-func (m *MockFile) Priority() int      { return 1 }
-func (m *MockFile) SetPriority(p int)  {}
+func (m *MockFile) Priority() int         { return 1 }
+func (m *MockFile) SetPriority(p int)     {}
 
 type MockTorrent struct {
 	models.EngineTorrent
-	HashStr               string // 40-char hex
-	NameStr               string
-	AllowDownloadCalled   bool
+	HashStr                string // 40-char hex
+	NameStr                string
+	AllowDownloadCalled    bool
 	DisallowDownloadCalled bool
-	VerifyDataCalled      bool
-	DownloadAllCalled     bool
-	GotInfoChan           chan struct{}
-	mu                    sync.Mutex
+	VerifyDataCalled       bool
+	DownloadAllCalled      bool
+	GotInfoChan            chan struct{}
+	mu                     sync.Mutex
 }
 
 func (m *MockTorrent) GotInfo() <-chan struct{} {
@@ -53,11 +53,11 @@ func (m *MockTorrent) HasInfo() bool {
 		return false
 	}
 }
-func (m *MockTorrent) DownloadAll()  { m.mu.Lock(); defer m.mu.Unlock(); m.DownloadAllCalled = true }
-func (m *MockTorrent) Drop()         {}
-func (m *MockTorrent) Name() string  { return m.NameStr }
-func (m *MockTorrent) Length() int64 { return 1000 }
-func (m *MockTorrent) BytesCompleted() int64 { return 1000 }
+func (m *MockTorrent) DownloadAll()                { m.mu.Lock(); defer m.mu.Unlock(); m.DownloadAllCalled = true }
+func (m *MockTorrent) Drop()                       {}
+func (m *MockTorrent) Name() string                { return m.NameStr }
+func (m *MockTorrent) Length() int64               { return 1000 }
+func (m *MockTorrent) BytesCompleted() int64       { return 1000 }
 func (m *MockTorrent) Metainfo() metainfo.MetaInfo { return metainfo.MetaInfo{} }
 func (m *MockTorrent) InfoHash() metainfo.Hash {
 	h := metainfo.NewHashFromHex(m.HashStr)
@@ -74,11 +74,24 @@ func (m *MockTorrent) Stats() torrent.TorrentStats {
 func (m *MockTorrent) NumPieces() int { return 1 }
 
 // Satisfy expanded control methods
-func (m *MockTorrent) AllowDataDownload()    { m.mu.Lock(); defer m.mu.Unlock(); m.AllowDownloadCalled = true }
-func (m *MockTorrent) DisallowDataDownload() { m.mu.Lock(); defer m.mu.Unlock(); m.DisallowDownloadCalled = true }
-func (m *MockTorrent) AllowDataUpload()      {}
-func (m *MockTorrent) DisallowDataUpload()   {}
-func (m *MockTorrent) VerifyData() error     { m.mu.Lock(); defer m.mu.Unlock(); m.VerifyDataCalled = true; return nil }
+func (m *MockTorrent) AllowDataDownload() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.AllowDownloadCalled = true
+}
+func (m *MockTorrent) DisallowDataDownload() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.DisallowDownloadCalled = true
+}
+func (m *MockTorrent) AllowDataUpload()    {}
+func (m *MockTorrent) DisallowDataUpload() {}
+func (m *MockTorrent) VerifyData() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.VerifyDataCalled = true
+	return nil
+}
 func (m *MockTorrent) CancelPieces(s, e int) {}
 func (m *MockTorrent) SetSequential(b bool)  {}
 
@@ -138,7 +151,7 @@ func TestTorrentService_DelayedMetadata(t *testing.T) {
 
 	// 2. Wait longer than the timeout
 	time.Sleep(100 * time.Millisecond)
-	
+
 	mockTor.mu.Lock()
 	if mockTor.DownloadAllCalled {
 		mockTor.mu.Unlock()
@@ -212,7 +225,7 @@ func TestTorrentService_RestoreStateWithCustomPath(t *testing.T) {
 	ctx := context.Background()
 	hash := "0123456789abcdef0123456789abcdef01234567"
 	customPath := "/mnt/data/torrents"
-	
+
 	// Use MigrateTorrent to set all fields including custom savePath
 	_ = repo.MigrateTorrent(ctx, hash, "PathTest", customPath, "magnet1", 0, 0, 0, 0)
 
@@ -272,7 +285,7 @@ func TestTorrentService_Control(t *testing.T) {
 	service := NewTorrentService(engine, repo, nil, "/tmp", false)
 
 	ctx := context.Background()
-	
+
 	_ = service.Start(ctx, hash)
 	if !mockTor.AllowDownloadCalled {
 		t.Error("Start() did not call AllowDataDownload")
@@ -307,7 +320,7 @@ func TestTorrentService_DTOIntegrity(t *testing.T) {
 
 	hash := "0123456789abcdef0123456789abcdef01234567"
 	ctx := context.Background()
-	
+
 	// Mock a migrated torrent with stats
 	_ = repo.SaveTorrent(ctx, hash, "Migrated Movie", "/tmp", "magnet:...")
 	_ = repo.UpdateTorrentStats(ctx, hash, 1000, 2000, 3600)
@@ -323,7 +336,7 @@ func TestTorrentService_DTOIntegrity(t *testing.T) {
 	}
 
 	tor := list[0]
-	
+
 	// Marshall to JSON to verify tags
 	data, _ := json.Marshal(tor)
 	jsonStr := string(data)
@@ -364,7 +377,7 @@ func TestTorrentService_RemoveWithFiles(t *testing.T) {
 	torrentName := "test-delete-me"
 	torrentPath := filepath.Join(tmpDir, torrentName)
 	_ = os.MkdirAll(torrentPath, 0755)
-	
+
 	dummyFile := filepath.Join(torrentPath, "data.txt")
 	_ = os.WriteFile(dummyFile, []byte("hello"), 0644)
 

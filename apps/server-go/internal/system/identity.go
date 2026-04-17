@@ -57,7 +57,7 @@ func (s *IdentityService) StartAutoSync(ctx context.Context) {
 	if !isFresh {
 		go s.SyncCycle()
 	} else {
-		log.Printf("[IdentitySync] Identity is fresh (%s old). Using cached spoof: %s", 
+		log.Printf("[IdentitySync] Identity is fresh (%s old). Using cached spoof: %s",
 			time.Since(s.current.DetectedAt).Round(time.Hour), currentUA)
 	}
 
@@ -78,7 +78,7 @@ func (s *IdentityService) StartAutoSync(ctx context.Context) {
 
 func (s *IdentityService) SyncCycle() {
 	log.Println("[IdentitySync] Fetching latest qBittorrent version from GitHub...")
-	
+
 	target, err := s.FetchLatestVersion()
 	if err != nil {
 		log.Printf("[IdentitySync] ERROR: Version fetch failed: %v", err)

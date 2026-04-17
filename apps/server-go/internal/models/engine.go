@@ -1,10 +1,10 @@
 package models
 
 import (
+	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
-	"github.com/anacrolix/dht/v2"
 	"golang.org/x/time/rate"
 )
 
@@ -33,7 +33,7 @@ type EngineTorrent interface {
 	InfoHash() metainfo.Hash
 	Files() []EngineFile
 	Metainfo() metainfo.MetaInfo
-	
+
 	// Control Methods
 	AllowDataDownload()
 	DisallowDataDownload()
@@ -43,7 +43,7 @@ type EngineTorrent interface {
 	NumPieces() int
 	CancelPieces(start, end int)
 	SetSequential(bool)
-	
+
 	// Stats
 	Stats() torrent.TorrentStats
 }
@@ -54,7 +54,7 @@ type EngineFile interface {
 	Path() string
 	Length() int64
 	BytesCompleted() int64
-	Priority() int 
+	Priority() int
 	SetPriority(priority int)
 }
 
@@ -209,7 +209,7 @@ func (w *EngineWrapper) AddMagnet(uri string, savePath string) (EngineTorrent, e
 
 func (w *EngineWrapper) AddTorrent(mi *metainfo.MetaInfo, savePath string) (EngineTorrent, error) {
 	spec := torrent.TorrentSpecFromMetaInfo(mi)
-	
+
 	if savePath != "" {
 		spec.Storage = storage.NewFileWithCompletion(savePath, w.PieceCompletion)
 	}

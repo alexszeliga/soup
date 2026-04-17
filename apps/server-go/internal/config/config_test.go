@@ -7,15 +7,15 @@ import (
 
 func TestLoad_Defaults(t *testing.T) {
 	// Clear relevant env vars
-	os.Unsetenv("DEV_API_PORT")
-	os.Unsetenv("SOUP_PORT")
-	os.Unsetenv("TMDB_API_KEY")
-	os.Unsetenv("LOCAL_DOWNLOAD_ROOT")
-	os.Unsetenv("DATA_DIR")
-	os.Unsetenv("DB_PATH")
-	os.Unsetenv("ENGINE_DB_PATH")
-	os.Unsetenv("MEDIA_ROOT")
-	os.Setenv("SOUP_ENV", "/non-existent") // Prevent loading project .env
+	_ = os.Unsetenv("DEV_API_PORT")
+	_ = os.Unsetenv("SOUP_PORT")
+	_ = os.Unsetenv("TMDB_API_KEY")
+	_ = os.Unsetenv("LOCAL_DOWNLOAD_ROOT")
+	_ = os.Unsetenv("DATA_DIR")
+	_ = os.Unsetenv("DB_PATH")
+	_ = os.Unsetenv("ENGINE_DB_PATH")
+	_ = os.Unsetenv("MEDIA_ROOT")
+	_ = os.Setenv("SOUP_ENV", "/non-existent") // Prevent loading project .env
 
 	cfg := Load()
 
