@@ -1,9 +1,9 @@
 package models
 
 import (
-	"testing"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"testing"
 )
 
 // Mock for Stability testing
@@ -37,7 +37,7 @@ func TestIsComplete(t *testing.T) {
 
 func TestTorrentStability(t *testing.T) {
 	mock := &MockEngineTorrent{hash: "0123456789abcdef0123456789abcdef01234567"}
-	
+
 	base := TorrentBaseInfo{
 		Name:             "Persistent Name",
 		AddedOn:          123456789,

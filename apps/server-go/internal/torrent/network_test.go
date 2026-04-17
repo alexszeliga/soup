@@ -13,16 +13,16 @@ type NetworkMockEngine struct {
 	pexEnabled bool
 }
 
-func (m *NetworkMockEngine) SetDht(enabled bool) { m.dhtEnabled = enabled }
-func (m *NetworkMockEngine) SetPex(enabled bool) { m.pexEnabled = enabled }
-func (m *NetworkMockEngine) SetRateLimits(dl, up int64) {}
+func (m *NetworkMockEngine) SetDht(enabled bool)              { m.dhtEnabled = enabled }
+func (m *NetworkMockEngine) SetPex(enabled bool)              { m.pexEnabled = enabled }
+func (m *NetworkMockEngine) SetRateLimits(dl, up int64)       {}
 func (m *NetworkMockEngine) Torrents() []models.EngineTorrent { return nil }
 
 func TestTorrentService_NetworkDefaults(t *testing.T) {
 	repo, _ := repository.NewSqliteRepository(":memory:")
 	defer repo.Close()
 	engine := &NetworkMockEngine{}
-	
+
 	// Initialize service
 	_ = NewTorrentService(engine, repo, nil, "/tmp", false)
 

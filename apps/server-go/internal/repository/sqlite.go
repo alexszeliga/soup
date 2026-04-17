@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 	"path/filepath"
+	"time"
 
 	"github.com/alexszeliga/soup/apps/server-go/internal/models"
 	"github.com/uptrace/bun"
@@ -195,7 +195,6 @@ func (r *bunRepo) Checkpoint(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, "PRAGMA wal_checkpoint(FULL)")
 	return err
 }
-
 
 func (r *bunRepo) GetTorrents(ctx context.Context) ([]TorrentRecord, error) {
 	var records []TorrentRecord

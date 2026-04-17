@@ -86,12 +86,12 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 			// 5. Broadcast to each client (potentially tailored)
 			hub.ForEach(func(c *client) {
 				focus := c.getFocus()
-				
+
 				payload := fiber.Map{
-					"torrents": torrents,
-					"tasks":    tasks,
-					"state":    state,
-					"storage":  cachedStorage,
+					"torrents":  torrents,
+					"tasks":     tasks,
+					"state":     state,
+					"storage":   cachedStorage,
 					"focusHash": focus, // Explicitly tag which torrent these files belong to
 				}
 
@@ -243,8 +243,78 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 		file := files[index]
 		prefs := ts.GetPreferences()
 		fullPath := filepath.Join(prefs.SavePath, file.Path())
-		
+
 		return c.Download(fullPath)
+	})
+
+	app.Get("/api/torrents/:hash/suggest-paths", func(c *fiber.Ctx) error {
+		hash := c.Params("hash")
+		library := c.Query("library")
+		showAll := c.Query("showAll") == "true"
+		if hash == "" || ingest == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing hash or ingest service"})
+		}
+
+		torrents, _ := ts.List(c.Context())
+		var target *models.Torrent
+		for _, t := range torrents {
+			if t.Hash == hash {
+				target = t
+				break
+			}
+		}
+
+		if target == nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Torrent not found"})
+		}
+
+		files, err := ts.GetFiles(hash)
+		if err != nil {
+			// Might be metadata pending
+			return c.Status(fiber.StatusAccepted).JSON([]interface{}{})
+		}
+
+		type suggestionDTO struct {
+			Index         int    `json:"index"`
+			OriginalName  string `json:"originalName"`
+			SourcePath    string `json:"sourcePath"`
+			SuggestedPath string `json:"suggestedPath"`
+		}
+
+		var suggestions []suggestionDTO
+		title := target.Name
+		year := 0
+		if target.MediaMetadata != nil {
+			title = target.MediaMetadata.Title
+			year = target.MediaMetadata.Year
+		}
+
+		for i, f := range files {
+			// Only suggest paths for files > 5MB to avoid samples/nfo noise, UNLESS showAll is true
+			if !showAll && f.Length() < 5*1024*1024 {
+				continue
+			}
+
+			relPath := f.DisplayPath()
+			suggested := ingest.SuggestPath(title, filepath.Base(relPath), year)
+
+			// Prefix with library if provided
+			if library != "" {
+				suggested = filepath.Join(library, suggested)
+			}
+
+			suggestions = append(suggestions, suggestionDTO{
+				Index:         i,
+				OriginalName:  filepath.Base(relPath),
+				SourcePath:    relPath,
+				SuggestedPath: suggested,
+			})
+		}
+
+		if suggestions == nil {
+			return c.JSON([]interface{}{})
+		}
+		return c.JSON(suggestions)
 	})
 
 	app.Post("/api/torrents", func(c *fiber.Ctx) error {
@@ -495,7 +565,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 
 			relPath := f.DisplayPath()
 			suggested := ingest.SuggestPath(title, filepath.Base(relPath), year)
-			
+
 			suggestions = append(suggestions, suggestionDTO{
 				Index:         i,
 				OriginalName:  filepath.Base(relPath),
@@ -544,7 +614,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 		for rel, dest := range body.Mapping {
 			src := ingest.ResolveSourcePath(targetName, rel, "", body.SavePath)
 			log.Printf("[Ingestion] Resolved %s + %s -> %s", body.SavePath, rel, src)
-			
+
 			// Ensure destination includes the selected library
 			absDest := dest
 			if body.Library != "" {
@@ -609,7 +679,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 		}
 
 		var result []entryDTO
-		
+
 		// Add "up" if not at root
 		parent := filepath.Dir(filepath.Clean(path))
 		if parent != path {

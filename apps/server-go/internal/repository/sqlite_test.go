@@ -178,7 +178,7 @@ func TestSqliteRepo_NoiseTokens(t *testing.T) {
 	defer repo.Close()
 
 	ctx := context.Background()
-	
+
 	_ = repo.SaveNoiseToken(ctx, "TOKEN1", 5)
 	_ = repo.SaveNoiseToken(ctx, "TOKEN2", 10)
 

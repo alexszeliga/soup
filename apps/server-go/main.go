@@ -48,7 +48,7 @@ func main() {
 	ctx := context.Background()
 	dhtPref, _ := repo.GetPreference(ctx, "dht")
 	pexPref, _ := repo.GetPreference(ctx, "pex")
-	
+
 	dhtEnabled := dhtPref == "true"
 	pexEnabled := pexPref == "true"
 
@@ -56,8 +56,8 @@ func main() {
 	tCfg := anatorrent.NewDefaultClientConfig()
 	tCfg.NoDHT = !dhtEnabled
 	tCfg.DisablePEX = !pexEnabled
-	tCfg.Seed = true         // Ensure active swarm participation after download completes
-	tCfg.NoUpload = false    // Ensure client can seed
+	tCfg.Seed = true      // Ensure active swarm participation after download completes
+	tCfg.NoUpload = false // Ensure client can seed
 
 	absDataDir, _ := filepath.Abs(cfg.DataDir)
 	tCfg.DataDir = absDataDir
@@ -149,7 +149,7 @@ func main() {
 	// --- Graceful Shutdown ---
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	sig := <-quit
 	log.Printf("Shutting down (received signal: %v)...", sig)
 	// defer blocks will now execute correctly
@@ -157,7 +157,7 @@ func main() {
 
 func runMigration() {
 	cfg := config.Load()
-	
+
 	// Get QB_URL from environment or fallback to common local default
 	defaultQB := os.Getenv("QB_URL")
 	if defaultQB == "" {

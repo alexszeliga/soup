@@ -115,7 +115,7 @@ func (s *IngestionService) ResolveSourcePath(torrentName, relPath, remoteRoot, l
 
 	// 2. Join localRoot (Save Path) with relPath
 	abs := filepath.Join(localRoot, relPath)
-	
+
 	// 3. Strip remoteRoot if it was absolute from the engine
 	if remoteRoot != "" && strings.HasPrefix(abs, remoteRoot) {
 		rel := strings.TrimPrefix(abs, remoteRoot)
@@ -172,7 +172,7 @@ func (s *IngestionService) ClearFinishedTasks() {
 		}
 	}
 	s.Tasks = remaining
-	
+
 	// Clear from persistent storage as well
 	_ = s.repo.DeleteFinishedTasks(context.Background())
 }
@@ -273,10 +273,10 @@ func (s *IngestionService) copyReader(source io.Reader, dest string, completedBy
 				return wErr
 			}
 			*completedBytes += int64(n)
-			
+
 			now := time.Now()
 			duration := now.Sub(*lastUpdate).Seconds()
-			
+
 			if duration >= 0.01 { // High-frequency updates (10ms)
 				newProgress := 0
 				if totalBytes > 0 {
