@@ -2,8 +2,6 @@
 
 Soup is a high-performance BitTorrent dashboard and media manager. It identifies your downloads, enriches them with TMDB metadata, and automates the ingestion process into your media library.
 
-> **Note:** Soup is transitioning to a Go-native engine for superior performance and low-latency updates. The legacy TypeScript/qBittorrent backend remains supported but is no longer the primary focus.
-
 ## Features
 
 - **Native Go Engine:** Standalone BitTorrent client (`anacrolix/torrent`) with no external dependencies required.
@@ -21,35 +19,23 @@ Soup is a high-performance BitTorrent dashboard and media manager. It identifies
 
 ## Deployment (Docker Compose)
 
-The new Go-native engine is the default deployment target.
-
 1. Clone the repository and prepare the environment file:
    ```bash
    cp .env.example .env
    ```
 2. Configure `.env` with your host-specific paths (`MEDIA_ROOT`, `LOCAL_DOWNLOAD_ROOT`) and `TMDB_API_KEY`.
-3. Launch the Go-native stack:
+3. Launch the stack:
    ```bash
    make docker-up-go
    ```
 
 The dashboard will be reachable at `http://<host-ip>:3002`.
 
-### Legacy Deployment
-If you prefer to use qBittorrent as your backend:
-```bash
-make docker-up-legacy
-```
-The legacy dashboard runs on port `3001`.
-
 ## Management & Verification
 
 The Go engine includes built-in tools for maintenance:
 
 ```bash
-# Refresh qBittorrent identity spoofing (Docker required)
-make spoof
-
 # Migrate existing data from Legacy (TS) to Go
 make migrate
 
@@ -84,5 +70,4 @@ soup show <hash>
 The Go engine uses SQLite located at `apps/server-go/.torrent.db`. In Docker, this is mapped to the `./data` volume.
 
 ### Logs
-- **Docker (Go):** `docker logs soup-go`
-- **Docker (Legacy):** `docker logs soup`
+- **Docker:** `docker logs soup-go`
