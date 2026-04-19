@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
-import type { QBServerState } from '@soup/core/QBClient.js';
-import type { DiskStats } from '@soup/core/StorageService.js';
+import type { TorrentWithMetadata } from '../types/api.js';
+import type { QBServerState } from '../types/api.js';
+import type { DiskStats } from '../types/api.js';
 import { useNotification } from '../context/NotificationContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';

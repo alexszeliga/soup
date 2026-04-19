@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import TorrentCard from './TorrentCard';
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import type { TorrentWithMetadata } from '../types/api.js';
 
 describe('TorrentCard', () => {
   const mockTorrent: TorrentWithMetadata = {
@@ -14,12 +14,11 @@ describe('TorrentCard', () => {
     uploadSpeed: 512,
     size: 2147483648, // 2GB
     contentPath: '/downloads/t1',
-    isComplete: false,
-    isActive: true,
-    isSeeding: false,
-    ratio: 1.5,
-    seedingTime: 3600,
-    getMediaInfo: () => ({ title: 'The Great Movie', year: 2024, type: 'movie' }),
+    mediaInfo: {
+      title: 'The Great Movie',
+      year: 2024,
+      type: 'movie'
+    },
     mediaMetadata: {
       id: 'm1',
       title: 'The Great Movie',
@@ -28,7 +27,18 @@ describe('TorrentCard', () => {
       plot: 'A great movie.',
       cast: ['Actor One']
     },
-    isNonMedia: false
+    isNonMedia: false,
+    isSequential: false,
+    isForceStart: false,
+    totalRead: 0,
+    totalWritten: 0,
+    eta: -1,
+    activePeers: 0,
+    totalPeers: 0,
+    availability: 0,
+    addedOn: Date.now() / 1000 - 3600,
+    seedingTime: 0,
+    ratio: 1.5
   };
 
   it('renders the media title', () => {
@@ -46,20 +56,18 @@ describe('TorrentCard', () => {
     expect(screen.getByText(/2 GiB/)).toBeInTheDocument();
     expect(screen.getByText(/Ratio:/i)).toBeInTheDocument();
     expect(screen.getByText(/1.50/)).toBeInTheDocument();
-    expect(screen.getByText(/Seeded:/i)).toBeInTheDocument();
-    expect(screen.getByText(/1h/)).toBeInTheDocument();
+    expect(screen.queryByText(/Seeded:/i)).not.toBeInTheDocument(); // seedingTime is 0
   });
 
   it('renders the raw name if no metadata', () => {
     const noMetaTorrent: TorrentWithMetadata = { 
       ...mockTorrent, 
       mediaMetadata: null,
-      isComplete: false,
-      isActive: true,
-      isSeeding: false,
-      stateName: 'Downloading',
-      getMediaInfo: () => ({ title: 'The.Great.Movie.2024.1080p.WEB-DL', year: null, type: 'movie' }),
-      isNonMedia: false
+      mediaInfo: {
+        title: 'The.Great.Movie.2024.1080p.WEB-DL',
+        year: null,
+        type: 'movie'
+      }
     };
     render(<TorrentCard torrent={noMetaTorrent} onClick={vi.fn()} />);
     expect(screen.getAllByText(/The.Great.Movie.2024.1080p.WEB-DL/i)[0]).toBeInTheDocument();

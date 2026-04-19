@@ -1,4 +1,4 @@
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import type { TorrentWithMetadata } from '../types/api.js';
 
 export type SortOption = 'alphabetical' | 'dateAdded';
 

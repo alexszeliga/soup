@@ -1,15 +1,58 @@
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
-import { 
-  type TorrentWithMetadata, 
-  type MediaMetadata, 
-  type TorrentFile,
-  formatBytes,
-  formatDuration 
-} from '@soup/core';
 
-export { formatBytes, formatDuration };
+export { formatBytes, formatDuration } from './utils/format.js';
+
+export interface TorrentFile {
+  index: number;
+  name: string;
+  size: number;
+  progress: number;
+  priority: number;
+}
+
+export interface TorrentWithMetadata {
+  hash: string;
+  name: string;
+  size: number;
+  progress: number;
+  state: string;
+  stateName: string;
+  downloadSpeed: number;
+  uploadSpeed: number;
+  totalRead: number;
+  totalWritten: number;
+  contentPath: string;
+  addedOn: number;
+  seedingTime: number;
+  ratio: number;
+  eta: number;
+  activePeers: number;
+  totalPeers: number;
+  availability: number;
+  isSequential: boolean;
+  isForceStart: boolean;
+  isNonMedia: boolean;
+  mediaInfo: MediaInfo;
+  mediaMetadata: MediaMetadata | null;
+  files?: TorrentFile[];
+}
+
+export interface MediaInfo {
+  title: string;
+  year: number | null;
+  type: 'movie' | 'tv' | 'unknown';
+}
+
+export interface MediaMetadata {
+  id: string;
+  title: string;
+  year: number;
+  plot: string;
+  cast: string[];
+  posterPath: string;
+}
 
 export interface SuggestionPath {
   index: number;

@@ -1,5 +1,5 @@
 import TorrentCard from './TorrentCard';
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import type { TorrentWithMetadata } from '../types/api.js';
 import { PawPrint } from 'lucide-react';
 
 interface TorrentListProps {

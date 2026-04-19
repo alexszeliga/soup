@@ -1,14 +1,13 @@
 /**
- * Format a byte value into a human-readable string.
- * @param bytes - The number of bytes to format.
- * @param decimals - Number of decimal places to show.
- * @returns Formatted string like "2.5 MB" or "1.2 GB".
+ * Format bytes to human-readable string
+ * @param bytes Number of bytes
+ * @param decimals Number of decimal places (default: 2)
  */
 export function formatBytes(bytes: number, decimals = 2): string {
   if (bytes === 0) return '0 B';
   
   const k = 1024;
-  const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
   
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
@@ -16,18 +15,21 @@ export function formatBytes(bytes: number, decimals = 2): string {
 }
 
 /**
- * Format a duration in seconds into a human-readable string.
- * @param seconds - Duration in seconds.
- * @returns Formatted string like "2h 30m" or "45m".
+ * Format duration in seconds to human-readable string
+ * @param seconds Duration in seconds
+ * @returns Formatted duration string
  */
 export function formatDuration(seconds: number): string {
   if (seconds === 0) return '0s';
   
-  const hours = Math.floor(seconds / 3600);
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
   
-  const parts = [];
+  const parts: string[] = [];
+  
+  if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
   if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);

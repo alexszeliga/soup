@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import IngestTab from './IngestTab';
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import type { TorrentWithMetadata } from '../types/api.js';
 import { NotificationProvider } from '../context/NotificationContext';
 
 // Mock fetch globally

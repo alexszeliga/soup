@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, HardDrive, Zap, ZapOff, Package, Globe } from 'lucide-react';
-import type { QBServerState } from '@soup/core/QBClient.js';
-import type { DiskStats } from '@soup/core/StorageService.js';
+import type { QBServerState } from '../types/api.js';
+import type { DiskStats } from '../types/api.js';
 import { formatBytes } from '../utils/format';
 
 interface GlobalStatsProps {
