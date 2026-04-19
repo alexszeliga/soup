@@ -222,7 +222,7 @@ export class SoupClient {
 }
 
 export function getClient() {
-  const soupUrl = process.env.SOUP_URL || 'http://localhost:8207';
+  const soupUrl = process.env.SOUP_URL || 'http://localhost:3001';
   return new SoupClient(soupUrl);
 }
 
