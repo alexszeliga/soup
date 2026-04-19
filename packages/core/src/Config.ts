@@ -9,29 +9,25 @@ const __dirname = path.dirname(__filename);
 /**
  * Zod schema for Soup application configuration.
  * Defines all environment variables, their types, and default values.
+ * Note: This config is used by the Go backend via environment variables.
+ * The Go config (apps/server-go/internal/config/config.go) is the source of truth.
  */
 const configSchema = z.object({
   // Server Configuration
   PORT: z.coerce.number().default(3001),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   
-  // qBittorrent Configuration
-  QB_URL: z.string().url().default('https://qb.osage.lol/api/v2'),
-  QB_USERNAME: z.string().optional(),
-  QB_PASSWORD: z.string().optional(),
-  
-  // TMDB Configuration
+  // TMDB Configuration (shared with Go backend)
   TMDB_API_KEY: z.string().min(1, "TMDB_API_KEY is required"),
   TMDB_BASE_URL: z.string().url().default('https://api.themoviedb.org/3'),
   TMDB_IMAGE_BASE_URL: z.string().url().default('https://image.tmdb.org/t/p/w500'),
   
-  // Persistence
+  // Persistence (shared with Go backend)
   DB_PATH: z.string().default('./soup.db'),
   
-  // App Logic
+  // App Logic (shared with Go backend)
   SYNC_INTERVAL_MS: z.coerce.number().default(2000),
   MEDIA_ROOT: z.string().default('./media'),
-  QB_DOWNLOAD_ROOT: z.string().default('/downloads'),
   LOCAL_DOWNLOAD_ROOT: z.string().default('./downloads'),
   WEB_DIST_PATH: z.string().default('../web/dist'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('warn'),
@@ -90,7 +86,7 @@ export class ConfigLoader {
    */
   public static getClientConfig(config: Config) {
     return {
-      backend: 'qbittorrent',
+      backend: 'soup-go',
       syncInterval: config.SYNC_INTERVAL_MS,
       tmdbImageBase: config.TMDB_IMAGE_BASE_URL,
       env: config.NODE_ENV,

@@ -1,4 +1,18 @@
-import type { TorrentFile } from './QBClient.js';
+/**
+ * Represents an individual file within a torrent.
+ */
+export interface TorrentFile {
+  /** Filename (including relative path). */
+  name: string;
+  /** File size in bytes. */
+  size: number;
+  /** Download progress (0-1). */
+  progress: number;
+  /** File priority (0: skip, 1: normal, 6: high, 7: maximal). */
+  priority: number;
+  /** Index of the file in the torrent. */
+  index: number;
+}
 
 /**
  * Properties required to instantiate a Torrent object.
