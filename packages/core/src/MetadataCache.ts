@@ -61,18 +61,13 @@ export class MetadataCache {
   public async ensureTables(): Promise<void> {
     await this.withRetry(() => {
       this.db.run(`CREATE TABLE IF NOT EXISTS metadata (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        year INTEGER NOT NULL,
-        plot TEXT NOT NULL,
-        cast TEXT NOT NULL,
-        poster_path TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+        hash TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
       )`);
       this.db.run(`CREATE TABLE IF NOT EXISTS torrents (
         hash TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        metadata_id TEXT REFERENCES metadata(id),
         is_non_media INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL
       )`);
@@ -113,24 +108,38 @@ export class MetadataCache {
   public async getMetadataForTorrent(hash: string): Promise<MediaMetadata | null> {
     const result = await this.db.query.torrents.findFirst({
       where: eq(torrentsSchema.hash, hash),
-      with: {
-        metadata: true,
-      },
     });
 
-    if (!result || !result.metadata || result.isNonMedia) {
+    if (!result || result.isNonMedia) {
       return null;
     }
 
-    const meta = result.metadata;
+    // Retrieve metadata from the metadata table
+    const metadataResult = await this.db.query.metadata.findFirst({
+      where: eq(metadataSchema.hash, hash),
+    });
+
+    if (!metadataResult) {
+      return null;
+    }
+
+    // Parse the JSON data
+    const data = JSON.parse(metadataResult.data) as {
+      id: string;
+      title: string;
+      year: number;
+      plot: string;
+      cast: string[];
+      posterPath: string;
+    };
 
     return new MediaMetadata({
-      id: meta.id,
-      title: meta.title,
-      year: meta.year,
-      plot: meta.plot,
-      cast: JSON.parse(meta.cast),
-      posterPath: meta.posterPath,
+      id: data.id,
+      title: data.title,
+      year: data.year,
+      plot: data.plot,
+      cast: data.cast,
+      posterPath: data.posterPath,
     });
   }
 
@@ -166,13 +175,11 @@ export class MetadataCache {
           hash,
           name,
           isNonMedia,
-          metadataId: isNonMedia ? null : undefined,
           updatedAt: now,
         }).onConflictDoUpdate({
           target: torrentsSchema.hash,
           set: {
             isNonMedia,
-            metadataId: isNonMedia ? null : undefined,
             updatedAt: now,
           }
         }).run();
@@ -183,7 +190,7 @@ export class MetadataCache {
   /**
    * Saves or updates metadata for a torrent in the local cache.
    * 
-   * Performs an upsert on both the metadata and the torrent-to-metadata mapping.
+   * Performs an upsert on both the metadata and the torrent.
    * 
    * @param torrent - The torrent being cached.
    * @param metadata - The metadata to associate with the torrent.
@@ -194,38 +201,43 @@ export class MetadataCache {
 
     await this.withRetry(() => {
       this.db.transaction((tx) => {
-        // 1. Upsert metadata
+        // 1. Upsert metadata (store as JSON in data field)
         tx.insert(metadataSchema).values({
-          id: metadata.id,
-          title: metadata.title,
-          year: metadata.year,
-          plot: metadata.plot,
-          cast: JSON.stringify(metadata.cast),
-          posterPath: metadata.posterPath,
-          createdAt: now,
-        }).onConflictDoUpdate({
-          target: metadataSchema.id,
-          set: {
+          hash: torrent.hash,
+          data: JSON.stringify({
+            id: metadata.id,
             title: metadata.title,
             year: metadata.year,
             plot: metadata.plot,
-            cast: JSON.stringify(metadata.cast),
+            cast: metadata.cast,
             posterPath: metadata.posterPath,
+          }),
+          updatedAt: now,
+        }).onConflictDoUpdate({
+          target: metadataSchema.hash,
+          set: {
+            data: JSON.stringify({
+              id: metadata.id,
+              title: metadata.title,
+              year: metadata.year,
+              plot: metadata.plot,
+              cast: metadata.cast,
+              posterPath: metadata.posterPath,
+            }),
+            updatedAt: now,
           }
         }).run();
 
-        // 2. Upsert torrent record (reset isNonMedia if we are saving metadata)
+        // 2. Upsert torrent record
         tx.insert(torrentsSchema).values({
           hash: torrent.hash,
           name: torrent.name,
-          metadataId: metadata.id,
           isNonMedia: false,
           updatedAt: now,
         }).onConflictDoUpdate({
           target: torrentsSchema.hash,
           set: {
             name: torrent.name,
-            metadataId: metadata.id,
             isNonMedia: false,
             updatedAt: now,
           }
@@ -286,14 +298,24 @@ export class MetadataCache {
   public async getAllUniqueMetadata(): Promise<MediaMetadata[]> {
     const results = await this.db.query.metadata.findMany();
 
-    return results.map((meta) => new MediaMetadata({
-      id: meta.id,
-      title: meta.title,
-      year: meta.year,
-      plot: meta.plot,
-      cast: JSON.parse(meta.cast || '[]'),
-      posterPath: meta.posterPath,
-    }));
+    return results.map((meta) => {
+      const data = JSON.parse(meta.data) as {
+        id: string;
+        title: string;
+        year: number;
+        plot: string;
+        cast: string[];
+        posterPath: string;
+      };
+      return new MediaMetadata({
+        id: data.id,
+        title: data.title,
+        year: data.year,
+        plot: data.plot,
+        cast: data.cast,
+        posterPath: data.posterPath,
+      });
+    });
   }
 
   /**
@@ -304,10 +326,7 @@ export class MetadataCache {
    */
   public async unmatchTorrent(hash: string): Promise<void> {
     await this.withRetry(() => {
-      this.db.update(torrentsSchema)
-        .set({ metadataId: null, updatedAt: Date.now() })
-        .where(eq(torrentsSchema.hash, hash))
-        .run();
+      this.db.delete(metadataSchema).where(eq(metadataSchema.hash, hash)).run();
     });
   }
 }
