@@ -17,18 +17,13 @@ describe('MetadataCache Service', () => {
 
     // Create tables manually for testing if migrations are not used
     db.run(`CREATE TABLE IF NOT EXISTS metadata (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      year INTEGER NOT NULL,
-      plot TEXT NOT NULL,
-      cast TEXT NOT NULL,
-      poster_path TEXT NOT NULL,
-      created_at INTEGER NOT NULL
+      hash TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
     )`);
     db.run(`CREATE TABLE IF NOT EXISTS torrents (
       hash TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      metadata_id TEXT REFERENCES metadata(id),
       is_non_media INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     )`);
@@ -54,6 +49,7 @@ describe('MetadataCache Service', () => {
     expect(() => freshDb.run('SELECT count(*) FROM metadata')).not.toThrow();
     expect(() => freshDb.run('SELECT count(*) FROM torrents')).not.toThrow();
     expect(() => freshDb.run('SELECT count(*) FROM tasks')).not.toThrow();
+    expect(() => freshDb.run('SELECT count(*) FROM noise_tokens')).not.toThrow();
 
     if (fs.existsSync(freshDbPath)) fs.unlinkSync(freshDbPath);
   });
