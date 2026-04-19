@@ -18,7 +18,6 @@
   "license": "MIT",
   "packageManager": "pnpm@10.30.3",
   "dependencies": {
-    "@soup/core": "workspace:*",
     "@soup/database": "workspace:*",
     "chalk": "^5.6.2",
     "commander": "^14.0.3",

@@ -1,5 +1,5 @@
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
-import { Torrent } from '@soup/core/Torrent.js';
+import type { TorrentWithMetadata } from '../types/api.js';
+import { ACTIVE_STATES } from '../types/api.js';
 import { formatDuration, formatBytes } from '../utils/format';
 
 interface TorrentCardProps {
@@ -13,7 +13,7 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
   
-  const isActive = Torrent.ACTIVE_STATES.includes(torrent.state);
+  const isActive = ACTIVE_STATES.includes(torrent.state);
 
   return (
     <div 
@@ -84,11 +84,11 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
               <span>{formatBytes(torrent.size)}</span>
               <span className="opacity-50">|</span>
               <span>Ratio: <span className="font-bold text-zinc-700 dark:text-zinc-300">{torrent.ratio?.toFixed(2) || '0.00'}</span></span>
-              {torrent.seedingTime && torrent.seedingTime > 0 && (
-                <span className="opacity-50">|</span>
-              )}
-              {torrent.seedingTime && torrent.seedingTime > 0 && (
-                <span>Seeded: <span className="font-bold text-zinc-700 dark:text-zinc-300">{formatDuration(torrent.seedingTime)}</span></span>
+              {torrent.seedingTime > 0 && (
+                <>
+                  <span className="opacity-50">|</span>
+                  <span>Seeded: <span className="font-bold text-zinc-700 dark:text-zinc-300">{formatDuration(torrent.seedingTime)}</span></span>
+                </>
               )}
             </div>
           </div>

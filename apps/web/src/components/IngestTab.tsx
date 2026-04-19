@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, CheckCircle2, Circle } from 'lucide-react';
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
+import type { TorrentWithMetadata } from '../types/api.js';
 import { useNotification } from '../context/NotificationContext';
 
 interface IngestTabProps {

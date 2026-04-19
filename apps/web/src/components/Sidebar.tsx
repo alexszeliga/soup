@@ -1,8 +1,8 @@
 import React from 'react';
 import { Plus, Settings, Activity, FileText, PawPrint } from 'lucide-react';
 import GlobalStats from './GlobalStats';
-import type { QBServerState } from '@soup/core/QBClient.js';
-import type { DiskStats } from '@soup/core/StorageService.js';
+import type { QBServerState } from '../types/api.js';
+import type { DiskStats } from '../types/api.js';
 
 interface SidebarProps {
   error: string | null;

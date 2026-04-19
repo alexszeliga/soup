@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, HardDrive } from 'lucide-react';
-import type { QBPreferences, QBServerState } from '@soup/core/QBClient.js';
+import type { QBPreferences, QBServerState } from '../types/api.js';
 import { useNotification } from '../context/NotificationContext';
 import FolderExplorerModal from './FolderExplorerModal';
 

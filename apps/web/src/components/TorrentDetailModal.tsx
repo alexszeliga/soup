@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Search, Trash2, Package, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, ArrowUpCircle, HardDrive } from 'lucide-react';
-import type { TorrentWithMetadata } from '@soup/core/LiveSyncService.js';
-import { Torrent } from '@soup/core/Torrent.js';
-import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
+import { Pause, Play, Search, Trash2, Package, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, HardDrive } from 'lucide-react';
+import type { TorrentWithMetadata } from '../types/api.js';
+import { ACTIVE_STATES } from '../types/api.js';
+import type { MediaMetadata } from '../types/api.js';
 import ConfirmDialog from './ConfirmDialog';
 import IngestTab from './IngestTab';
 import ActionMenu, { type ActionMenuItem } from './ActionMenu';
@@ -187,7 +187,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
 
   const { mediaMetadata, progress, state, downloadSpeed, uploadSpeed, isNonMedia } = torrent;
   const progressPercent = Math.round(progress * 100);
-  const isActive = Torrent.ACTIVE_STATES.includes(state);
+  const isActive = ACTIVE_STATES.includes(state);
   
   // LEAKY STATE SAFEGUARD: Only use focusedFiles if they actually belong to this torrent
   // We check if any file in the list exists, and if so, we assume the backend has synced.
@@ -231,12 +231,13 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       onClick: () => handleAction('toggleSequential'),
       active: torrent.isSequential
     },
-    { 
-      label: 'First/Last Piece Priority', 
-      icon: <ArrowUpCircle size={14} strokeWidth={3} />, 
-      onClick: () => handleAction('toggleFirstLastPrio'),
-      active: torrent.isFirstLastPrio
-    },
+    // First/Last Piece Priority is not supported in the current API
+    // { 
+    //   label: 'First/Last Piece Priority', 
+    //   icon: <ArrowUpCircle size={14} strokeWidth={3} />, 
+    //   onClick: () => handleAction('toggleFirstLastPrio'),
+    //   active: (torrent as any).isFirstLastPrio
+    // },
   ];
 
   return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { MediaMetadata } from '@soup/core/MediaMetadata.js';
+import type { MediaMetadata } from '../../types/api.js';
 
 interface MetadataSearchProps {
   searchQuery: string;
