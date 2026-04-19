@@ -43,26 +43,14 @@ make migrate
 make verify-migration
 ```
 
-## CLI Usage
 
-The Soup CLI is a "thin client" that can manage your Soup instance from any terminal.
-
-```bash
-# Global Installation
-cd apps/cli && pnpm link --global
-
-# Usage
-soup list
-soup show <hash>
-```
 
 ## Architecture
 
 - `apps/server-go`: High-performance Go-native BitTorrent engine and API.
 - `apps/web`: React + Vite frontend using Material 3 and WebSockets.
-- `apps/cli`: Standalone remote terminal interface.
-- `apps/server`: Legacy Fastify backend (TypeScript).
-- `packages/core`: Shared logic and models.
+- `apps/server-go`: High-performance Go-native BitTorrent engine and API.
+- `apps/web`: React + Vite frontend using Material 3 and WebSockets.
 
 ## Maintenance
 
