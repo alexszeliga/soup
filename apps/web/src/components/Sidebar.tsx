@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-      <div className="hidden lg:block p-4 mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
+      <div className="hidden lg:block mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
         <GlobalStats 
           serverState={serverState}
           storageStats={storageStats}

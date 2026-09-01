@@ -9,6 +9,7 @@ interface GlobalStatsProps {
   storageStats: DiskStats[];
   pendingAltSpeedTarget: boolean | null;
   onToggleAltSpeeds: () => void;
+  /** Accepted for call-site compatibility; layout is now the same on all viewports. */
   isMobile?: boolean;
 }
 
@@ -21,32 +22,36 @@ const GlobalStats: React.FC<GlobalStatsProps> = ({
   storageStats,
   pendingAltSpeedTarget, 
   onToggleAltSpeeds,
-  isMobile = false
 }) => {
   return (
-    <div className={`${isMobile ? '' : 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50'} rounded-3xl p-4 space-y-4 shadow-inner`}>
+    <div className="p-4 space-y-4">
       <div className="grid grid-cols-2 gap-2">
-        <div className="flex items-center space-x-2">
-          <ArrowDown size={14} className="text-blue-500" />
-          <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.dl_info_speed) : '0 B'}/s</span>
+        <div className="flex items-center space-x-2 min-w-0">
+          <ArrowDown size={14} className="text-blue-500 shrink-0" />
+          <span className="text-[11px] font-black whitespace-nowrap">{serverState ? formatBytes(serverState.dl_info_speed) : '0 B'}/s</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <ArrowUp size={14} className="text-emerald-500" />
-          <span className="text-[11px] font-black">{serverState ? formatBytes(serverState.up_info_speed) : '0 B'}/s</span>
+        <div className="flex items-center space-x-2 min-w-0">
+          <ArrowUp size={14} className="text-emerald-500 shrink-0" />
+          <span className="text-[11px] font-black whitespace-nowrap">{serverState ? formatBytes(serverState.up_info_speed) : '0 B'}/s</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <Package size={14} className="text-orange-500" />
-          <span className="text-[11px] font-black">{serverState && typeof serverState.ingest_info_speed === 'number' ? formatBytes(serverState.ingest_info_speed) : '0 B'}/s</span>
+        <div className="flex items-center space-x-2 min-w-0">
+          <Package size={14} className="text-orange-500 shrink-0" />
+          <span className="text-[11px] font-black whitespace-nowrap">{serverState && typeof serverState.ingest_info_speed === 'number' ? formatBytes(serverState.ingest_info_speed) : '0 B'}/s</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <Globe size={14} className="text-zinc-400" />
-          <span className="text-[11px] font-black">{(serverState?.dht_nodes as number) ?? 0} nodes</span>
+        <div className="flex items-center space-x-2 min-w-0">
+          <Globe size={14} className="text-zinc-400 shrink-0" />
+          <span className="text-[11px] font-black whitespace-nowrap">{(serverState?.dht_nodes as number) ?? 0} nodes</span>
         </div>
       </div>
 
       <div className="space-y-3">
         {storageStats.length > 0 ? (
-          storageStats.map((disk) => (
+          [...storageStats]
+            .sort((a, b) =>
+              (a.label.toLowerCase() === 'library' ? 0 : 1) -
+              (b.label.toLowerCase() === 'library' ? 0 : 1),
+            )
+            .map((disk) => (
             <div key={disk.path} className="space-y-1">
               <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
                 <div className="flex items-center space-x-1">
@@ -62,7 +67,7 @@ const GlobalStats: React.FC<GlobalStatsProps> = ({
                 />
               </div>
             </div>
-          ))
+            ))
         ) : (
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-400">
