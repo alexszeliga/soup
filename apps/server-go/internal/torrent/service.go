@@ -74,6 +74,10 @@ type TorrentService struct {
 
 	// Preferences
 	prefs Preferences
+
+	// reverified tracks torrents that already had a .part re-verify triggered,
+	// so repeated ReverifyStuckParts calls don't stack re-hashes.
+	reverified sync.Map
 }
 
 func NewTorrentService(engine models.TorrentEngine, repo repository.Repository, tmdb *metadata.TMDBProvider, dataDir string, isDocker bool) *TorrentService {
@@ -327,6 +331,60 @@ func (s *TorrentService) RestoreState(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// ReverifyStuckParts finds torrents the engine reports as 100% complete whose
+// data files nevertheless exist only as fully sized .part files (unpromoted,
+// e.g. after the piece-completion database was lost and rebuilt), and triggers
+// a re-verify so the engine can rename them to their final names. Without
+// this, ingestion can never find the final paths and fails with
+// "Source NOT found".
+//
+// Incomplete torrents are deliberately skipped: the lifecycle recheck already
+// re-verifies those, and stacking another re-hash would be wasted disk I/O
+// and extra tracker chatter.
+func (s *TorrentService) ReverifyStuckParts() {
+	for _, et := range s.engine.Torrents() {
+		if !et.HasInfo() || et.Name() == "" {
+			continue
+		}
+		// Only act on torrents the engine already considers complete.
+		if et.Length() <= 0 || et.BytesCompleted() < et.Length() {
+			continue
+		}
+
+		stuck := false
+		for _, f := range et.Files() {
+			finalPath := f.Path()
+			if _, err := os.Stat(finalPath); err == nil {
+				continue // promoted, nothing to do
+			}
+			partInfo, err := os.Stat(finalPath + ".part")
+			if err != nil {
+				continue // no data on disk at all
+			}
+			if partInfo.Size() == f.Length() {
+				stuck = true
+				break
+			}
+		}
+
+		if stuck {
+			name := et.Name()
+			hash := et.InfoHash().String()
+			if _, loaded := s.reverified.LoadOrStore(hash, true); loaded {
+				continue
+			}
+			log.Printf("[Lifecycle] Complete torrent with unpromoted .part files: %q; re-verifying to promote", name)
+			go func(et models.EngineTorrent, n string) {
+				if err := et.VerifyData(); err != nil {
+					log.Printf("[Lifecycle] Re-verify failed for %q: %v", n, err)
+					return
+				}
+				log.Printf("[Lifecycle] Re-verify finished for %q", n)
+			}(et, name)
+		}
+	}
 }
 
 // AddMagnet adds a new magnet link, ensures it persists, and manages its lifecycle.

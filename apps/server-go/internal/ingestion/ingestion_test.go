@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -238,11 +239,161 @@ func TestResolveSourcePath(t *testing.T) {
 	repo := &MockRepo{}
 	service := NewIngestionService("/media", repo)
 
-	t.Run("Standard folder torrent", func(t *testing.T) {
-		result := service.ResolveSourcePath("The.Office", "S01E01.mkv", "", "/mnt/downloads")
-		expected := "/mnt/downloads/S01E01.mkv"
+	t.Run("Multi-file file directly under content path", func(t *testing.T) {
+		result := service.ResolveSourcePath("The.Office", "S01E01.mkv", "/mnt/downloads/The.Office")
+		expected := "/mnt/downloads/The.Office/S01E01.mkv"
 		if result != expected {
 			t.Errorf("Expected %q, got %q", expected, result)
 		}
 	})
+
+	t.Run("Multi-file with subdirectories", func(t *testing.T) {
+		result := service.ResolveSourcePath("The.Office", "Season 1/S01E01.mkv", "/mnt/downloads/The.Office")
+		expected := "/mnt/downloads/The.Office/Season 1/S01E01.mkv"
+		if result != expected {
+			t.Errorf("Expected %q, got %q", expected, result)
+		}
+	})
+
+	t.Run("Multi-file with internal top folder", func(t *testing.T) {
+		// The bencode file list includes a folder; DisplayPath keeps it, and
+		// the data really lives under contentPath/folder/... so we must NOT
+		// strip it (the old TrimPrefix heuristic got this case wrong).
+		result := service.ResolveSourcePath("The.Office", "The.Office/Season 1/S01E01.mkv", "/mnt/downloads/The.Office")
+		expected := "/mnt/downloads/The.Office/The.Office/Season 1/S01E01.mkv"
+		if result != expected {
+			t.Errorf("Expected %q, got %q", expected, result)
+		}
+	})
+
+	t.Run("Single-file torrent with contentPath", func(t *testing.T) {
+		// For single-file torrents, relPath equals torrentName exactly and the
+		// file lives at localRoot itself.
+		name := "The Curse of Oak Island 2014 S13E22 1080p WEB-DL H264 AC3 SNAKE.mkv"
+		result := service.ResolveSourcePath(name, name, "/downloads/"+name)
+		expected := "/downloads/" + name
+		if result != expected {
+			t.Errorf("Expected %q, got %q", expected, result)
+		}
+	})
+
+	t.Run("Absolute relPath passes through", func(t *testing.T) {
+		result := service.ResolveSourcePath("name", "/abs/path/file.mkv", "/local/root")
+		if result != "/abs/path/file.mkv" {
+			t.Errorf("Expected /abs/path/file.mkv, got %q", result)
+		}
+	})
+}
+
+// waitTask blocks until the task reaches a terminal state.
+func waitTask(t *testing.T, task *models.IngestionTask) {
+	t.Helper()
+	start := time.Now()
+	for {
+		if time.Since(start) > 5*time.Second {
+			t.Fatalf("Timed out waiting for task (status=%s)", task.Status)
+		}
+		if task.Status == models.TaskCompleted || task.Status == models.TaskFailed {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func TestIngestion_PartFileFallback(t *testing.T) {
+	// The engine stores data at <path>.part until every piece of the file is
+	// complete and promoted. Ingestion must find and copy the .part file when
+	// the final name does not exist yet.
+	tmpDir, _ := os.MkdirTemp("", "soup-part-test-*")
+	defer os.RemoveAll(tmpDir)
+
+	downloadDir := filepath.Join(tmpDir, "downloads")
+	mediaRoot := filepath.Join(tmpDir, "media")
+	_ = os.MkdirAll(downloadDir, 0755)
+	_ = os.MkdirAll(mediaRoot, 0755)
+
+	content := []byte("part file data")
+	partFile := filepath.Join(downloadDir, "movie.mkv.part")
+	_ = os.WriteFile(partFile, content, 0644)
+
+	repo := &MockRepo{}
+	service := NewIngestionService(mediaRoot, repo)
+
+	mapping := map[string]string{
+		filepath.Join(downloadDir, "movie.mkv"): "Movies/movie.mkv",
+	}
+	task := service.EnqueueTask("h-part", downloadDir, mapping)
+	waitTask(t, task)
+
+	if task.Status != models.TaskCompleted {
+		t.Fatalf("Expected task completed, got %s (err=%s)", task.Status, task.Error)
+	}
+	dest := filepath.Join(mediaRoot, "Movies/movie.mkv")
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("Expected copied file at %s: %v", dest, err)
+	}
+	if string(got) != string(content) {
+		t.Errorf("Content mismatch")
+	}
+}
+
+func TestIngestion_MissingSource_PartialError(t *testing.T) {
+	// One file exists, one does not: the task should still copy what exists
+	// but surface the skipped file instead of silently producing a partial result.
+	tmpDir, _ := os.MkdirTemp("", "soup-partial-test-*")
+	defer os.RemoveAll(tmpDir)
+
+	downloadDir := filepath.Join(tmpDir, "downloads")
+	mediaRoot := filepath.Join(tmpDir, "media")
+	_ = os.MkdirAll(downloadDir, 0755)
+	_ = os.MkdirAll(mediaRoot, 0755)
+
+	_ = os.WriteFile(filepath.Join(downloadDir, "present.mkv"), []byte("data"), 0644)
+
+	repo := &MockRepo{}
+	service := NewIngestionService(mediaRoot, repo)
+
+	mapping := map[string]string{
+		filepath.Join(downloadDir, "present.mkv"): "present.mkv",
+		filepath.Join(downloadDir, "missing.mkv"): "missing.mkv",
+	}
+	task := service.EnqueueTask("h-partial", downloadDir, mapping)
+	waitTask(t, task)
+
+	if task.Status != models.TaskCompleted {
+		t.Fatalf("Expected task completed, got %s (err=%s)", task.Status, task.Error)
+	}
+	if !strings.Contains(task.Error, "missing.mkv") {
+		t.Errorf("Expected task.Error to mention missing file, got %q", task.Error)
+	}
+	if _, err := os.Stat(filepath.Join(mediaRoot, "present.mkv")); err != nil {
+		t.Errorf("Expected present.mkv to be copied: %v", err)
+	}
+}
+
+func TestIngestion_AllMissing_Fails(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "soup-missing-test-*")
+	defer os.RemoveAll(tmpDir)
+
+	downloadDir := filepath.Join(tmpDir, "downloads")
+	mediaRoot := filepath.Join(tmpDir, "media")
+	_ = os.MkdirAll(downloadDir, 0755)
+	_ = os.MkdirAll(mediaRoot, 0755)
+
+	repo := &MockRepo{}
+	service := NewIngestionService(mediaRoot, repo)
+
+	mapping := map[string]string{
+		filepath.Join(downloadDir, "ghost.mkv"): "ghost.mkv",
+	}
+	task := service.EnqueueTask("h-missing", downloadDir, mapping)
+	waitTask(t, task)
+
+	if task.Status != models.TaskFailed {
+		t.Fatalf("Expected task failed, got %s", task.Status)
+	}
+	if !strings.Contains(task.Error, "ghost.mkv") {
+		t.Errorf("Expected task.Error to list the missing file, got %q", task.Error)
+	}
 }

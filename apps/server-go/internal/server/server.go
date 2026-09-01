@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/alexszeliga/soup/apps/server-go/internal/config"
@@ -612,7 +614,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 		prefs := ts.GetPreferences()
 		absMapping := make(map[string]string)
 		for rel, dest := range body.Mapping {
-			src := ingest.ResolveSourcePath(targetName, rel, "", body.SavePath)
+			src := ingest.ResolveSourcePath(targetName, rel, body.SavePath)
 			log.Printf("[Ingestion] Resolved %s + %s -> %s", body.SavePath, rel, src)
 
 			// Ensure destination includes the selected library
@@ -620,10 +622,29 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 			if body.Library != "" {
 				absDest = filepath.Join(prefs.MediaRoot, body.Library, dest)
 			}
-			absMapping[src] = absDest
+				absMapping[src] = absDest
 		}
 
 		task := ingest.EnqueueTask(body.Hash, body.SavePath, absMapping)
+
+		// Warn (not block) when the user queues ingestion on files the engine
+		// still reports as incomplete, so a half-downloaded torrent doesn't
+		// silently end up in the media library.
+		if files, err := ts.GetFiles(body.Hash); err == nil {
+			var incomplete []string
+			for _, f := range files {
+				if f.Length() > 0 && f.BytesCompleted() < f.Length() {
+					if _, mapped := body.Mapping[f.DisplayPath()]; mapped {
+						incomplete = append(incomplete, filepath.Base(f.DisplayPath())+" is still downloading")
+					}
+				}
+			}
+			if len(incomplete) > 0 {
+				sort.Strings(incomplete)
+				ingest.Annotate(task, strings.Join(incomplete, "; "))
+			}
+		}
+
 		return c.Status(fiber.StatusAccepted).JSON(task)
 	})
 
