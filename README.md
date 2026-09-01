@@ -6,7 +6,6 @@ Soup is a high-performance BitTorrent dashboard and media manager. It identifies
 
 - **Native Go Engine:** Standalone BitTorrent client (`anacrolix/torrent`) with no external dependencies required.
 - **Ultra-Low Latency:** Real-time WebSocket telemetry pushes updates every 500ms.
-- **Stealth Mode:** Automated identity spoofing to perfectly impersonate the latest qBittorrent version for private tracker compatibility.
 - **Media Matching:** Automated identification of movies and TV shows via TMDB with local persistence.
 - **Sequential Downloading:** Prioritizes piece downloading for immediate file previewing.
 - **Web-Based Explorer:** Browse and select server-side storage paths directly from your browser.
@@ -47,8 +46,6 @@ make verify-migration
 
 ## Architecture
 
-- `apps/server-go`: High-performance Go-native BitTorrent engine and API.
-- `apps/web`: React + Vite frontend using Material 3 and WebSockets.
 - `apps/server-go`: High-performance Go-native BitTorrent engine and API.
 - `apps/web`: React + Vite frontend using Material 3 and WebSockets.
 
