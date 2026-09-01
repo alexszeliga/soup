@@ -107,22 +107,39 @@ func (s *IngestionService) MapRemoteToLocalPath(remotePath, remoteRoot, localRoo
 }
 
 // ResolveSourcePath resolves the absolute source path for a file in a torrent.
-func (s *IngestionService) ResolveSourcePath(torrentName, relPath, remoteRoot, localRoot string) string {
+// localRoot is the torrent's content path: the file itself for single-file
+// torrents, the top-level folder for multi-file ones. relPath is the file's
+// path relative to that content path (the torrent name for single-file).
+func (s *IngestionService) ResolveSourcePath(torrentName, relPath, localRoot string) string {
 	// 1. If relPath is already absolute, use it
 	if filepath.IsAbs(relPath) {
 		return filepath.Clean(relPath)
 	}
 
-	// 2. Join localRoot (Save Path) with relPath
-	abs := filepath.Join(localRoot, relPath)
-
-	// 3. Strip remoteRoot if it was absolute from the engine
-	if remoteRoot != "" && strings.HasPrefix(abs, remoteRoot) {
-		rel := strings.TrimPrefix(abs, remoteRoot)
-		abs = filepath.Join(localRoot, rel)
+	// 2. Single-file torrent: the engine reports the file's DisplayPath as the
+	// torrent name, and the file lives at localRoot itself.
+	if torrentName != "" && relPath == torrentName {
+		return filepath.Clean(localRoot)
 	}
 
-	return filepath.Clean(abs)
+	// 3. Multi-file torrent: relPath is relative to the content path.
+	return filepath.Clean(filepath.Join(localRoot, relPath))
+}
+
+// Annotate attaches a warning to a task (and persists it) so partial or risky
+// copies are visible in the UI instead of being silently dropped.
+func (s *IngestionService) Annotate(task *models.IngestionTask, note string) {
+	if task == nil || note == "" {
+		return
+	}
+	s.mu.Lock()
+	if task.Error != "" {
+		task.Error += "; " + note
+	} else {
+		task.Error = note
+	}
+	s.mu.Unlock()
+	_ = s.repo.SaveTask(context.Background(), task)
 }
 
 // EnqueueTask adds a new copy task to the service.
@@ -183,6 +200,7 @@ func (s *IngestionService) processTask(task *models.IngestionTask) {
 	// Calculate total bytes
 	var totalBytes int64
 	resolvedMap := make(map[string]string)
+	var missing []string
 
 	for absSrc, relDest := range task.FileMap {
 		absDest := relDest
@@ -192,21 +210,38 @@ func (s *IngestionService) processTask(task *models.IngestionTask) {
 
 		log.Printf("[Ingestion] Checking source: %s", absSrc)
 		info, err := os.Stat(absSrc)
+		if err != nil {
+			// The engine stores file data at <path>.part until every piece of
+			// the file is complete and promoted to its final name. Fall back to
+			// the .part file when the final name does not exist yet.
+			if partInfo, pErr := os.Stat(absSrc + ".part"); pErr == nil {
+				log.Printf("[Ingestion] Final name absent, using .part source: %s.part", absSrc)
+				absSrc += ".part"
+				info, err = partInfo, nil
+			}
+		}
 		if err == nil {
 			log.Printf("[Ingestion] Source found! Size: %d", info.Size())
 			totalBytes += info.Size()
 			resolvedMap[absSrc] = absDest
 		} else {
-			log.Printf("[Ingestion] Source NOT found at %s: %v", absSrc, err)
+			missing = append(missing, filepath.Base(absSrc))
+			log.Printf("[Ingestion] Source NOT found at %s (or %s.part): %v", absSrc, absSrc, err)
 		}
 	}
 
 	if len(resolvedMap) == 0 {
 		s.mu.Lock()
-		task.Error = "No valid source files found"
+		task.Error = "No valid source files found: " + strings.Join(missing, ", ")
 		s.mu.Unlock()
 		s.updateStatus(task, models.TaskFailed)
 		return
+	}
+
+	if len(missing) > 0 {
+		// Partial task: copy what exists, but keep the skipped files visible in
+		// the UI instead of silently producing an incomplete result.
+		s.Annotate(task, "Skipped missing source files: "+strings.Join(missing, ", "))
 	}
 
 	s.mu.Lock()

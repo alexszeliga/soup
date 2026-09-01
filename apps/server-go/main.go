@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/alexszeliga/soup/apps/server-go/internal/config"
 	"github.com/alexszeliga/soup/apps/server-go/internal/ingestion"
@@ -109,6 +110,16 @@ func main() {
 	if err := ts.RestoreState(context.Background()); err != nil {
 		log.Printf("Failed to restore state: %v", err)
 	}
+
+	// Repair .part files that were never promoted after a piece-completion DB
+	// loss. Runs in the background; retries a few times so magnet torrents
+	// that still need to fetch their metainfo are covered.
+	go func() {
+		for attempt := 0; attempt < 3; attempt++ {
+			time.Sleep(30 * time.Second)
+			ts.ReverifyStuckParts()
+		}
+	}()
 
 	// 6. Initialize Ingestion Service
 	ingest := ingestion.NewIngestionService(cfg.MediaRoot, repo)
