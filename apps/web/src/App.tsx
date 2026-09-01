@@ -116,7 +116,6 @@ function App() {
         storageStats={storageStats}
         pendingAltSpeedTarget={pendingAltSpeedTarget}
         onToggleAltSpeeds={handleToggleAltSpeeds}
-        config={config}
       />
 
       {/* Main Content */}

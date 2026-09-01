@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Settings, Activity, FileText, PawPrint } from 'lucide-react';
+import { Plus, Settings, Activity, PawPrint } from 'lucide-react';
 import GlobalStats from './GlobalStats';
 import type { QBServerState } from '../types/api.js';
 import type { DiskStats } from '../types/api.js';
@@ -15,7 +15,6 @@ interface SidebarProps {
   storageStats: DiskStats[];
   pendingAltSpeedTarget: boolean | null;
   onToggleAltSpeeds: () => void;
-  config: { env: string } | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -28,8 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   serverState,
   storageStats,
   pendingAltSpeedTarget,
-  onToggleAltSpeeds,
-  config
+  onToggleAltSpeeds
 }) => {
   return (
     <aside className="w-20 lg:w-64 flex-shrink-0 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col sticky top-0 h-screen overflow-hidden">
@@ -74,18 +72,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Activity size={24} className="flex-shrink-0" />
           <span className="hidden lg:block font-bold text-sm">Server Data</span>
         </button>
-
-        {config?.env === 'development' && (
-          <a 
-            href="/coverage/index.html" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-center lg:justify-start lg:space-x-3 px-2 lg:px-4 py-3 rounded-2xl transition-all text-zinc-500 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
-          >
-            <FileText size={24} className="flex-shrink-0" />
-            <span className="hidden lg:block font-bold text-sm">Coverage Report</span>
-          </a>
-        )}
       </nav>
 
       <div className="hidden lg:block mt-auto border-t border-zinc-200/50 dark:border-zinc-800/50">
