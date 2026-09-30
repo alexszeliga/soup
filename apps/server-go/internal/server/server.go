@@ -745,6 +745,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 			"up_info_speed":        totalUp,
 			"dht_nodes":            ts.GetEngine().DhtNodes(),
 			"use_alt_speed_limits": prefs.UseAltSpeedLimits,
+			"peer_id":              ts.GetEngine().PeerID(),
 			"connection_status":    "connected",
 		})
 	})
