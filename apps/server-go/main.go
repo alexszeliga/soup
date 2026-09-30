@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -59,6 +61,15 @@ func main() {
 	tCfg.DisablePEX = !pexEnabled
 	tCfg.Seed = true      // Ensure active swarm participation after download completes
 	tCfg.NoUpload = false // Ensure client can seed
+
+	// Stable peer identity: generate once and persist, so trackers see the
+	// same peer across restarts.
+	peerID, err := loadOrCreatePeerID(ctx, repo, tCfg.Bep20)
+	if err != nil {
+		log.Fatalf("failed to load or create peer ID: %s", err)
+	}
+	tCfg.PeerID = peerID
+	log.Printf("Using stable peer ID: %s", peerID)
 
 	absDataDir, _ := filepath.Abs(cfg.DataDir)
 	tCfg.DataDir = absDataDir
@@ -130,8 +141,6 @@ func main() {
 
 	// 7. Initialize System Services
 	ss := system.NewStorageService()
-	ids := system.NewIdentityService("spoof.json")
-	ids.StartAutoSync(context.Background())
 
 	// Auto-add any .torrent files found in DATA_DIR (useful for discovery/spoofing)
 	tFiles, _ := filepath.Glob(filepath.Join(absDataDir, "*.torrent"))
@@ -164,6 +173,29 @@ func main() {
 	sig := <-quit
 	log.Printf("Shutting down (received signal: %v)...", sig)
 	// defer blocks will now execute correctly
+}
+
+// loadOrCreatePeerID returns a stable 20-byte peer ID. On first run it
+// generates one from the client Bep20 prefix plus random bytes and persists
+// it, so the tracker identity survives restarts.
+func loadOrCreatePeerID(ctx context.Context, repo repository.Repository, bep20 string) (string, error) {
+	if raw, err := repo.GetPreference(ctx, "peer_id"); err == nil && raw != "" {
+		if b, err := hex.DecodeString(raw); err == nil && len(b) == 20 {
+			return string(b), nil
+		}
+	}
+	pid := make([]byte, 20)
+	n := copy(pid, bep20)
+	if n >= len(pid) {
+		n = len(pid) - 1
+	}
+	if _, err := rand.Read(pid[n:]); err != nil {
+		return "", err
+	}
+	if err := repo.SavePreference(ctx, "peer_id", hex.EncodeToString(pid)); err != nil {
+		return "", err
+	}
+	return string(pid), nil
 }
 
 func runMigration() {

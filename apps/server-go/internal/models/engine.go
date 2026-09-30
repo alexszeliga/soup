@@ -14,6 +14,7 @@ type TorrentEngine interface {
 	AddTorrent(mi *metainfo.MetaInfo, savePath string) (EngineTorrent, error)
 	Torrents() []EngineTorrent
 	DhtNodes() int
+	PeerID() string
 	SetRateLimits(dl, up int64)
 	SetDht(enabled bool)
 	SetPex(enabled bool)
@@ -219,6 +220,11 @@ func (w *EngineWrapper) AddTorrent(mi *metainfo.MetaInfo, savePath string) (Engi
 		return nil, err
 	}
 	return TorrentWrapper{t}, nil
+}
+
+func (w *EngineWrapper) PeerID() string {
+	pid := w.Client.PeerID()
+	return string(pid[:])
 }
 
 func (w *EngineWrapper) Torrents() []EngineTorrent {
