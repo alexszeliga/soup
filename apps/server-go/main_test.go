@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/anacrolix/torrent"
 	"github.com/alexszeliga/soup/apps/server-go/internal/repository"
+	"github.com/anacrolix/torrent"
 )
 
 func TestLoadOrCreatePeerID_StableAcrossRestarts(t *testing.T) {

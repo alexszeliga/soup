@@ -15,6 +15,7 @@ type Repository interface {
 	Checkpoint(ctx context.Context) error
 
 	GetTorrents(ctx context.Context) ([]TorrentRecord, error)
+	GetTorrent(ctx context.Context, hash string) (*TorrentRecord, error)
 	DeleteTorrent(ctx context.Context, hash string) error
 	UpdateTorrentStats(ctx context.Context, hash string, totalRead, totalWritten, seedingTime int64) error
 

@@ -103,6 +103,11 @@ type MockEngine struct {
 	ReturnTor      *MockTorrent
 	ExtraTor       *MockTorrent
 	StatusCallback func(atorrent.StatusUpdatedEvent)
+
+	// RefreshTorrent recording
+	RefreshCalls  int
+	LastRefreshMI *metainfo.MetaInfo
+	RefreshErr    error
 }
 
 func (m *MockEngine) AddMagnet(uri string, savePath string) (models.EngineTorrent, error) {
@@ -135,6 +140,12 @@ func (m *MockEngine) DhtNodes() int { return 0 }
 func (m *MockEngine) SetRateLimits(dl, up int64) {}
 func (m *MockEngine) SetDht(enabled bool)        {}
 func (m *MockEngine) SetPex(enabled bool)        {}
+
+func (m *MockEngine) RefreshTorrent(mi *metainfo.MetaInfo) error {
+	m.RefreshCalls++
+	m.LastRefreshMI = mi
+	return m.RefreshErr
+}
 
 // --- Tests ---
 

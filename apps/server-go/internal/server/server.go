@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -389,6 +389,22 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 		return c.SendStatus(fiber.StatusOK)
 	})
 
+	// Manually set/replace a torrent's announce tracker (e.g. fix a dead one from
+	// the UI). Body: {"url": "http://host/announce"}. Updates the engine,
+	// saved .torrent, and DB magnet, and clears tracker-error state.
+	app.Post("/api/torrents/:hash/tracker", func(c *fiber.Ctx) error {
+		var body struct {
+			URL string `json:"url"`
+		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid body"})
+		}
+		if err := ts.SetTracker(c.Context(), c.Params("hash"), body.URL); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.SendStatus(fiber.StatusOK)
+	})
+
 	app.Post("/api/torrents/:hash/sequential", func(c *fiber.Ctx) error {
 		var body struct {
 			Sequential bool `json:"sequential"`
@@ -622,7 +638,7 @@ func Start(port string, ts *torrent.TorrentService, tmdb *metadata.TMDBProvider,
 			if body.Library != "" {
 				absDest = filepath.Join(prefs.MediaRoot, body.Library, dest)
 			}
-				absMapping[src] = absDest
+			absMapping[src] = absDest
 		}
 
 		task := ingest.EnqueueTask(body.Hash, body.SavePath, absMapping)

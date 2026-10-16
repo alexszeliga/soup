@@ -30,6 +30,11 @@ func NewSqliteRepository(dbPath string) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
 	}
+	// In-memory databases are per-connection; pin to a single connection so the
+	// whole pool (and any concurrent query goroutine) sees the same DB. For a
+	// file-backed DB a single conn is also fine at this app's write volume and
+	// avoids SQLITE_BUSY.
+	sqldb.SetMaxOpenConns(1)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
@@ -205,6 +210,18 @@ func (r *bunRepo) GetTorrents(ctx context.Context) ([]TorrentRecord, error) {
 		return nil, err
 	}
 	return records, nil
+}
+
+func (r *bunRepo) GetTorrent(ctx context.Context, hash string) (*TorrentRecord, error) {
+	var rec TorrentRecord
+	err := r.db.NewSelect().
+		Model(&rec).
+		Where("hash = ?", hash).
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 func (r *bunRepo) UpdateTorrentStats(ctx context.Context, hash string, totalRead, totalWritten, seedingTime int64) error {

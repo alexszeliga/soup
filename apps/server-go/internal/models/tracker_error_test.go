@@ -8,8 +8,8 @@ import (
 
 func TestTorrent_TrackerErrorOmittedWhenHealthy(t *testing.T) {
 	d := Torrent{
-		Hash:       "aabbcc",
-		Name:     "Healthy",
+		Hash: "aabbcc",
+		Name: "Healthy",
 	}
 	b, err := json.Marshal(d)
 	if err != nil {
