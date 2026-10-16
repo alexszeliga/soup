@@ -13,6 +13,7 @@ import (
 	"github.com/alexszeliga/soup/apps/server-go/internal/models"
 	"github.com/alexszeliga/soup/apps/server-go/internal/repository"
 	"github.com/anacrolix/torrent"
+	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
@@ -97,9 +98,11 @@ func (m *MockTorrent) SetSequential(b bool)  {}
 
 type MockEngine struct {
 	models.TorrentEngine
-	AddedMagnet   string
-	AddedSavePath string
-	ReturnTor     *MockTorrent
+	AddedMagnet    string
+	AddedSavePath  string
+	ReturnTor      *MockTorrent
+	ExtraTor       *MockTorrent
+	StatusCallback func(atorrent.StatusUpdatedEvent)
 }
 
 func (m *MockEngine) AddMagnet(uri string, savePath string) (models.EngineTorrent, error) {
@@ -114,10 +117,17 @@ func (m *MockEngine) AddTorrent(mi *metainfo.MetaInfo, savePath string) (models.
 }
 
 func (m *MockEngine) Torrents() []models.EngineTorrent {
-	if m.ReturnTor == nil {
+	if m.ReturnTor == nil && m.ExtraTor == nil {
 		return nil
 	}
-	return []models.EngineTorrent{m.ReturnTor}
+	out := make([]models.EngineTorrent, 0, 2)
+	if m.ReturnTor != nil {
+		out = append(out, m.ReturnTor)
+	}
+	if m.ExtraTor != nil {
+		out = append(out, m.ExtraTor)
+	}
+	return out
 }
 
 func (m *MockEngine) DhtNodes() int { return 0 }

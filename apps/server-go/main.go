@@ -108,14 +108,21 @@ func main() {
 	}
 
 	// 5. Initialize Torrent Service
-	ts := torrent.NewTorrentService(&models.EngineWrapper{
+	engineWrapper := &models.EngineWrapper{
 		Client:          engine,
 		PieceCompletion: pc,
 		DlLimit:         dlLimit,
 		UpLimit:         upLimit,
 		DhtEnabled:      dhtEnabled,
 		PexEnabled:      pexEnabled,
-	}, repo, tmdb, absDataDir, cfg.IsDocker)
+	}
+	ts := torrent.NewTorrentService(engineWrapper, repo, tmdb, absDataDir, cfg.IsDocker)
+
+	// Route tracker announce failures to the service so they surface in the UI
+	// instead of silently stalling seeders (delinquent-peer prevention).
+	// tCfg is the same *ClientConfig the client holds, so appending here is seen
+	// by every peer connection (they dereference &cl.config.Callbacks).
+	tCfg.Callbacks.StatusUpdated = append(tCfg.Callbacks.StatusUpdated, ts.OnStatusUpdated)
 
 	// Restore persisted torrents
 	if err := ts.RestoreState(context.Background()); err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/alexszeliga/soup/apps/server-go/internal/metadata"
 	"github.com/alexszeliga/soup/apps/server-go/internal/models"
 	"github.com/alexszeliga/soup/apps/server-go/internal/repository"
+	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
@@ -35,6 +36,12 @@ type torrentSample struct {
 	isNonMedia       bool
 	savePath         string
 	metadata         *models.MediaMetadata
+
+	// Tracker health (populated from engine StatusUpdated callback)
+	trackerError    string
+	trackerErrorAt  time.Time
+	trackerDeadStreak int    // consecutive all-tiers-dead watchdog probes
+	needsRecovery   bool    // watchdog flagged: re-announce nudge pending
 }
 
 // Configuration Constants
@@ -707,6 +714,12 @@ func (s *TorrentService) List(ctx context.Context) ([]*models.Torrent, error) {
 		// 4. Map to DTO
 		t := models.NewFromEngineInterface(et, baseInfo)
 
+		// 4b. Apply tracker health (populated by OnStatusUpdated / watchdog)
+		if sample.trackerError != "" {
+			t.TrackerError = sample.trackerError
+			t.TrackerErrorAt = sample.trackerErrorAt
+		}
+
 		// 5. Apply calculated EMA speeds to DTO
 		t.DownloadSpeed = int64(sample.emaDl)
 		t.UploadSpeed = int64(sample.emaUp)
@@ -899,6 +912,50 @@ func (s *TorrentService) Engine() models.EngineTorrent {
 // New Engine() method to expose the underlying engine for DhtNodes()
 func (s *TorrentService) GetEngine() models.TorrentEngine {
 	return s.engine
+}
+
+// OnStatusUpdated is the engine's StatusUpdated callback handler (wired by
+// main.go to client.Callbacks.StatusUpdated). It records per-torrent tracker
+// announce failures so they surface in List() and stop the torrent from being
+// silently marked delinquent. A successful announce clears the error.
+func (s *TorrentService) OnStatusUpdated(ev atorrent.StatusUpdatedEvent) {
+	switch ev.Event {
+	case atorrent.TrackerAnnounceError:
+		if ev.Error == nil {
+			return
+		}
+		hash := ev.InfoHash
+		if hash == "" {
+			return
+		}
+		s.mu.Lock()
+		sample, ok := s.lastSamples[hash]
+		if !ok {
+			// Sample not yet created (e.g. error fired before the first
+			// telemetry tick). Create a minimal one so the error is not lost.
+			sample = &torrentSample{timestamp: time.Now()}
+			s.lastSamples[hash] = sample
+		}
+		msg := ev.Error.Error()
+		if ev.Url != "" {
+			msg = fmt.Sprintf("%s (tracker: %s)", msg, ev.Url)
+		}
+		sample.trackerError = msg
+		sample.trackerErrorAt = time.Now()
+		s.mu.Unlock()
+
+	case atorrent.TrackerAnnounceSuccessful:
+		hash := ev.InfoHash
+		if hash == "" {
+			return
+		}
+		s.mu.Lock()
+		if sample, ok := s.lastSamples[hash]; ok {
+			sample.trackerError = ""
+			sample.trackerErrorAt = time.Time{}
+		}
+		s.mu.Unlock()
+	}
 }
 
 func (s *TorrentService) LinkMetadata(ctx context.Context, hash string, metadataId string) error {
