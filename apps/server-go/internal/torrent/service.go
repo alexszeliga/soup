@@ -428,8 +428,15 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 
 	hash := t.InfoHash().HexString()
 
-	// 1. Persist with TRACKERS included (CRITICAL for private trackers)
-	// We build a rich magnet from the metainfo to ensure recovery on restart.
+	// 1. Persist the canonical .torrent file. This is the source of truth for the
+	//    announce list; it is always (re)written so a corrected re-upload from the
+	//    tracker overwrites the stale one. We persist the metainfo we were given (which
+	//    carries the tracker's announce list), not the engine's live Metainfo() which
+	//    may be empty on a fresh add.
+	s.saveCanonicalTorrentFile(hash, mi)
+
+	// 2. Persist the magnet (with trackers) for recovery on restart. Rebuilt on every
+	//    call so the DB always agrees with the canonical file.
 	magnet := mi.Magnet(nil, nil).String()
 	if len(mi.AnnounceList) > 0 {
 		for _, tier := range mi.AnnounceList {
@@ -440,7 +447,6 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 	} else if mi.Announce != "" {
 		magnet += "&tr=" + url.QueryEscape(mi.Announce)
 	}
-
 	if err := s.repo.SaveTorrent(ctx, hash, t.Name(), savePath, magnet); err != nil {
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
@@ -458,6 +464,41 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 	go s.manageLifecycle(t)
 
 	return t, nil
+}
+
+// saveCanonicalTorrentFile atomically writes the canonical .torrent file for a
+// torrent. It always overwrites any existing file so a corrected re-upload from
+// the tracker becomes the new source of truth. The temp+rename avoids a
+// half-written file being read by RestoreState on a concurrent restart.
+func (s *TorrentService) saveCanonicalTorrentFile(hash string, mi *metainfo.MetaInfo) {
+	torrentDir := filepath.Join(s.dataDir, ".torrents")
+	if err := os.MkdirAll(torrentDir, 0o755); err != nil {
+		log.Printf("Failed to create .torrents dir: %v", err)
+		return
+	}
+	finalPath := filepath.Join(torrentDir, hash+".torrent")
+	tmpPath := finalPath + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		log.Printf("Failed to create torrent file %s: %v", finalPath, err)
+		return
+	}
+	if err := mi.Write(f); err != nil {
+		f.Close()
+		_ = os.Remove(tmpPath)
+		log.Printf("Failed to write torrent file %s: %v", finalPath, err)
+		return
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		log.Printf("Failed to close torrent file %s: %v", finalPath, err)
+		return
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		log.Printf("Failed to rename torrent file %s: %v", finalPath, err)
+		return
+	}
+	log.Printf("Saved canonical .torrent file for %s", hash)
 }
 
 func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
@@ -496,21 +537,7 @@ func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {
 	go func() {
 		<-t.GotInfo()
 
-		// 0. Save .torrent file for fast restarts
 		torrentHash := t.InfoHash().HexString()
-		torrentDir := filepath.Join(s.dataDir, ".torrents")
-		_ = os.MkdirAll(torrentDir, 0755)
-		torrentFilePath := filepath.Join(torrentDir, torrentHash+".torrent")
-		if _, err := os.Stat(torrentFilePath); os.IsNotExist(err) {
-			mi := t.Metainfo()
-			f, err := os.Create(torrentFilePath)
-			if err == nil {
-				_ = mi.Write(f)
-				f.Close()
-				log.Printf("Saved .torrent file for %s", torrentHash)
-			}
-		}
-
 		// 1. Update in-memory name and persist to DB
 		s.mu.Lock()
 		sample, hasSample := s.lastSamples[torrentHash]
