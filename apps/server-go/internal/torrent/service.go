@@ -38,10 +38,10 @@ type torrentSample struct {
 	metadata         *models.MediaMetadata
 
 	// Tracker health (populated from engine StatusUpdated callback)
-	trackerError    string
-	trackerErrorAt  time.Time
-	trackerDeadStreak int    // consecutive all-tiers-dead watchdog probes
-	needsRecovery   bool    // watchdog flagged: re-announce nudge pending
+	trackerError      string
+	trackerErrorAt    time.Time
+	trackerDeadStreak int  // consecutive all-tiers-dead watchdog probes
+	needsRecovery     bool // watchdog flagged: re-announce nudge pending
 }
 
 // Configuration Constants
@@ -85,16 +85,22 @@ type TorrentService struct {
 	// reverified tracks torrents that already had a .part re-verify triggered,
 	// so repeated ReverifyStuckParts calls don't stack re-hashes.
 	reverified sync.Map
+
+	// Tracker health watchdog state.
+	trackerHealth map[string]*trackerHealthState
+	watchdogCfg   watchdogConfig
 }
 
 func NewTorrentService(engine models.TorrentEngine, repo repository.Repository, tmdb *metadata.TMDBProvider, dataDir string, isDocker bool) *TorrentService {
 	s := &TorrentService{
-		engine:      engine,
-		repo:        repo,
-		tmdb:        tmdb,
-		dataDir:     dataDir,
-		isDocker:    isDocker,
-		lastSamples: make(map[string]*torrentSample),
+		engine:        engine,
+		repo:          repo,
+		tmdb:          tmdb,
+		dataDir:       dataDir,
+		isDocker:      isDocker,
+		lastSamples:   make(map[string]*torrentSample),
+		trackerHealth: make(map[string]*trackerHealthState),
+		watchdogCfg:   defaultWatchdogCfg,
 		prefs: Preferences{
 			AltDlLimit:    1024 * 1024, // 1MB default
 			AltUpLimit:    1024 * 1024,
@@ -115,6 +121,10 @@ func NewTorrentService(engine models.TorrentEngine, repo repository.Repository, 
 
 	// Start background telemetry syncer
 	go s.telemetryLoop()
+
+	// Start the tracker-health watchdog (detects dead announce URLs so seeders
+	// are never silently marked delinquent).
+	s.startWatchdog()
 
 	return s
 }
@@ -458,13 +468,24 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 		log.Printf("Failed to persist torrent %s: %v", hash, err)
 	}
 
-	// 2. Initialize telemetry sample
+	// 2. (Re)initialize telemetry sample. A re-upload for an existing hash
+	//    is a corrected .torrent from the tracker, so clear any accumulated
+	//    tracker-unreachable state: the announce list is now canonical and the
+	//    watchdog should re-evaluate from a clean slate.
 	s.mu.Lock()
-	s.lastSamples[hash] = &torrentSample{
-		timestamp: time.Now(),
-		addedOn:   time.Now().Unix(),
-		savePath:  savePath,
+	if st, ok := s.trackerHealth[hash]; ok {
+		st.deadStreak = 0
+		st.unreachable = false
+		st.recoveryNudged = false
 	}
+	sample, exists := s.lastSamples[hash]
+	if exists {
+		sample.trackerError = ""
+		sample.trackerErrorAt = time.Time{}
+	} else {
+		sample = &torrentSample{timestamp: time.Now(), addedOn: time.Now().Unix(), savePath: savePath}
+	}
+	s.lastSamples[hash] = sample
 	s.mu.Unlock()
 
 	// 3. Manage Lifecycle (Async)
@@ -478,12 +499,11 @@ func (s *TorrentService) AddTorrent(ctx context.Context, mi *metainfo.MetaInfo) 
 // the tracker becomes the new source of truth. The temp+rename avoids a
 // half-written file being read by RestoreState on a concurrent restart.
 func (s *TorrentService) saveCanonicalTorrentFile(hash string, mi *metainfo.MetaInfo) {
-	torrentDir := filepath.Join(s.dataDir, ".torrents")
-	if err := os.MkdirAll(torrentDir, 0o755); err != nil {
+	finalPath := s.canonicalTorrentPath(hash)
+	if err := os.MkdirAll(filepath.Dir(finalPath), 0o755); err != nil {
 		log.Printf("Failed to create .torrents dir: %v", err)
 		return
 	}
-	finalPath := filepath.Join(torrentDir, hash+".torrent")
 	tmpPath := finalPath + ".tmp"
 	f, err := os.Create(tmpPath)
 	if err != nil {
@@ -506,6 +526,11 @@ func (s *TorrentService) saveCanonicalTorrentFile(hash string, mi *metainfo.Meta
 		return
 	}
 	log.Printf("Saved canonical .torrent file for %s", hash)
+}
+
+// canonicalTorrentPath is the on-disk location of the canonical .torrent file.
+func (s *TorrentService) canonicalTorrentPath(hash string) string {
+	return filepath.Join(s.dataDir, ".torrents", hash+".torrent")
 }
 
 func (s *TorrentService) manageLifecycle(t models.EngineTorrent) {

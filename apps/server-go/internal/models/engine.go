@@ -18,6 +18,10 @@ type TorrentEngine interface {
 	SetRateLimits(dl, up int64)
 	SetDht(enabled bool)
 	SetPex(enabled bool)
+	// RefreshTorrent re-adds a torrent's metainfo via AddTorrentSpec, which merges
+	// trackers and re-ticks the announcers. Used by the tracker-health watchdog as
+	// a re-announce nudge when all announce tiers are dead.
+	RefreshTorrent(mi *metainfo.MetaInfo) error
 	Close() []error
 }
 
@@ -225,6 +229,17 @@ func (w *EngineWrapper) AddTorrent(mi *metainfo.MetaInfo, savePath string) (Engi
 func (w *EngineWrapper) PeerID() string {
 	pid := w.Client.PeerID()
 	return string(pid[:])
+}
+
+// RefreshTorrent re-adds a torrent's metainfo via AddTorrentSpec. For an
+// existing torrent this merges trackers and re-ticks the announcers (the
+// re-announce nudge). We pass the metainfo's own save path is not needed here
+// because the torrent is already present; AddTorrentSpec on an existing torrent
+// ignores Storage.
+func (w *EngineWrapper) RefreshTorrent(mi *metainfo.MetaInfo) error {
+	spec := torrent.TorrentSpecFromMetaInfo(mi)
+	_, _, err := w.Client.AddTorrentSpec(spec)
+	return err
 }
 
 func (w *EngineWrapper) Torrents() []EngineTorrent {
