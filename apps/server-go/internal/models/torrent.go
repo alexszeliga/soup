@@ -2,6 +2,7 @@ package models
 
 import (
 	"strings"
+	"time"
 )
 
 // Constants for DTO logic
@@ -13,29 +14,31 @@ const (
 // Torrent represents the data structure for a single BitTorrent download (DTO).
 // The JSON tags are STRICTLY matched to the camelCase properties expected by the frontend.
 type Torrent struct {
-	Hash          string         `json:"hash"`
-	Name          string         `json:"name"`
-	Size          int64          `json:"size"`
-	Progress      float64        `json:"progress"`
-	State         string         `json:"state"`
-	StateName     string         `json:"stateName"`
-	DownloadSpeed int64          `json:"downloadSpeed"`
-	UploadSpeed   int64          `json:"uploadSpeed"`
-	TotalRead     int64          `json:"totalRead"`
-	TotalWritten  int64          `json:"totalWritten"`
-	ContentPath   string         `json:"contentPath"`
-	AddedOn       int64          `json:"addedOn"`
-	SeedingTime   int64          `json:"seedingTime"`
-	Ratio         float64        `json:"ratio"`
-	Eta           int64          `json:"eta"`
-	ActivePeers   int            `json:"activePeers"`
-	TotalPeers    int            `json:"totalPeers"`
-	Availability  float64        `json:"availability"`
-	IsSequential  bool           `json:"isSequential"`
-	IsForceStart  bool           `json:"isForceStart"`
-	IsNonMedia    bool           `json:"isNonMedia"`
-	MediaInfo     MediaInfo      `json:"mediaInfo"`
-	MediaMetadata *MediaMetadata `json:"mediaMetadata,omitempty"`
+	Hash           string         `json:"hash"`
+	Name           string         `json:"name"`
+	Size           int64          `json:"size"`
+	Progress       float64        `json:"progress"`
+	State          string         `json:"state"`
+	StateName      string         `json:"stateName"`
+	DownloadSpeed  int64          `json:"downloadSpeed"`
+	UploadSpeed    int64          `json:"uploadSpeed"`
+	TotalRead      int64          `json:"totalRead"`
+	TotalWritten   int64          `json:"totalWritten"`
+	ContentPath    string         `json:"contentPath"`
+	AddedOn        int64          `json:"addedOn"`
+	SeedingTime    int64          `json:"seedingTime"`
+	Ratio          float64        `json:"ratio"`
+	Eta            int64          `json:"eta"`
+	ActivePeers    int            `json:"activePeers"`
+	TotalPeers     int            `json:"totalPeers"`
+	Availability   float64        `json:"availability"`
+	IsSequential   bool           `json:"isSequential"`
+	IsForceStart   bool           `json:"isForceStart"`
+	IsNonMedia     bool           `json:"isNonMedia"`
+	TrackerError   string         `json:"trackerError,omitempty"` // last tracker announce failure, empty when healthy
+	TrackerErrorAt time.Time      `json:"trackerErrorAt,omitempty"`
+	MediaInfo      MediaInfo      `json:"mediaInfo"`
+	MediaMetadata  *MediaMetadata `json:"mediaMetadata,omitempty"`
 }
 
 // TorrentBaseInfo provides the necessary persistence context to avoid 0-flicker during mapping.
