@@ -72,4 +72,14 @@ describe('TorrentCard', () => {
     render(<TorrentCard torrent={noMetaTorrent} onClick={vi.fn()} />);
     expect(screen.getAllByText(/The.Great.Movie.2024.1080p.WEB-DL/i)[0]).toBeInTheDocument();
   });
+
+  it('shows no tracker warning when trackerError is empty', () => {
+    render(<TorrentCard torrent={{ ...mockTorrent, trackerError: '' }} onClick={vi.fn()} />);
+    expect(screen.queryByTitle('Tracker problem detected — open for details')).not.toBeInTheDocument();
+  });
+
+  it('shows a tracker warning chip when trackerError is set', () => {
+    render(<TorrentCard torrent={{ ...mockTorrent, trackerError: 'all announce tiers dead (1 probe) — tracker may be unreachable' }} onClick={vi.fn()} />);
+    expect(screen.getByTitle('Tracker problem detected — open for details')).toBeInTheDocument();
+  });
 });

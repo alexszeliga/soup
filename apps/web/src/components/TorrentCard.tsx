@@ -1,5 +1,6 @@
 import type { TorrentWithMetadata } from '../types/api.js';
 import { ACTIVE_STATES } from '../types/api.js';
+import { classifyTrackerError } from '../utils/trackerHealth.js';
 import { formatDuration, formatBytes } from '../utils/format';
 
 interface TorrentCardProps {
@@ -12,8 +13,10 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
   const { mediaMetadata, progress } = torrent;
   const displayTitle = mediaMetadata?.title || torrent.name;
   const progressPercent = Math.round(progress * 100);
-  
+
   const isActive = ACTIVE_STATES.includes(torrent.state);
+  const trackerSeverity = classifyTrackerError(torrent.trackerError);
+  const trackerUnreachable = trackerSeverity === 'unreachable';
 
   return (
     <div 
@@ -46,7 +49,15 @@ const TorrentCard: React.FC<TorrentCardProps> = ({ torrent, isLoading, onClick }
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 hidden sm:block" />
 
         {/* Status Badge */}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          {trackerSeverity !== 'ok' && (
+            <span
+              title="Tracker problem detected — open for details"
+              className={`flex items-center justify-center w-5 h-5 rounded-lg backdrop-blur-md border shadow-lg text-[10px] font-black ${trackerUnreachable ? 'bg-red-600/80 text-white border-red-400/40' : 'bg-amber-500/80 text-black border-amber-300/40'}`}
+            >
+              !
+            </span>
+          )}
           <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter rounded-lg backdrop-blur-md border shadow-lg ${!isActive ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50' : 'bg-black/60 text-white border-white/10'}`}>
             {torrent.stateName}
           </span>

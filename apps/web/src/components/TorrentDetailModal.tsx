@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Search, Trash2, Package, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, HardDrive } from 'lucide-react';
+import { Pause, Play, Search, Trash2, Package, FileText, BarChart3, Clock, Share2, Zap, RefreshCw, Radio, ArrowDownCircle, HardDrive, Link, AlertTriangle } from 'lucide-react';
 import type { TorrentWithMetadata } from '../types/api.js';
 import { ACTIVE_STATES } from '../types/api.js';
+import { classifyTrackerError, trackerSeverityText } from '../utils/trackerHealth.js';
 import type { MediaMetadata } from '../types/api.js';
 import ConfirmDialog from './ConfirmDialog';
 import IngestTab from './IngestTab';
@@ -49,8 +50,40 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
       setConfirmState(null);
       setActiveTab('details');
       setDeleteFilesChecked(true);
+      setIsTrackerEdit(false);
+      setTrackerInput('');
     }
   }, [isOpen, torrent?.hash]);
+
+  // Set-tracker (re-point a dead/changed tracker) — calls the existing API.
+  const [isTrackerEdit, setIsTrackerEdit] = useState(false);
+  const [trackerInput, setTrackerInput] = useState('');
+
+  const handleSetTracker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = trackerInput.trim();
+    if (!torrent || !url) return;
+    setIsActionPending(true);
+    try {
+      const res = await fetch(`/api/torrents/${torrent.hash}/tracker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to set tracker');
+      }
+      setIsTrackerEdit(false);
+      setTrackerInput('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to set tracker';
+      // Surface inline (no global toast system here).
+      setTrackerInput(trackerInput + '  ✗ ' + message);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
 
   // Resolve pending states
   useEffect(() => {
@@ -403,6 +436,66 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
               />
             ) : activeTab === 'details' ? (
               <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8 sm:gap-10">
+                {/* Tracker health banner — surfaces the watchdog's finding and the fix action. */}
+                {torrent.trackerError && (
+                  <div className="lg:col-span-3">
+                    {(() => {
+                      const sev = classifyTrackerError(torrent.trackerError);
+                      const tone =
+                        sev === 'unreachable'
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40'
+                          : sev === 'certificate'
+                          ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40'
+                          : 'bg-zinc-50 dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800';
+                      const iconTone =
+                        sev === 'unreachable' ? 'text-red-600' : sev === 'certificate' ? 'text-amber-600' : 'text-zinc-500';
+                      return (
+                        <div className={`rounded-[20px] border p-4 sm:p-5 ${tone}`}>
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle size={18} className={`mt-0.5 flex-shrink-0 ${iconTone}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-bold ${sev === 'unreachable' ? 'text-red-700 dark:text-red-300' : sev === 'certificate' ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                                {trackerSeverityText(sev)}
+                              </p>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 break-words">
+                                {torrent.trackerError}
+                                {torrent.trackerErrorAt && (
+                                  <span className="opacity-60"> · {new Date(torrent.trackerErrorAt).toLocaleString()}</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {isTrackerEdit ? (
+                              <form onSubmit={handleSetTracker} className="flex flex-1 items-center gap-2">
+                                <input
+                                  type="url"
+                                  value={trackerInput}
+                                  onChange={(e) => setTrackerInput(e.target.value)}
+                                  placeholder="https://tracker.example.com/announce"
+                                  className="flex-1 min-w-[200px] px-3 py-2 text-xs rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button type="submit" disabled={isActionPending} className="px-4 py-2 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50">
+                                  Set
+                                </button>
+                                <button type="button" onClick={() => setIsTrackerEdit(false)} className="px-3 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700">
+                                  Cancel
+                                </button>
+                              </form>
+                            ) : (
+                              <button
+                                onClick={() => setIsTrackerEdit(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-xl transition-all active:scale-95"
+                              >
+                                <Link size={12} strokeWidth={3} /> Set tracker
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
                 <div className="lg:col-span-2 space-y-8">
                   <section>
                     <div className="flex items-center gap-2 mb-4">

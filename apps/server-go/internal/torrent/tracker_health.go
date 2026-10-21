@@ -157,9 +157,18 @@ func probeAnnounceURL(cfg watchdogConfig, raw string) probeResult {
 }
 
 // classifyProbe turns an HTTP response (or error) into a probeResult.
-// A 200 with a bencoded "failure reason" means the tracker is alive but the
-// torrent is unknown to it (degraded). Anything else 200 is OK. 404/5xx and
-// transport errors (DNS, refused) are dead; timeouts are unknown.
+//
+//  - 200 with a bencoded "failure reason": the tracker answered but the torrent
+//    is unknown to it (degraded) — the tracker itself is healthy.
+//  - 2xx/3xx otherwise: OK.
+//  - 4xx/5xx (e.g. 404 path gone, 5xx server error): dead — the tracker (or the
+//    release's announce path) is genuinely unreachable.
+//  - transport connection errors (DNS failure, connection refused, RST): dead.
+//  - a real timeout: unknown — ambiguous (slow network vs. dead), so it neither
+//    escalates nor clears a streak.
+//
+// Only *genuine* timeouts are "unknown"; a TLS/cert or DNS error is a connection
+// failure and is "dead", so it escalates and the UI can say "check the tracker".
 func classifyProbe(status int, err error, body []byte) probeResult {
 	if err != nil {
 		if isTimeout(err) {
@@ -181,18 +190,13 @@ func classifyProbe(status int, err error, body []byte) probeResult {
 	}
 }
 
-// isTimeout reports whether err is (or wraps) a timeout error.
+// isTimeout reports whether err is (or wraps) a real timeout error. Only the
+// *url.Error case is checked: Go's net package wraps every transport error in a
+// *url.Error whose Timeout() is true exactly for deadline/timeouts (and false for
+// DNS failures, connection refused, TLS cert errors, etc. — those are "dead").
 func isTimeout(err error) bool {
 	var uerr *url.Error
-	if errors.As(err, &uerr) && uerr.Timeout() {
-		return true
-	}
-	type timeout interface{ Timeout() bool }
-	var te timeout
-	if errors.As(err, &te) {
-		return te.Timeout()
-	}
-	return false
+	return errors.As(err, &uerr) && uerr.Timeout()
 }
 
 // applyProbeResult folds a probe result into the per-torrent health state and
@@ -226,9 +230,16 @@ func (s *TorrentService) applyProbeResult(hash string, et models.EngineTorrent, 
 			s.trackerHealth[h] = st
 		}
 		st.deadStreak++
+		// Surface the trouble immediately, on the FIRST all-dead sweep, so the
+		// user sees "check the tracker" within one sweep interval rather than
+		// waiting for the escalation threshold. A live probe (OK/degraded) on a
+		// later sweep clears this.
+		if !st.unreachable {
+			s.setTrackerErrorLocked(h, fmt.Sprintf("all announce tiers dead (%d probe) — tracker may be unreachable", st.deadStreak))
+		}
 		if st.deadStreak >= s.watchdogCfg.DeadThreshold && !st.unreachable {
 			st.unreachable = true
-			msg := fmt.Sprintf("all announce tiers dead (%d consecutive probes)", st.deadStreak)
+			msg := fmt.Sprintf("UNREACHABLE — all announce tiers dead (%d consecutive sweeps). Re-upload the .torrent from the tracker to fix.", st.deadStreak)
 			s.setTrackerErrorLocked(h, msg)
 			log.Printf("[Tracker] %s (%s): UNREACHABLE — all announce tiers dead. Re-upload the .torrent from the tracker to fix.", name, h)
 			// One re-announce nudge for complete torrents (see step 4).

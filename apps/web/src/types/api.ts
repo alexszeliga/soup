@@ -34,6 +34,11 @@ export interface TorrentWithMetadata {
   isSequential: boolean;
   isForceStart: boolean;
   isNonMedia: boolean;
+  // Tracker health, surfaced by the Go tracker-health watchdog. Present only when
+  // a tracker problem was detected (e.g. "all announce tiers dead"). Empty/absent
+  // when healthy. `trackerErrorAt` is an RFC3339 timestamp of when it was set.
+  trackerError?: string;
+  trackerErrorAt?: string;
   mediaInfo: MediaInfo;
   mediaMetadata: MediaMetadata | null;
   files?: TorrentFile[];

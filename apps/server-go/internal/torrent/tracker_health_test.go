@@ -109,7 +109,11 @@ func TestClassifyProbe(t *testing.T) {
 		{"http 500", 500, nil, "boom", probeDead},
 		{"dns error", 0, errors.New("lookup dead.example.com: no such host"), "", probeDead},
 		{"connection refused", 0, errors.New("dial tcp 127.0.0.1:1: connection refused"), "", probeDead},
+		{"http 410 gone", 410, nil, "Gone", probeDead},
+		{"tls cert unknown authority is dead", 0, &url.Error{Op: "get", URL: "https://routing.bgp.technology/announce", Err: errors.New("tls: x509: certificate signed by unknown authority")}, "", probeDead},
 		{"timeout", 0, &url.Error{Err: &timeoutErr{}}, "", probeUnknown},
+		{"ctx deadline exceeded is unknown", 0, &url.Error{Op: "Get", URL: "https://x/announce", Err: context.DeadlineExceeded}, "", probeUnknown},
+		{"dns error is dead not unknown", 0, &url.Error{Op: "dns lookup", Err: errors.New("lookup dead.example.com: no such host")}, "", probeDead},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -162,6 +166,59 @@ func TestEscalationState(t *testing.T) {
 	apply(&s, probeOK)
 	if apply(&s, probeDead) {
 		t.Fatal("streak should have reset after ok")
+	}
+}
+
+func TestWatchdog_ImmediateNoteOnFirstDeadSweep(t *testing.T) {
+	dead := "http://127.0.0.1:1/announce" // connection refused -> dead
+	svc := newWatchdogTestService(t, dead)
+
+	// A SINGLE all-dead sweep must surface a "check the tracker" note
+	// immediately — the whole point is to see trouble within one sweep, not
+	// after the 3-sweep escalation threshold.
+	svc.runWatchdogTick()
+
+	svc.mu.Lock()
+	msg := ""
+	if s, ok := svc.lastSamples[svc.hash]; ok {
+		msg = s.trackerError
+	}
+	svc.mu.Unlock()
+	if msg == "" {
+		t.Fatalf("expected an immediate tracker note after 1 dead sweep, got none")
+	}
+	if !strings.Contains(msg, "dead") {
+		t.Errorf("expected the immediate note to mention dead tiers, got %q", msg)
+	}
+	if strings.Contains(msg, "UNREACHABLE") {
+		t.Errorf("note after 1 sweep should not yet say UNREACHABLE, got %q", msg)
+	}
+}
+
+func TestWatchdog_SetTrackerClearsImmediateNote(t *testing.T) {
+	dead := "http://127.0.0.1:1/announce"
+	svc := newWatchdogTestService(t, dead)
+
+	// Drive an immediate note.
+	svc.runWatchdogTick()
+	svc.mu.Lock()
+	if svc.lastSamples[svc.hash].trackerError == "" {
+		svc.mu.Unlock()
+		t.Fatalf("setup: expected an immediate note after 1 dead sweep")
+	}
+	svc.mu.Unlock()
+
+	// User re-points the tracker (the fix path): the visible note must clear so
+	// the UI doesn't show a stale alarm while the user is acting.
+	live := newLiveTracker(t)
+	if err := svc.SetTracker(context.Background(), svc.hash, live); err != nil {
+		t.Fatalf("SetTracker: %v", err)
+	}
+	svc.mu.Lock()
+	got := svc.lastSamples[svc.hash].trackerError
+	svc.mu.Unlock()
+	if got != "" {
+		t.Errorf("expected SetTracker to clear the immediate note, got %q", got)
 	}
 }
 

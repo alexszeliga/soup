@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import TorrentDetailModal from './TorrentDetailModal';
 import type { TorrentWithMetadata } from '../types/api.js';
 
@@ -73,7 +73,7 @@ describe('TorrentDetailModal', () => {
 
   it('shows "Unmatch" button instead of "Match" when metadata exists', () => {
     const torrent = createMockTorrent({ 
-      mediaMetadata: {
+      mediaMetadata: { 
         id: 'm1',
         title: 'Matched Movie',
         year: 2024,
@@ -86,5 +86,29 @@ describe('TorrentDetailModal', () => {
     
     expect(screen.queryByRole('button', { name: /^Match$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Unmatch$/i })).toBeInTheDocument();
+  });
+
+  it('shows no tracker banner when trackerError is empty', () => {
+    const torrent = createMockTorrent({ trackerError: '' });
+    render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
+    expect(screen.queryByRole('button', { name: /Set tracker/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a tracker banner with the raw error when trackerError is set', () => {
+    const torrent = createMockTorrent({
+      trackerError: 'UNREACHABLE — all announce tiers dead (3 consecutive sweeps). Re-upload the .torrent from the tracker to fix.',
+      trackerErrorAt: '2026-10-21T22:15:00Z'
+    });
+    render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
+    expect(screen.getByText(/Tracker unreachable/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Set tracker/i })).toBeInTheDocument();
+  });
+
+  it('opens an inline form when "Set tracker" is clicked', () => {
+    const torrent = createMockTorrent({ trackerError: 'UNREACHABLE — all announce tiers dead' });
+    render(<TorrentDetailModal {...defaultProps} torrent={torrent} />);
+    const setBtn = screen.getByRole('button', { name: /Set tracker/i });
+    fireEvent.click(setBtn);
+    expect(screen.getByPlaceholderText(/tracker\.example\.com/)).toBeInTheDocument();
   });
 });
