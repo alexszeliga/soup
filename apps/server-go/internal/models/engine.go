@@ -22,6 +22,12 @@ type TorrentEngine interface {
 	// trackers and re-ticks the announcers. Used by the tracker-health watchdog as
 	// a re-announce nudge when all announce tiers are dead.
 	RefreshTorrent(mi *metainfo.MetaInfo) error
+	// AnnounceList returns the torrent's current announce list (as [][]string).
+	// Returns false if the torrent is not in the engine.
+	AnnounceList(hash metainfo.Hash) ([][]string, bool)
+	// SetTrackers replaces the torrent's announce list (ModifyTrackers). Returns
+	// false if the torrent is not in the engine.
+	SetTrackers(hash metainfo.Hash, announceList [][]string) bool
 	Close() []error
 }
 
@@ -38,6 +44,10 @@ type EngineTorrent interface {
 	InfoHash() metainfo.Hash
 	Files() []EngineFile
 	Metainfo() metainfo.MetaInfo
+	// AnnounceList is the live announce list (tier -> URLs).
+	AnnounceList() metainfo.AnnounceList
+	// SetTrackers replaces the announce list (stops the old announcers).
+	SetTrackers(announceList [][]string)
 
 	// Control Methods
 	AllowDataDownload()
@@ -146,6 +156,14 @@ func (w TorrentWrapper) Metainfo() metainfo.MetaInfo {
 	return w.Torrent.Metainfo()
 }
 
+func (w TorrentWrapper) AnnounceList() metainfo.AnnounceList {
+	return w.Torrent.Metainfo().AnnounceList
+}
+
+func (w TorrentWrapper) SetTrackers(announceList [][]string) {
+	w.Torrent.ModifyTrackers(announceList)
+}
+
 func (w TorrentWrapper) Stats() torrent.TorrentStats {
 	return w.Torrent.Stats()
 }
@@ -240,6 +258,25 @@ func (w *EngineWrapper) RefreshTorrent(mi *metainfo.MetaInfo) error {
 	spec := torrent.TorrentSpecFromMetaInfo(mi)
 	_, _, err := w.Client.AddTorrentSpec(spec)
 	return err
+}
+
+func (w *EngineWrapper) AnnounceList(hash metainfo.Hash) ([][]string, bool) {
+	for _, t := range w.Client.Torrents() {
+		if t.InfoHash() == hash {
+			return t.Metainfo().AnnounceList, true
+		}
+	}
+	return nil, false
+}
+
+func (w *EngineWrapper) SetTrackers(hash metainfo.Hash, announceList [][]string) bool {
+	for _, t := range w.Client.Torrents() {
+		if t.InfoHash() == hash {
+			t.ModifyTrackers(announceList)
+			return true
+		}
+	}
+	return false
 }
 
 func (w *EngineWrapper) Torrents() []EngineTorrent {

@@ -39,7 +39,9 @@ type MockTorrent struct {
 	VerifyDataCalled       bool
 	DownloadAllCalled      bool
 	GotInfoChan            chan struct{}
-	mu                     sync.Mutex
+	announceList     [][]string
+	setTrackersCalls [][][]string
+	mu               sync.Mutex
 }
 
 func (m *MockTorrent) GotInfo() <-chan struct{} {
@@ -60,6 +62,22 @@ func (m *MockTorrent) Name() string                { return m.NameStr }
 func (m *MockTorrent) Length() int64               { return 1000 }
 func (m *MockTorrent) BytesCompleted() int64       { return 1000 }
 func (m *MockTorrent) Metainfo() metainfo.MetaInfo { return metainfo.MetaInfo{} }
+
+func (m *MockTorrent) AnnounceList() metainfo.AnnounceList {
+	return m.announceList
+}
+func (m *MockTorrent) SetTrackers(announceList [][]string) {
+	m.announceList = announceList
+	m.setTrackersCalls = append(m.setTrackersCalls, announceList)
+}
+
+// lastSetTrackers returns the most recent SetTrackers argument.
+func (m *MockTorrent) lastSetTrackers() [][]string {
+	if len(m.setTrackersCalls) == 0 {
+		return nil
+	}
+	return m.setTrackersCalls[len(m.setTrackersCalls)-1]
+}
 func (m *MockTorrent) InfoHash() metainfo.Hash {
 	h := metainfo.NewHashFromHex(m.HashStr)
 	return h
@@ -145,6 +163,28 @@ func (m *MockEngine) RefreshTorrent(mi *metainfo.MetaInfo) error {
 	m.RefreshCalls++
 	m.LastRefreshMI = mi
 	return m.RefreshErr
+}
+
+func (m *MockEngine) AnnounceList(hash metainfo.Hash) ([][]string, bool) {
+	if m.ReturnTor != nil && metainfo.NewHashFromHex(m.ReturnTor.HashStr) == hash {
+		return m.ReturnTor.announceList, true
+	}
+	if m.ExtraTor != nil && metainfo.NewHashFromHex(m.ExtraTor.HashStr) == hash {
+		return m.ExtraTor.announceList, true
+	}
+	return nil, false
+}
+
+func (m *MockEngine) SetTrackers(hash metainfo.Hash, announceList [][]string) bool {
+	if m.ReturnTor != nil && metainfo.NewHashFromHex(m.ReturnTor.HashStr) == hash {
+		m.ReturnTor.SetTrackers(announceList)
+		return true
+	}
+	if m.ExtraTor != nil && metainfo.NewHashFromHex(m.ExtraTor.HashStr) == hash {
+		m.ExtraTor.SetTrackers(announceList)
+		return true
+	}
+	return false
 }
 
 // --- Tests ---

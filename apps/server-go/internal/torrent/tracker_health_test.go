@@ -18,40 +18,63 @@ import (
 
 // --- Probe result classifier ---
 
-func TestWatchdog_ReannounceNudgeOncePerEpisode(t *testing.T) {
-	dead := "http://127.0.0.1:1/announce" // connection refused -> dead
-	w := newWatchdogTestService(t, dead)
-	eng := w.GetEngine().(*MockEngine)
-
-	// Make the mock torrent report complete (Length>0, BytesCompleted>=Length).
-	// MockTorrent already has Length()=1000 and BytesCompleted()=1000 -> complete.
-
-	// Three dead ticks -> unreachable + one nudge.
-	w.runWatchdogTick()
-	w.runWatchdogTick()
-	w.runWatchdogTick()
-
-	// nudgeReAnnounce runs in a goroutine; poll briefly.
-	nudged := false
-	deadline := time.Now().Add(2 * time.Second)
+// poll calls fn every 10ms until it returns true or the deadline passes.
+func poll(t *testing.T, d time.Duration, fn func() bool) bool {
+	t.Helper()
+	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) {
-		if eng.RefreshCalls >= 1 {
-			nudged = true
-			break
+		if fn() {
+			return true
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if !nudged {
-		t.Fatalf("expected a re-announce nudge (RefreshTorrent) after 3 dead ticks, got %d calls", eng.RefreshCalls)
+	return fn()
+}
+
+// TestWatchdog_FreezeAndRestore exercises Option A's core: 3 dead sweeps -> the
+// engine stops announcing to the dead tiers (announce list emptied), and a live
+// sweep -> the full announce list is restored.
+func TestWatchdog_FreezeAndRestore(t *testing.T) {
+	dead := "http://127.0.0.1:1/announce" // connection refused -> dead
+	w := newWatchdogTestService(t, dead)
+	mockTor := w.GetEngine().(*MockEngine).ReturnTor
+
+	// Three dead ticks -> unreachable; the engine must drop the dead tracker.
+	w.runWatchdogTick()
+	w.runWatchdogTick()
+	w.runWatchdogTick()
+
+	w.mu.Lock()
+	unreachable := w.trackerHashUnreachable()
+	w.mu.Unlock()
+	if !unreachable {
+		t.Fatalf("expected unreachable after 3 dead ticks")
 	}
 
-	// Further dead ticks must NOT stack another nudge (once per episode).
-	callsAt := eng.RefreshCalls
+	// freeze runs in a goroutine (post-unlock). Poll until the announce list is
+	// emptied (the single dead tier removed) and RefreshCalls stayed 0 (no nudge
+	// in Option A — the engine freezes instead).
+	if !poll(t, 2*time.Second, func() bool { return mockTor.announceList == nil || len(mockTor.announceList) == 0 }) {
+		t.Fatalf("expected the dead tracker to be removed from the announce list, still %v", mockTor.announceList)
+	}
+
+	// Now the tracker comes back: swap to a live URL and sweep -> recovery.
+	live := newLiveTracker(t)
+	w.setAnnounce(live)
 	w.runWatchdogTick()
-	w.runWatchdogTick()
-	time.Sleep(50 * time.Millisecond)
-	if eng.RefreshCalls != callsAt {
-		t.Errorf("expected no additional nudge within the same unreachable episode, got %d (was %d)", eng.RefreshCalls, callsAt)
+
+	w.mu.Lock()
+	stillUnreachable := w.trackerHashUnreachable()
+	w.mu.Unlock()
+	if stillUnreachable {
+		t.Fatalf("expected recovery (not unreachable) after a live sweep")
+	}
+	// restore runs in a goroutine; the full announce list (the live URL) is
+	// re-applied.
+	if !poll(t, 2*time.Second, func() bool {
+		return mockTor.announceList != nil && len(mockTor.announceList) > 0 && mockTor.announceList[0][0] == live
+	}) {
+		t.Fatalf("expected the full announce list restored with the live URL, got %v", mockTor.announceList)
 	}
 }
 
@@ -296,7 +319,14 @@ func newWatchdogTestService(t *testing.T, announce string) *watchdogTestService 
 
 	infoChan := make(chan struct{})
 	close(infoChan)
-	mockTor := &MockTorrent{HashStr: hash, NameStr: "Watchdog Torrent", GotInfoChan: infoChan}
+	// Give the mock torrent a real announce list (mirroring the canonical file)
+	// so freezeTrackers/restoreTrackers have something to operate on.
+	mockTor := &MockTorrent{
+		HashStr:      hash,
+		NameStr:      "Watchdog Torrent",
+		GotInfoChan:  infoChan,
+		announceList: [][]string{{announce}},
+	}
 	eng := &MockEngine{ReturnTor: mockTor}
 
 	svc := NewTorrentService(eng, repo, nil, tmp, false)
@@ -334,6 +364,13 @@ func (w *watchdogTestService) setAnnounce(url string) {
 }
 
 func (w *watchdogTestService) runWatchdogTick() { w.TorrentService.runWatchdogTick() }
+
+// trackerHashUnreachable returns whether the tracked torrent is currently
+// unreachable (caller must hold w.mu).
+func (w *watchdogTestService) trackerHashUnreachable() bool {
+	st, ok := w.trackerHealth[w.hash]
+	return ok && st.unreachable
+}
 
 // makeTestMetaInfoNoT builds a single-tier metainfo without a *testing.T
 // (used by the harness helpers which are not themselves test funcs).

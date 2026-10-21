@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -42,7 +43,7 @@ type watchdogConfig struct {
 }
 
 var defaultWatchdogCfg = watchdogConfig{
-	Interval:      15 * time.Minute,
+	Interval:      60 * time.Second,
 	DeadThreshold: 3,
 	ProbeTimeout:  10 * time.Second,
 }
@@ -53,6 +54,55 @@ type trackerHealthState struct {
 	unreachable     bool
 	recoveryNudged  bool // re-announce nudge already sent for the current unreachable episode
 	lastAnnounceErr string
+	// lastResult[announceURL] = last probe classification. Drives the engine
+	// freeze: dead URLs are removed from the announce list, live ones restored.
+	lastResult map[string]probeResult
+	// needFreeze/needRestore are one-shot flags: set under the lock by
+	// applyProbeResult and cleared by performProbeActions (which runs the engine
+	// op only AFTER the lock is released, since engine calls must not run while
+	// the service lock is held).
+	needFreeze  bool
+	needRestore bool
+	// frozen is the persistent "engine is not announcing to the dead tiers" state.
+	// Set when we escalate to unreachable, cleared when a live probe recovers the
+	// tracker. Drives hadFrozen() so recovery knows to restore the full list.
+	frozen bool
+}
+
+// probeTier captures the result of probing one announce URL.
+type probeTier struct {
+	url string
+	res probeResult
+}
+
+// probeTiers probes every announce URL (in tier order, one per tier) and records
+// each result. Unlike the aggregate result, this tells the watchdog EXACTLY which
+// URLs are dead so it can drop them from the engine's announce list while leaving
+// surviving tiers announcing.
+func probeTiers(cfg watchdogConfig, urls []string) []probeTier {
+	out := make([]probeTier, 0, len(urls))
+	for _, u := range urls {
+		out = append(out, probeTier{url: u, res: probeAnnounceURL(cfg, u)})
+	}
+	return out
+}
+
+// aggregateProbeResult folds per-tier results into the escalation signal used to
+// decide whether the torrent's announce tiers are all dead.
+func aggregateProbeResult(tiers []probeTier) probeResult {
+	allDead := true
+	for _, p := range tiers {
+		switch p.res {
+		case probeOK, probeDegraded:
+			return p.res
+		case probeUnknown:
+			allDead = false // a timeout is ambiguous: don't declare all-dead
+		}
+	}
+	if allDead {
+		return probeDead
+	}
+	return probeUnknown
 }
 
 // announceURLsFor resolves the announce URLs for a torrent: prefer the saved
@@ -93,35 +143,15 @@ func (s *TorrentService) runWatchdogTick() {
 		if len(urls) == 0 {
 			continue // no trackers to probe
 		}
-		// Probe one URL per tier (first in each tier), in tier order; stop early
-		// on the first healthy response.
-		res := probeAnnounceList(cfg, urls)
-		s.applyProbeResult(hash, et, res)
+		// Probe one URL per tier (first in each tier), in tier order. Per-URL
+		// results let the watchdog drop only the dead tiers and detect recovery.
+		// applyProbeResult holds+releases s.mu; it returns which engine ops (freeze
+		// / restore) to run, which we launch only AFTER the lock is free (no
+		// deadlock), before sweeping the next torrent.
+		tiers := probeTiers(cfg, urls)
+		freeze, restore := s.applyProbeResult(hash, et, tiers)
+		s.performProbeActions(hash, et, freeze, restore)
 	}
-}
-
-// probeAnnounceList probes each announce URL once and returns the aggregate
-// result: OK if any URL is healthy (OK or degraded, i.e. the host answered),
-// DEAD if every URL is dead, UNKNOWN if all were unknown (timeouts).
-func probeAnnounceList(cfg watchdogConfig, urls []string) probeResult {
-	allDead := true
-	sawUnknown := false
-	for _, u := range urls {
-		r := probeAnnounceURL(cfg, u)
-		switch r {
-		case probeOK, probeDegraded:
-			return r // a live tracker -> healthy
-		case probeDead:
-			// keep probing; only dead if ALL are dead
-		case probeUnknown:
-			sawUnknown = true
-		}
-	}
-	if allDead && !sawUnknown {
-		return probeDead
-	}
-	// Mix of dead + unknown, or all unknown: treat as unknown (don't escalate).
-	return probeUnknown
 }
 
 // probeAnnounceURL performs a single GET against an announce URL with
@@ -199,58 +229,212 @@ func isTimeout(err error) bool {
 	return errors.As(err, &uerr) && uerr.Timeout()
 }
 
-// applyProbeResult folds a probe result into the per-torrent health state and
-// drives escalation / recovery / re-announce nudging.
-func (s *TorrentService) applyProbeResult(hash string, et models.EngineTorrent, res probeResult) {
+// applyProbeResult folds per-URL probe results into the per-torrent health state
+// and drives escalation, the immediate "check the tracker" note, and the engine
+// freeze (stop announcing to dead trackers) / restore (resume when they come
+// back). Per-URL results let us drop only the dead tiers while leaving surviving
+// tiers announcing.
+func (s *TorrentService) applyProbeResult(hash string, et models.EngineTorrent, tiers []probeTier) (freeze, restore bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	name := et.Name()
 	h := hash
+	st := s.trackerHealth[h]
+	if st == nil {
+		st = &trackerHealthState{lastResult: map[string]probeResult{}}
+		s.trackerHealth[h] = st
+	}
+	if st.lastResult == nil {
+		st.lastResult = map[string]probeResult{}
+	}
+	// Record each URL's latest classification.
+	for _, p := range tiers {
+		st.lastResult[p.url] = p.res
+	}
+
+	res := aggregateProbeResult(tiers)
 	switch res {
-	case probeOK:
-		if st, ok := s.trackerHealth[h]; ok {
-			st.deadStreak = 0
+	case probeOK, probeDegraded:
+		// At least one tracker answered: healthy again. Capture whether we are
+		// currently frozen BEFORE clearing the flag, so we can schedule a restore
+		// (re-adding the dead tiers we removed) as a one-shot action below.
+		wasFrozen := st.frozen
+		if st.unreachable {
 			st.unreachable = false
 			st.recoveryNudged = false
+			log.Printf("[Tracker] %s (%s): tracker reachable again — resuming announces", name, h)
 		}
-		s.clearTrackerErrorLocked(h, "tracker reachable again")
-	case probeDegraded:
-		// Tracker alive; not a health failure.
-		if st, ok := s.trackerHealth[h]; ok {
-			st.deadStreak = 0
-			st.unreachable = false
-			st.recoveryNudged = false
-		}
+		st.deadStreak = 0
+		st.frozen = false // clear for the next (re-)dead episode
+		st.recoveryNudged = false
 		s.clearTrackerErrorLocked(h, "tracker reachable")
-	case probeDead:
-		st := s.trackerHealth[h]
-		if st == nil {
-			st = &trackerHealthState{}
-			s.trackerHealth[h] = st
+		// If we had frozen the engine (dropped dead tiers), restore the full
+		// announce list so recovered trackers announce again. performProbeActions
+		// runs it after the lock is released (holding s.mu across the engine op
+		// serializes it against a concurrent freeze — see that method).
+		if wasFrozen {
+			st.needRestore = true
+			restore = true
 		}
+	case probeDead:
 		st.deadStreak++
-		// Surface the trouble immediately, on the FIRST all-dead sweep, so the
-		// user sees "check the tracker" within one sweep interval rather than
-		// waiting for the escalation threshold. A live probe (OK/degraded) on a
-		// later sweep clears this.
+		// Surface the trouble immediately on the FIRST all-dead sweep.
 		if !st.unreachable {
 			s.setTrackerErrorLocked(h, fmt.Sprintf("all announce tiers dead (%d probe) — tracker may be unreachable", st.deadStreak))
 		}
 		if st.deadStreak >= s.watchdogCfg.DeadThreshold && !st.unreachable {
 			st.unreachable = true
-			msg := fmt.Sprintf("UNREACHABLE — all announce tiers dead (%d consecutive sweeps). Re-upload the .torrent from the tracker to fix.", st.deadStreak)
+			st.frozen = true
+			msg := fmt.Sprintf("UNREACHABLE — all announce tiers dead (%d consecutive sweeps). Announcing suspended; re-checking every minute and will resume automatically.", st.deadStreak)
 			s.setTrackerErrorLocked(h, msg)
-			log.Printf("[Tracker] %s (%s): UNREACHABLE — all announce tiers dead. Re-upload the .torrent from the tracker to fix.", name, h)
-			// One re-announce nudge for complete torrents (see step 4).
-			if isComplete(et) && !st.recoveryNudged {
-				st.recoveryNudged = true
-				go s.nudgeReAnnounce(h)
-			}
+			log.Printf("[Tracker] %s (%s): UNREACHABLE — all announce tiers dead. Stopping announces.", name, h)
+			// Freeze the engine (drop dead tiers); run after the lock is released.
+			st.needFreeze = true
+			freeze = true
 		}
 	case probeUnknown:
-		// Neither increments nor resets the streak.
+		// Ambiguous (timeouts): neither escalates nor clears.
 	}
+	return freeze, restore
+}
+
+// performProbeActions runs the engine operations that applyProbeResult requested.
+// It MUST be called only after s.mu has been released (applyProbeResult uses a
+// deferred unlock, so by the time it returns the lock is free). We clear the
+// matching pending flag (a brief lock) so the same freeze/restore is not
+// re-triggered by a later probe, then launch the engine call in a goroutine.
+// The engine calls themselves run outside the service lock (and may briefly take
+// the anacrolix client lock internally — independent of s.mu, so no deadlock).
+func (s *TorrentService) performProbeActions(h string, et models.EngineTorrent, freeze, restore bool) {
+	if !freeze && !restore {
+		return
+	}
+	var st *trackerHealthState
+	s.mu.Lock()
+	if cur, ok := s.trackerHealth[h]; ok && cur != nil {
+		st = cur
+		if freeze {
+			cur.needFreeze = false
+		}
+		if restore {
+			cur.needRestore = false
+		}
+	}
+
+	// We already hold s.mu (released by applyProbeResult just before the call). If
+	// we unlocked here and then launched freeze/restore as fire-and-forget goroutines,
+	// a later tick could immediately queue a *restore* that races the still-pending
+	// *freeze* and re-adds the dead tier — cancelling the freeze. Instead we keep the
+	// lock held across the engine op (released only at return) so a concurrent
+	// applyProbeResult/List blocks until the freeze/restore completes, and the two
+	// never interleave. The engine calls themselves (AnnounceList/SetTrackers ->
+	// ModifyTrackers) take the anacrolix client lock, a different lock than s.mu, so
+	// holding s.mu while they run cannot deadlock. (applyProbeResult never calls back
+	// into performProbeActions, so there is no re-entrant s.mu here.)
+	defer s.mu.Unlock()
+	if st == nil {
+		return
+	}
+	if freeze {
+		s.freezeTrackers(h, et, st)
+	}
+	if restore {
+		s.restoreTrackers(h, et)
+	}
+}
+
+// freezeTrackers stops the engine announcing to dead announce tiers: it replaces
+// the torrent's announce list with only the tiers whose latest probe was not
+// dead. Best-effort; errors are logged. No-op if there is nothing to drop (which
+// is the all-tiers-dead case anyway, handled by the empty keep-list).
+func (s *TorrentService) freezeTrackers(h string, et models.EngineTorrent, st *trackerHealthState) {
+	live, ok := s.engine.AnnounceList(et.InfoHash())
+	if !ok {
+		log.Printf("[Tracker] %s: cannot freeze — torrent not in engine", h)
+		return
+	}
+	keep := metainfo.AnnounceList{}
+	for _, tier := range live {
+		var keptTier []string
+		for _, u := range tier {
+			if st.lastResult[u] != probeDead {
+				keptTier = append(keptTier, u)
+			}
+		}
+		if len(keptTier) > 0 {
+			keep = append(keep, keptTier)
+		}
+	}
+	dropped := len(live) > len(keep) || tiersLost(live, keep)
+	if !dropped {
+		return // nothing to drop; nothing to freeze
+	}
+	if !s.engine.SetTrackers(et.InfoHash(), keep) {
+		log.Printf("[Tracker] %s: failed to freeze trackers (torrent not in engine?)", h)
+		return
+	}
+	log.Printf("[Tracker] %s: froze announces — removed %d dead tracker(s), %d tier(s) remain", h, countDropped(live, keep), len(keep))
+}
+
+// restoreTrackers re-applies the torrent's full announce list (from the
+// canonical .torrent / metainfo) so trackers we had frozen announce again after
+// recovery. Best-effort; no-op if there was nothing frozen or no list to restore.
+func (s *TorrentService) restoreTrackers(h string, et models.EngineTorrent) {
+	mi, err := s.loadCanonicalMetaInfo(h)
+	if err != nil || mi == nil {
+		log.Printf("[Tracker] %s: cannot restore — no canonical .torrent to read", h)
+		return
+	}
+	full := mi.UpvertedAnnounceList()
+	if len(full) == 0 {
+		log.Printf("[Tracker] %s: nothing to restore (empty announce list in canonical)", h)
+		return
+	}
+	if !s.engine.SetTrackers(et.InfoHash(), full) {
+		log.Printf("[Tracker] %s: failed to restore trackers (torrent not in engine?)", h)
+		return
+	}
+	log.Printf("[Tracker] %s: restored announces — %d tracker tier(s) re-enabled", h, len(full))
+}
+
+// tiersLost reports whether live and keep differ in their set of URLs.
+func tiersLost(live, keep metainfo.AnnounceList) bool {
+	if len(live) != len(keep) {
+		return true
+	}
+	for _, tier := range live {
+		found := false
+		for _, k := range keep {
+			if reflect.DeepEqual(tier, k) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true
+		}
+	}
+	return false
+}
+
+// countDropped counts announce URLs present in live but absent from keep.
+func countDropped(live, keep metainfo.AnnounceList) int {
+	keepSet := map[string]struct{}{}
+	for _, tier := range keep {
+		for _, u := range tier {
+			keepSet[u] = struct{}{}
+		}
+	}
+	n := 0
+	for _, tier := range live {
+		for _, u := range tier {
+			if _, ok := keepSet[u]; !ok {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // nudgeReAnnounce re-adds the torrent's current metainfo via AddTorrentSpec,
